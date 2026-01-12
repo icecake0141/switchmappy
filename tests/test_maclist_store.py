@@ -10,6 +10,8 @@
 # This file was created or modified with the assistance of an AI (Large Language Model).
 # Review required for correctness, security, and licensing.
 
+import json
+
 from switchmap_py.model.mac import MacEntry
 from switchmap_py.storage.maclist_store import MacListStore
 
@@ -44,3 +46,34 @@ def test_save_load_roundtrip(tmp_path):
     loaded = store.load()
 
     assert loaded == entries
+
+
+def test_load_skips_invalid_records(tmp_path, caplog):
+    path = tmp_path / "maclist.json"
+    payload = [
+        {
+            "mac": "aa:bb:cc:dd:ee:ff",
+            "ip": "192.168.0.10",
+            "hostname": "host-1",
+            "switch": "switch-1",
+            "port": "Gi1/0/1",
+        },
+        {"mac": "11:22:33:44:55:66"},
+        "not-a-dict",
+    ]
+    path.write_text(json.dumps(payload))
+    store = MacListStore(path)
+
+    with caplog.at_level("WARNING"):
+        loaded = store.load()
+
+    assert loaded == [
+        MacEntry(
+            mac="aa:bb:cc:dd:ee:ff",
+            ip="192.168.0.10",
+            hostname="host-1",
+            switch="switch-1",
+            port="Gi1/0/1",
+        )
+    ]
+    assert "Skipped 2 invalid maclist record(s)" in caplog.text
