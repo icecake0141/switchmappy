@@ -17,6 +17,7 @@ pip install -e .[snmp,search]
 ## Configuration
 
 Create `site.yml` in the repository root (or pass `--config`).
+SNMP v2c is the only supported version.
 
 ```yaml
 destination_directory: output
@@ -29,13 +30,13 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c
+    snmp_version: 2c  # v2c only
     community: public
     trunk_ports: ["Gi1/0/48"]
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c
+    snmp_version: 2c  # v2c only
     community: public
 ```
 
