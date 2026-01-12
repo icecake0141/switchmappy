@@ -1,4 +1,4 @@
-# Copyright 2024
+# Copyright 2024 switchmapy
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+import yaml
 
 from switchmap_py.config import SiteConfig, default_config_path
 from switchmap_py.model.mac import MacEntry
@@ -32,7 +33,14 @@ app = typer.Typer(help="Switchmap Python CLI")
 
 def _load_config(path: Optional[Path]) -> SiteConfig:
     config_path = path or default_config_path()
-    return SiteConfig.load(config_path)
+    try:
+        return SiteConfig.load(config_path)
+    except FileNotFoundError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    except (ValueError, yaml.YAMLError) as exc:
+        raise typer.BadParameter(
+            f"Failed to load config '{config_path}': {exc}"
+        ) from exc
 
 
 def _configure_logging(

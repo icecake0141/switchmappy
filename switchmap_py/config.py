@@ -1,4 +1,4 @@
-# Copyright 2025 Switchmapy
+# Copyright 2024 switchmapy
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -9,6 +9,7 @@
 #
 # This file was created or modified with the assistance of an AI (Large Language Model).
 # Review required for correctness, security, and licensing.
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -49,7 +50,13 @@ class SiteConfig(BaseSettings):
 
     @classmethod
     def load(cls, path: Path) -> "SiteConfig":
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
         raw = yaml.safe_load(path.read_text())
+        if raw is None:
+            raw = {}
+        if not isinstance(raw, dict):
+            raise ValueError("Config file must contain a YAML mapping at the top level.")
         return cls(**raw)
 
 

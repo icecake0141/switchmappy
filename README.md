@@ -33,6 +33,8 @@ pip install -e .[snmp,search]
 ## Configuration
 
 Create `site.yml` in the repository root (or pass `--config` on the CLI).
+If the file is missing or invalid, the CLI reports a configuration error; an empty file
+is treated as an empty configuration that uses defaults.
 A minimal example:
 
 ```yaml
@@ -110,6 +112,7 @@ pip install -e .[snmp,search]
 ## 設定
 
 リポジトリ直下に`site.yml`を作成します（または`--config`で指定）。
+ファイルが存在しない/不正な場合はCLIがエラーを表示し、空のファイルはデフォルト設定として扱います。
 最小構成の例:
 
 ```yaml

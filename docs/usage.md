@@ -17,7 +17,8 @@ pip install -e .[snmp,search]
 ## Configuration
 
 Create `site.yml` in the repository root (or pass `--config`).
-SNMP v2c is the only supported version.
+If the file is missing or invalid, the CLI reports a configuration error. An empty file
+is treated as an empty configuration that uses defaults.
 
 ```yaml
 destination_directory: output
