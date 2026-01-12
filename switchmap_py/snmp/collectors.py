@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from switchmap_py.config import SwitchConfig
@@ -20,6 +21,8 @@ from switchmap_py.model.switch import Switch
 from switchmap_py.model.vlan import Vlan
 from switchmap_py.snmp import mibs
 from switchmap_py.snmp.session import SnmpConfig, SnmpSession
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -90,6 +93,11 @@ def _bridge_port_map(session: SnmpSession) -> dict[str, int]:
     try:
         base_ports = session.get_table(mibs.DOT1D_BASE_PORT_IFINDEX)
     except Exception:
+        logger.warning(
+            "Failed to fetch OID %s for bridge port map.",
+            mibs.DOT1D_BASE_PORT_IFINDEX,
+            exc_info=True,
+        )
         return {}
     mapping: dict[str, int] = {}
     for oid, ifindex in base_ports.items():
@@ -115,12 +123,22 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
     try:
         vlan_fdb_ports = session.get_table(mibs.QBRIDGE_VLAN_FDB_PORT)
     except Exception:
+        logger.warning(
+            "Failed to fetch OID %s for VLAN FDB ports.",
+            mibs.QBRIDGE_VLAN_FDB_PORT,
+            exc_info=True,
+        )
         vlan_fdb_ports = {}
 
     if vlan_fdb_ports:
         try:
             vlan_fdb_status = session.get_table(mibs.QBRIDGE_VLAN_FDB_STATUS)
         except Exception:
+            logger.warning(
+                "Failed to fetch OID %s for VLAN FDB status.",
+                mibs.QBRIDGE_VLAN_FDB_STATUS,
+                exc_info=True,
+            )
             vlan_fdb_status = {}
         for oid, bridge_port in vlan_fdb_ports.items():
             status_oid = _status_oid(
@@ -141,10 +159,20 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
     try:
         fdb_ports = session.get_table(mibs.DOT1D_TP_FDB_PORT)
     except Exception:
+        logger.warning(
+            "Failed to fetch OID %s for FDB ports.",
+            mibs.DOT1D_TP_FDB_PORT,
+            exc_info=True,
+        )
         return {}
     try:
         fdb_status = session.get_table(mibs.DOT1D_TP_FDB_STATUS)
     except Exception:
+        logger.warning(
+            "Failed to fetch OID %s for FDB status.",
+            mibs.DOT1D_TP_FDB_STATUS,
+            exc_info=True,
+        )
         fdb_status = {}
 
     for oid, bridge_port in fdb_ports.items():
