@@ -1,4 +1,4 @@
-# Copyright 2024 switchmapy
+# Copyright 2025 Switchmapy
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -9,7 +9,6 @@
 #
 # This file was created or modified with the assistance of an AI (Large Language Model).
 # Review required for correctness, security, and licensing.
-
 from __future__ import annotations
 
 from pathlib import Path
