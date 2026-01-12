@@ -31,13 +31,13 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c
+    snmp_version: 2c  # v2c only
     community: public
     trunk_ports: ["Gi1/0/48"]
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c
+    snmp_version: 2c  # v2c only
     community: public
 ```
 

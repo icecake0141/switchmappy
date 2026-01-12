@@ -13,7 +13,7 @@ SNMP collection, idle port tracking, static HTML generation, and a lightweight s
 ## Requirements
 
 - Python 3.12+
-- SNMP access to network devices (for `scan-switch` / `build-html`)
+- SNMP v2c access to network devices (for `scan-switch` / `build-html`)
 - Optional dependencies for SNMP and search features
 
 ## Installation
@@ -48,13 +48,13 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c
+    snmp_version: 2c  # v2c only
     community: public
     trunk_ports: ["Gi1/0/48"]
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c
+    snmp_version: 2c  # v2c only
     community: public
 ```
 
@@ -92,7 +92,7 @@ SNMP収集、アイドルポートの追跡、静的HTML生成、軽量な検索
 ## 動作要件
 
 - Python 3.12以上
-- ネットワーク機器へのSNMPアクセス（`scan-switch` / `build-html`で使用）
+- ネットワーク機器へのSNMP v2cアクセス（`scan-switch` / `build-html`で使用）
 - SNMPや検索機能のためのオプション依存関係
 
 ## インストール
@@ -126,13 +126,13 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c
+    snmp_version: 2c  # v2cのみ
     community: public
     trunk_ports: ["Gi1/0/48"]
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c
+    snmp_version: 2c  # v2cのみ
     community: public
 ```
 

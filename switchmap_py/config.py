@@ -24,18 +24,15 @@ class SwitchConfig(BaseModel):
     name: str
     management_ip: str
     vendor: str = "generic"
-    snmp_version: Literal["2c", "3"] = "2c"
+    snmp_version: Literal["2c"] = "2c"
     community: Optional[str] = None
-    username: Optional[str] = None
-    auth_key: Optional[str] = None
-    priv_key: Optional[str] = None
     trunk_ports: list[str] = Field(default_factory=list)
 
 
 class RouterConfig(BaseModel):
     name: str
     management_ip: str
-    snmp_version: Literal["2c", "3"] = "2c"
+    snmp_version: Literal["2c"] = "2c"
     community: Optional[str] = None
 
 

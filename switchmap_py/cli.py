@@ -114,7 +114,9 @@ def get_arp(
                 continue
             mac, ip, *rest = [part.strip() for part in line.split(",")]
             hostname = rest[0] if rest else None
-            entries.append(MacEntry(mac=mac, ip=ip, hostname=hostname, switch=None, port=None))
+            entries.append(
+                MacEntry(mac=mac, ip=ip, hostname=hostname, switch=None, port=None)
+            )
     else:
         raise typer.BadParameter("Only csv source is supported in this implementation")
     store.save(entries)

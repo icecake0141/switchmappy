@@ -24,7 +24,9 @@ def test_idle_transition(tmp_path):
     assert updated.idle_since == ts
     assert updated.last_active is None
 
-    updated_active = store.update_port(updated, port=state.port, is_active=True, observed_at=ts)
+    updated_active = store.update_port(
+        updated, port=state.port, is_active=True, observed_at=ts
+    )
     assert updated_active.idle_since is None
     assert updated_active.last_active == ts
 
@@ -47,7 +49,9 @@ def test_save_load_roundtrip(tmp_path):
 
     data = {
         "Gi1/0/3": PortIdleState(port="Gi1/0/3", idle_since=idle_ts, last_active=None),
-        "Gi1/0/4": PortIdleState(port="Gi1/0/4", idle_since=None, last_active=active_ts),
+        "Gi1/0/4": PortIdleState(
+            port="Gi1/0/4", idle_since=None, last_active=active_ts
+        ),
     }
 
     store.save("switch-1", data)

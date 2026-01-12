@@ -1,3 +1,15 @@
+# Copyright 2025 OpenAI Codex
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# This file was created or modified with the assistance of an AI (Large Language Model).
+# Review required for correctness, security, and licensing.
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,6 +46,113 @@ def _normalize_status(value: str) -> str:
     return {"1": "up", "2": "down"}.get(value, value)
 
 
+def _format_mac(parts: list[str]) -> str:
+    return ":".join(f"{int(part):02x}" for part in parts)
+
+
+def _parse_mac_from_oid(oid: str, prefix: str, *, vlan_aware: bool) -> tuple[str, str | None] | None:
+    prefix_parts = prefix.split(".")
+    oid_parts = oid.split(".")
+    if oid_parts[:len(prefix_parts)] != prefix_parts:
+        return None
+    suffix = oid_parts[len(prefix_parts):]
+    if vlan_aware:
+        if len(suffix) < 7:
+            return None
+        vlan_id = suffix[0]
+        mac_parts = suffix[1:7]
+    else:
+        if len(suffix) < 6:
+            return None
+        vlan_id = None
+        mac_parts = suffix[:6]
+    try:
+        mac = _format_mac(mac_parts)
+    except ValueError:
+        return None
+    return mac, vlan_id
+
+
+def _is_invalid_fdb_status(status: str | None) -> bool:
+    return status == "2"
+
+
+def _bridge_port_map(session: SnmpSession) -> dict[str, int]:
+    try:
+        base_ports = session.get_table(mibs.DOT1D_BASE_PORT_IFINDEX)
+    except Exception:
+        return {}
+    mapping: dict[str, int] = {}
+    for oid, ifindex in base_ports.items():
+        bridge_port = oid.split(".")[-1]
+        if ifindex.isdigit():
+            mapping[bridge_port] = int(ifindex)
+    return mapping
+
+
+def _status_oid(source_base: str, status_base: str, source_oid: str) -> str:
+    base_parts = source_base.split(".")
+    source_parts = source_oid.split(".")
+    suffix = source_parts[len(base_parts):]
+    return f"{status_base}.{'.'.join(suffix)}" if suffix else status_base
+
+
+def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
+    bridge_port_to_ifindex = _bridge_port_map(session)
+    if not bridge_port_to_ifindex:
+        return {}
+
+    macs_by_ifindex: dict[int, set[str]] = {}
+    try:
+        vlan_fdb_ports = session.get_table(mibs.QBRIDGE_VLAN_FDB_PORT)
+    except Exception:
+        vlan_fdb_ports = {}
+
+    if vlan_fdb_ports:
+        try:
+            vlan_fdb_status = session.get_table(mibs.QBRIDGE_VLAN_FDB_STATUS)
+        except Exception:
+            vlan_fdb_status = {}
+        for oid, bridge_port in vlan_fdb_ports.items():
+            status_oid = _status_oid(
+                mibs.QBRIDGE_VLAN_FDB_PORT, mibs.QBRIDGE_VLAN_FDB_STATUS, oid
+            )
+            if _is_invalid_fdb_status(vlan_fdb_status.get(status_oid)):
+                continue
+            parsed = _parse_mac_from_oid(oid, mibs.QBRIDGE_VLAN_FDB_PORT, vlan_aware=True)
+            if not parsed:
+                continue
+            mac, _ = parsed
+            ifindex = bridge_port_to_ifindex.get(bridge_port)
+            if ifindex is None:
+                continue
+            macs_by_ifindex.setdefault(ifindex, set()).add(mac)
+        return macs_by_ifindex
+
+    try:
+        fdb_ports = session.get_table(mibs.DOT1D_TP_FDB_PORT)
+    except Exception:
+        return {}
+    try:
+        fdb_status = session.get_table(mibs.DOT1D_TP_FDB_STATUS)
+    except Exception:
+        fdb_status = {}
+
+    for oid, bridge_port in fdb_ports.items():
+        status_oid = _status_oid(mibs.DOT1D_TP_FDB_PORT, mibs.DOT1D_TP_FDB_STATUS, oid)
+        if _is_invalid_fdb_status(fdb_status.get(status_oid)):
+            continue
+        parsed = _parse_mac_from_oid(oid, mibs.DOT1D_TP_FDB_PORT, vlan_aware=False)
+        if not parsed:
+            continue
+        mac, _ = parsed
+        ifindex = bridge_port_to_ifindex.get(bridge_port)
+        if ifindex is None:
+            continue
+        macs_by_ifindex.setdefault(ifindex, set()).add(mac)
+    return macs_by_ifindex
+
+
 def collect_switch_state(
     switch: SwitchConfig, timeout: int, retries: int
 ) -> Switch:
@@ -45,26 +164,37 @@ def collect_switch_state(
     speeds = session.get_table(mibs.IF_SPEED)
 
     ports: list[Port] = []
+    ports_by_ifindex: dict[int, Port] = {}
     for oid, name in names.items():
         index = oid.split(".")[-1]
+        ifindex = int(index) if index.isdigit() else None
         descr = descrs.get(f"{mibs.IF_DESCR}.{index}", "")
-        admin_status = _normalize_status(admin.get(f"{mibs.IF_ADMIN_STATUS}.{index}", ""))
+        admin_status = _normalize_status(
+            admin.get(f"{mibs.IF_ADMIN_STATUS}.{index}", "")
+        )
         oper_status = _normalize_status(oper.get(f"{mibs.IF_OPER_STATUS}.{index}", ""))
         speed = speeds.get(f"{mibs.IF_SPEED}.{index}")
-        ports.append(
-            Port(
-                name=name,
-                descr=descr,
-                admin_status=admin_status,
-                oper_status=oper_status,
-                speed=int(speed) if speed and speed.isdigit() else None,
-                vlan=None,
-                macs=[],
-                idle_since=None,
-                last_active=None,
-                is_trunk=name in switch.trunk_ports,
-            )
+        port = Port(
+            name=name,
+            descr=descr,
+            admin_status=admin_status,
+            oper_status=oper_status,
+            speed=int(speed) if speed and speed.isdigit() else None,
+            vlan=None,
+            macs=[],
+            idle_since=None,
+            last_active=None,
+            is_trunk=name in switch.trunk_ports,
         )
+        ports.append(port)
+        if ifindex is not None:
+            ports_by_ifindex[ifindex] = port
+
+    macs_by_ifindex = _collect_macs(session)
+    for ifindex, macs in macs_by_ifindex.items():
+        port = ports_by_ifindex.get(ifindex)
+        if port:
+            port.macs = sorted(macs)
 
     vlans: list[Vlan] = []
     try:
