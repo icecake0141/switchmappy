@@ -133,14 +133,22 @@ def build_html(
 ) -> None:
     """Build static HTML output."""
     _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile)
+    logger = logging.getLogger(__name__)
     site = _load_config(config)
     build_date = datetime.fromisoformat(date) if date else datetime.now()
-    switches = [
-        collect_switch_state(sw, site.snmp_timeout, site.snmp_retries)
-        for sw in site.switches
-    ]
+    switches = []
+    failed_switches = []
+    for sw in site.switches:
+        try:
+            switches.append(
+                collect_switch_state(sw, site.snmp_timeout, site.snmp_retries)
+            )
+        except Exception:
+            logger.exception("Failed to collect switch state for %s", sw.name)
+            failed_switches.append(sw.name)
     build_site(
         switches=switches,
+        failed_switches=failed_switches,
         output_dir=site.destination_directory,
         template_dir=Path(__file__).parent / "render" / "templates",
         static_dir=Path(__file__).parent / "render" / "static",

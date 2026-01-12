@@ -49,7 +49,11 @@ def test_scan_switch_updates_idle_since(tmp_path, monkeypatch):
     store = IdleSinceStore(idlesince_dir)
     store.save(
         "sw1",
-        {"Gi1/0/1": PortIdleState(port="Gi1/0/1", idle_since=fixed_time, last_active=None)},
+        {
+            "Gi1/0/1": PortIdleState(
+                port="Gi1/0/1", idle_since=fixed_time, last_active=None
+            )
+        },
     )
 
     def fake_collect_port_snapshots(_switch, _timeout, _retries):
@@ -68,7 +72,9 @@ def test_scan_switch_updates_idle_since(tmp_path, monkeypatch):
             ),
         ]
 
-    monkeypatch.setattr("switchmap_py.cli.collect_port_snapshots", fake_collect_port_snapshots)
+    monkeypatch.setattr(
+        "switchmap_py.cli.collect_port_snapshots", fake_collect_port_snapshots
+    )
 
     runner = CliRunner()
     result = runner.invoke(app, ["scan-switch", "--config", str(config_path)])

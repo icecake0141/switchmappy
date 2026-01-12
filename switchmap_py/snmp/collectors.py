@@ -50,12 +50,14 @@ def _format_mac(parts: list[str]) -> str:
     return ":".join(f"{int(part):02x}" for part in parts)
 
 
-def _parse_mac_from_oid(oid: str, prefix: str, *, vlan_aware: bool) -> tuple[str, str | None] | None:
+def _parse_mac_from_oid(
+    oid: str, prefix: str, *, vlan_aware: bool
+) -> tuple[str, str | None] | None:
     prefix_parts = prefix.split(".")
     oid_parts = oid.split(".")
-    if oid_parts[:len(prefix_parts)] != prefix_parts:
+    if oid_parts[: len(prefix_parts)] != prefix_parts:
         return None
-    suffix = oid_parts[len(prefix_parts):]
+    suffix = oid_parts[len(prefix_parts) :]
     if vlan_aware:
         if len(suffix) < 7:
             return None
@@ -93,7 +95,7 @@ def _bridge_port_map(session: SnmpSession) -> dict[str, int]:
 def _status_oid(source_base: str, status_base: str, source_oid: str) -> str:
     base_parts = source_base.split(".")
     source_parts = source_oid.split(".")
-    suffix = source_parts[len(base_parts):]
+    suffix = source_parts[len(base_parts) :]
     return f"{status_base}.{'.'.join(suffix)}" if suffix else status_base
 
 
@@ -119,7 +121,9 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
             )
             if _is_invalid_fdb_status(vlan_fdb_status.get(status_oid)):
                 continue
-            parsed = _parse_mac_from_oid(oid, mibs.QBRIDGE_VLAN_FDB_PORT, vlan_aware=True)
+            parsed = _parse_mac_from_oid(
+                oid, mibs.QBRIDGE_VLAN_FDB_PORT, vlan_aware=True
+            )
             if not parsed:
                 continue
             mac, _ = parsed
@@ -153,9 +157,7 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
     return macs_by_ifindex
 
 
-def collect_switch_state(
-    switch: SwitchConfig, timeout: int, retries: int
-) -> Switch:
+def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Switch:
     session = build_session(switch, timeout, retries)
     names = session.get_table(mibs.IF_NAME)
     descrs = session.get_table(mibs.IF_DESCR)

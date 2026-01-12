@@ -34,6 +34,7 @@ def build_environment(template_dir: Path) -> Environment:
 def build_site(
     *,
     switches: list[Switch],
+    failed_switches: list[str],
     output_dir: Path,
     template_dir: Path,
     static_dir: Path,
@@ -53,7 +54,11 @@ def build_site(
 
     maclist = maclist_store.load()
 
-    index_html = index_template.render(switches=switches, build_date=build_date)
+    index_html = index_template.render(
+        switches=switches,
+        failed_switches=failed_switches,
+        build_date=build_date,
+    )
     (output_dir / "index.html").write_text(index_html)
 
     for switch in switches:
@@ -79,6 +84,7 @@ def build_site(
         "generated_at": build_date.isoformat(),
         "switches": [asdict(switch) for switch in switches],
         "maclist": [entry.__dict__ for entry in maclist],
+        "failed_switches": failed_switches,
     }
     (output_dir / "search" / "index.json").write_text(
         json.dumps(search_payload, indent=2)

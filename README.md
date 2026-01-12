@@ -74,6 +74,7 @@ switchmap serve-search --host 0.0.0.0 --port 8000
 - `destination_directory`: generated HTML and search index output.
 - `idlesince_directory`: per-switch idle port tracking data.
 - `maclist_file`: normalized MAC/IP/hostname data used in reports.
+- Failed switch collections are listed on the generated report index page.
 
 ---
 
@@ -152,3 +153,4 @@ switchmap serve-search --host 0.0.0.0 --port 8000
 - `destination_directory`: 生成されたHTMLと検索用インデックス。
 - `idlesince_directory`: スイッチ別のアイドルポート追跡データ。
 - `maclist_file`: レポートで使用するMAC/IP/ホスト名の正規化データ。
+- 収集に失敗したスイッチ名はレポートのトップページに一覧表示されます。

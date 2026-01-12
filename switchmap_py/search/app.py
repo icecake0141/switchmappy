@@ -35,5 +35,7 @@ class SearchServer:
             http.server.SimpleHTTPRequestHandler, directory=str(self.output_dir)
         )
         with ThreadingSearchServer((self.host, self.port), handler) as httpd:
-            logger.info("Serving search UI at http://%s:%s/search/", self.host, self.port)
+            logger.info(
+                "Serving search UI at http://%s:%s/search/", self.host, self.port
+            )
             httpd.serve_forever()

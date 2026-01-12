@@ -1,3 +1,16 @@
+<!--
+Copyright 2024 switchmapy
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -24,5 +37,16 @@
       {% endfor %}
     </ul>
   </section>
+  {% if failed_switches %}
+  <section>
+    <h2>Failed switches</h2>
+    <p>Some switches failed to collect data during this build:</p>
+    <ul>
+      {% for switch_name in failed_switches %}
+      <li>{{ switch_name }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
 </body>
 </html>
