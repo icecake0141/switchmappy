@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ports - SwitchMap</title>
+  <link rel="stylesheet" href="/switchmap.css" />
+</head>
+<body>
+  <header>
+    <h1>Ports</h1>
+    <p>Generated at {{ build_date.isoformat() }}</p>
+  </header>
+  {% for switch in switches %}
+  <section>
+    <h2>{{ switch.name }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Port</th>
+          <th>Description</th>
+          <th>Oper</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for port in switch.ports %}
+        <tr>
+          <td>{{ port.name }}</td>
+          <td>{{ port.descr }}</td>
+          <td>{{ port.oper_status }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+</body>
+</html>

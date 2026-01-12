@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Search - SwitchMap</title>
+  <link rel="stylesheet" href="/switchmap.css" />
+</head>
+<body>
+  <header>
+    <h1>Search</h1>
+  </header>
+  <input id="query" type="text" placeholder="Search by IP, MAC, host, switch, port" />
+  <table>
+    <thead>
+      <tr>
+        <th>MAC</th>
+        <th>IP</th>
+        <th>Hostname</th>
+        <th>Switch</th>
+        <th>Port</th>
+      </tr>
+    </thead>
+    <tbody id="results"></tbody>
+  </table>
+  <script>
+    async function loadIndex() {
+      const response = await fetch('/search/index.json');
+      return response.json();
+    }
+
+    function match(entry, query) {
+      const haystack = [entry.mac, entry.ip, entry.hostname, entry.switch, entry.port]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    }
+
+    function render(entries) {
+      const tbody = document.getElementById('results');
+      tbody.innerHTML = '';
+      for (const entry of entries) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${entry.mac ?? ''}</td>
+          <td>${entry.ip ?? ''}</td>
+          <td>${entry.hostname ?? ''}</td>
+          <td>${entry.switch ?? ''}</td>
+          <td>${entry.port ?? ''}</td>
+        `;
+        tbody.appendChild(row);
+      }
+    }
+
+    async function init() {
+      const index = await loadIndex();
+      const entries = index.maclist || [];
+      render(entries);
+      document.getElementById('query').addEventListener('input', (event) => {
+        const query = event.target.value.toLowerCase();
+        if (!query) {
+          render(entries);
+          return;
+        }
+        render(entries.filter((entry) => match(entry, query)));
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

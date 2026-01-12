@@ -1,0 +1,18 @@
+destination_directory: output
+idlesince_directory: idlesince
+maclist_file: maclist.json
+unused_after_days: 30
+snmp_timeout: 2
+snmp_retries: 1
+switches:
+  - name: core-sw1
+    management_ip: 192.0.2.10
+    vendor: cisco
+    snmp_version: 2c
+    community: public
+    trunk_ports: ["Gi1/0/48"]
+routers:
+  - name: edge-router
+    management_ip: 192.0.2.1
+    snmp_version: 2c
+    community: public

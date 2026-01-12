@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ switch.name }} - SwitchMap</title>
+  <link rel="stylesheet" href="/switchmap.css" />
+</head>
+<body>
+  <header>
+    <h1>{{ switch.name }}</h1>
+    <p>Management IP: {{ switch.management_ip }}</p>
+    <p>Generated at {{ build_date.isoformat() }}</p>
+  </header>
+  <table>
+    <thead>
+      <tr>
+        <th>Port</th>
+        <th>Description</th>
+        <th>Admin</th>
+        <th>Oper</th>
+        <th>Speed</th>
+        <th>Idle Since</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for port in switch.ports %}
+      <tr>
+        <td>{{ port.name }}</td>
+        <td>{{ port.descr }}</td>
+        <td>{{ port.admin_status }}</td>
+        <td>{{ port.oper_status }}</td>
+        <td>{{ port.speed or '' }}</td>
+        <td>
+          {% set idle = idle_states.get(port.name) %}
+          {% if idle and idle.idle_since %}
+            {{ idle.idle_since.isoformat() }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
