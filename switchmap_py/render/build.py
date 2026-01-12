@@ -16,6 +16,7 @@ from dataclasses import asdict
 from datetime import datetime
 import json
 from pathlib import Path
+import shutil
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -71,9 +72,12 @@ def build_site(
     search_html = search_template.render(build_date=build_date)
     (output_dir / "search" / "index.html").write_text(search_html)
 
-    for asset in static_dir.glob("*"):
-        if asset.is_file():
-            (output_dir / asset.name).write_text(asset.read_text())
+    for asset in static_dir.iterdir():
+        destination = output_dir / asset.name
+        if asset.is_dir():
+            shutil.copytree(asset, destination, dirs_exist_ok=True)
+        elif asset.is_file():
+            shutil.copyfile(asset, destination)
 
     search_payload = {
         "generated_at": build_date.isoformat(),
