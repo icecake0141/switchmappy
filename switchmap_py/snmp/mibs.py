@@ -1,4 +1,4 @@
-# Copyright 2024
+# Copyright 2025 OpenAI Codex
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +18,8 @@ IF_SPEED = "1.3.6.1.2.1.2.2.1.5"
 
 DOT1D_TP_FDB_PORT = "1.3.6.1.2.1.17.4.3.1.2"
 DOT1D_TP_FDB_STATUS = "1.3.6.1.2.1.17.4.3.1.3"
+DOT1D_BASE_PORT_IFINDEX = "1.3.6.1.2.1.17.1.4.1.2"
 
 QBRIDGE_VLAN_FDB_PORT = "1.3.6.1.2.1.17.7.1.2.2.1.2"
+QBRIDGE_VLAN_FDB_STATUS = "1.3.6.1.2.1.17.7.1.2.2.1.3"
 QBRIDGE_VLAN_NAME = "1.3.6.1.2.1.17.7.1.4.3.1.1"
