@@ -11,6 +11,8 @@
 # Review required for correctness, security, and licensing.
 
 from datetime import datetime, timezone
+import json
+import logging
 
 from switchmap_py.storage.idlesince_store import IdleSinceStore, PortIdleState
 
@@ -61,3 +63,27 @@ def test_save_load_roundtrip(tmp_path):
     assert loaded["Gi1/0/3"].last_active is None
     assert loaded["Gi1/0/4"].idle_since is None
     assert loaded["Gi1/0/4"].last_active == active_ts
+
+
+def test_load_with_invalid_timestamps_logs_warning(tmp_path, caplog):
+    store = IdleSinceStore(tmp_path)
+    raw_data = {
+        "Gi1/0/5": {"idle_since": "not-a-timestamp", "last_active": "also-bad"},
+        "Gi1/0/6": {
+            "idle_since": "2024-01-04T05:06:07+00:00",
+            "last_active": None,
+        },
+    }
+    store._path_for("switch-2").write_text(json.dumps(raw_data))
+
+    with caplog.at_level(logging.WARNING):
+        loaded = store.load("switch-2")
+
+    assert loaded["Gi1/0/5"].idle_since is None
+    assert loaded["Gi1/0/5"].last_active is None
+    assert loaded["Gi1/0/6"].idle_since == datetime(
+        2024, 1, 4, 5, 6, 7, tzinfo=timezone.utc
+    )
+    assert loaded["Gi1/0/6"].last_active is None
+    assert "Invalid idle_since timestamp" in caplog.text
+    assert "Invalid last_active timestamp" in caplog.text

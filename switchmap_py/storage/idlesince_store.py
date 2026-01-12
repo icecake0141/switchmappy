@@ -15,7 +15,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,6 +36,33 @@ class IdleSinceStore:
     def _path_for(self, switch_name: str) -> Path:
         return self.directory / f"{switch_name}.json"
 
+    def _parse_timestamp(
+        self, payload: dict[str, object], *, key: str, port: str, switch_name: str
+    ) -> datetime | None:
+        raw = payload.get(key)
+        if not raw:
+            return None
+        if not isinstance(raw, str):
+            logger.warning(
+                "Invalid %s timestamp for port %s on switch %s: %r",
+                key,
+                port,
+                switch_name,
+                raw,
+            )
+            return None
+        try:
+            return datetime.fromisoformat(raw).astimezone(timezone.utc)
+        except ValueError:
+            logger.warning(
+                "Invalid %s timestamp for port %s on switch %s: %r",
+                key,
+                port,
+                switch_name,
+                raw,
+            )
+            return None
+
     def load(self, switch_name: str) -> dict[str, PortIdleState]:
         path = self._path_for(switch_name)
         if not path.exists():
@@ -41,15 +71,11 @@ class IdleSinceStore:
         data = json.loads(raw)
         result: dict[str, PortIdleState] = {}
         for port, payload in data.items():
-            idle_since = (
-                datetime.fromisoformat(payload["idle_since"]).astimezone(timezone.utc)
-                if payload["idle_since"]
-                else None
+            idle_since = self._parse_timestamp(
+                payload, key="idle_since", port=port, switch_name=switch_name
             )
-            last_active = (
-                datetime.fromisoformat(payload["last_active"]).astimezone(timezone.utc)
-                if payload["last_active"]
-                else None
+            last_active = self._parse_timestamp(
+                payload, key="last_active", port=port, switch_name=switch_name
             )
             result[port] = PortIdleState(
                 port=port, idle_since=idle_since, last_active=last_active
