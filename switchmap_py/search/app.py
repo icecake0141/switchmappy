@@ -1,4 +1,4 @@
-# Copyright 2024
+# Copyright 2025 Switchmapy Authors
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -9,13 +9,19 @@
 #
 # This file was created or modified with the assistance of an AI (Large Language Model).
 # Review required for correctness, security, and licensing.
-
 from __future__ import annotations
 
 import http.server
+import logging
 import socketserver
 from functools import partial
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+class ThreadingSearchServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
 
 
 class SearchServer:
@@ -28,6 +34,6 @@ class SearchServer:
         handler = partial(
             http.server.SimpleHTTPRequestHandler, directory=str(self.output_dir)
         )
-        with socketserver.TCPServer((self.host, self.port), handler) as httpd:
-            print(f"Serving search UI at http://{self.host}:{self.port}/search/")
+        with ThreadingSearchServer((self.host, self.port), handler) as httpd:
+            logger.info("Serving search UI at http://%s:%s/search/", self.host, self.port)
             httpd.serve_forever()
