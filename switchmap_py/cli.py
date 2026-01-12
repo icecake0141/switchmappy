@@ -70,6 +70,11 @@ def scan_switch(
     info: bool = typer.Option(False, "--info"),
     warn: bool = typer.Option(False, "--warn"),
     logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    prune_missing: bool = typer.Option(
+        False,
+        "--prune-missing",
+        help="Remove ports that are missing from the latest scan.",
+    ),
 ) -> None:
     """Scan switches and update idlesince data."""
     _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile)
@@ -80,7 +85,7 @@ def scan_switch(
             continue
         snapshots = collect_port_snapshots(sw, site.snmp_timeout, site.snmp_retries)
         current = store.load(sw.name)
-        updated = {}
+        updated = {} if prune_missing else dict(current)
         for snapshot in snapshots:
             state = current.get(snapshot.name)
             updated[snapshot.name] = store.update_port(

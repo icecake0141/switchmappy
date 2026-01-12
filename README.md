@@ -1,3 +1,17 @@
+<!--
+Copyright 2025 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
+
 # switchmapy
 
 Python 3.12+ reimplementation of the Perl-based `switchmap` tooling. The CLI provides
@@ -68,6 +82,9 @@ switchmap get-arp --source csv --csv maclist.csv
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```
+
+By default, `scan-switch` keeps idle-since entries for ports missing from the latest
+scan. Use `--prune-missing` to drop entries for ports that no longer appear.
 
 ## Output
 
@@ -146,6 +163,9 @@ switchmap get-arp --source csv --csv maclist.csv
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```
+
+`scan-switch`は最新のスキャンに存在しないポートの履歴を保持します。
+削除したい場合は`--prune-missing`を指定してください。
 
 ## 出力先
 

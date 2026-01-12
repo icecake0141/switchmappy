@@ -79,3 +79,64 @@ def test_scan_switch_updates_idle_since(tmp_path, monkeypatch):
     assert loaded["Gi1/0/1"].last_active == fixed_time
     assert loaded["Gi1/0/2"].idle_since == fixed_time
     assert loaded["Gi1/0/2"].last_active is None
+
+
+def test_scan_switch_keeps_missing_ports(tmp_path, monkeypatch):
+    idlesince_dir = tmp_path / "idlesince"
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                f"destination_directory: {tmp_path / 'output'}",
+                f"idlesince_directory: {idlesince_dir}",
+                f"maclist_file: {tmp_path / 'maclist.json'}",
+                "switches:",
+                "  - name: sw1",
+                "    management_ip: 192.0.2.1",
+                "    community: public",
+            ]
+        )
+    )
+
+    fixed_time = datetime(2024, 1, 5, tzinfo=timezone.utc)
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_time.astimezone(tz) if tz else fixed_time.replace(tzinfo=None)
+
+    monkeypatch.setattr(idlesince_module, "datetime", FixedDateTime)
+
+    store = IdleSinceStore(idlesince_dir)
+    missing_state = PortIdleState(
+        port="Gi1/0/2", idle_since=fixed_time, last_active=None
+    )
+    store.save(
+        "sw1",
+        {
+            "Gi1/0/1": PortIdleState(
+                port="Gi1/0/1", idle_since=None, last_active=fixed_time
+            ),
+            "Gi1/0/2": missing_state,
+        },
+    )
+
+    def fake_collect_port_snapshots(_switch, _timeout, _retries):
+        return [
+            PortSnapshot(
+                name="Gi1/0/1",
+                is_active=True,
+                mac_count=2,
+                oper_status="up",
+            )
+        ]
+
+    monkeypatch.setattr("switchmap_py.cli.collect_port_snapshots", fake_collect_port_snapshots)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["scan-switch", "--config", str(config_path)])
+    assert result.exit_code == 0
+
+    loaded = store.load("sw1")
+    assert loaded["Gi1/0/2"].idle_since == missing_state.idle_since
+    assert loaded["Gi1/0/2"].last_active == missing_state.last_active
