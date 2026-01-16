@@ -41,6 +41,7 @@ def test_build_site_copies_binary_assets(tmp_path):
                 vendor="test",
             )
         ],
+        failed_switches=[],
         output_dir=output_dir,
         template_dir=template_dir,
         static_dir=static_dir,
