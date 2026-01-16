@@ -12,7 +12,7 @@ This file was created or modified with the assistance of an AI (Large Language M
 Review required for correctness, security, and licensing.
 -->
 
-# switchmapy
+# switchmappy
 
 Python 3.12+ reimplementation of the Perl-based `switchmap` tooling. The CLI provides
 SNMP collection, idle port tracking, static HTML generation, and a lightweight search UI.
@@ -95,7 +95,7 @@ scan. Use `--prune-missing` to drop entries for ports that no longer appear.
 
 ---
 
-# switchmapy（日本語）
+# switchmappy（日本語）
 
 Perl版の`switchmap`をPython 3.12+で再実装したツール群です。CLIから
 SNMP収集、アイドルポートの追跡、静的HTML生成、軽量な検索UIを提供します。
