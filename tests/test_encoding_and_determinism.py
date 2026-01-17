@@ -35,7 +35,7 @@ from switchmap_py.storage.maclist_store import MacListStore
 def test_html_files_use_utf8_encoding(tmp_path):
     """
     Verify that all HTML files are written with UTF-8 encoding.
-    
+
     This test creates HTML with UTF-8 characters (Japanese, emoji, etc.)
     and verifies they are correctly preserved in the output.
     """
@@ -93,7 +93,7 @@ def test_html_files_use_utf8_encoding(tmp_path):
 def test_search_json_uses_utf8_encoding(tmp_path):
     """
     Verify that search index JSON is written with UTF-8 encoding.
-    
+
     This test ensures JSON files with UTF-8 content are properly encoded.
     """
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
@@ -144,7 +144,7 @@ def test_search_json_uses_utf8_encoding(tmp_path):
 def test_search_json_is_deterministic(tmp_path):
     """
     Verify that search index JSON has deterministic output (keys are sorted).
-    
+
     This test builds the site twice with the same data and verifies that
     the JSON output is identical (byte-for-byte).
     """
@@ -360,7 +360,7 @@ def test_search_index_loader_uses_utf8_encoding(tmp_path):
 def test_json_schema_consistency_with_asdict(tmp_path):
     """
     Verify that search JSON uses asdict() for both switches and maclist.
-    
+
     This ensures consistent JSON schema representation across all dataclasses.
     """
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
