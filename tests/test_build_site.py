@@ -57,7 +57,6 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
-from switchmap_py.model.mac import MacEntry
 from switchmap_py.model.port import Port
 from switchmap_py.model.switch import Switch
 from switchmap_py.render.build import build_site
@@ -355,8 +354,11 @@ def test_build_site_escapes_all_port_fields(tmp_path):
     assert '<script>alert(5)</script>' not in switch_html
     assert '&lt;script&gt;' in switch_html, "Script tags should be escaped"
     assert '&lt;img' in switch_html, "Img tags should be escaped"
-    # Check that onclick is escaped (&#34; is HTML entity for quote)
-    assert '&#34; onclick=&#34;' in switch_html, "Event handlers should be escaped with HTML entities"
+    # Check that onclick is properly escaped (either &quot; or &#34; are valid)
+    # The key is that onclick= should not appear as an unescaped attribute
+    assert 'onclick=' not in switch_html or (
+        '&quot; onclick=' in switch_html or '&#34; onclick=' in switch_html
+    ), "Event handlers should be escaped"
     
     # Check ports page
     ports_html = (output_dir / "ports" / "index.html").read_text()
@@ -397,8 +399,9 @@ def test_build_site_escapes_management_ip_and_vendor(tmp_path):
     )
     
     switch_html = (output_dir / "switches" / "test-sw.html").read_text()
-    assert '<script>alert(' not in switch_html
-    assert '&lt;script&gt;' in switch_html or '&quot;&gt;&lt;script&gt;' in switch_html
+    assert '<script>alert(' not in switch_html, "Unescaped script tags should not be present"
+    # Check that script tags are properly escaped (both forms are valid)
+    assert '&lt;script&gt;' in switch_html, "Script tags should be HTML-escaped"
 
 
 def test_build_site_escapes_failed_switches_list(tmp_path):
@@ -466,7 +469,11 @@ def test_build_site_prevents_attribute_injection_in_links(tmp_path):
     )
     
     index_html = (output_dir / "index.html").read_text()
-    # Quotes should be escaped to prevent breaking out of href attribute
-    assert 'onclick="alert(1)' not in index_html, "onclick should not be injected"
-    # Check that quotes are properly escaped
-    assert '&quot; onclick=' not in index_html, "Attribute injection should be prevented"
+    # The critical check: unescaped onclick should not appear
+    assert 'onclick="alert(1)' not in index_html, "Unescaped onclick should not be injected"
+    # Verify the quotes are properly escaped - both &quot; and &#34; are valid
+    # The escaped quotes prevent breaking out of the href attribute
+    # Example: href="/switches/test.html&#34; onclick=&#34;alert(1).html"
+    # This is SAFE because &#34; inside an attribute value is still part of the value
+    assert '&#34; onclick=&#34;' in index_html or '&quot; onclick=&quot;' in index_html, \
+        "Quotes should be HTML-escaped to prevent attribute injection"
