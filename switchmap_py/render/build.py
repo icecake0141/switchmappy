@@ -26,9 +26,14 @@ from switchmap_py.storage.maclist_store import MacListStore
 
 
 def build_environment(template_dir: Path) -> Environment:
+    # Security: Enable autoescape for .html.j2 templates to prevent XSS vulnerabilities.
+    # Previously only ["html"] was specified, which did NOT match .html.j2 files.
+    # Adding "j2" ensures all Jinja2 templates with .j2 extension are autoescaped,
+    # protecting against injection of malicious HTML/JavaScript from SNMP, CSV, or
+    # user-controlled data sources (switch names, port descriptions, etc.).
     return Environment(
         loader=FileSystemLoader(str(template_dir)),
-        autoescape=select_autoescape(["html"]),
+        autoescape=select_autoescape(["html", "j2"]),
     )
 
 
