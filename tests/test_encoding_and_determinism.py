@@ -1,4 +1,4 @@
-# Copyright 2025 OpenAI
+# Copyright 2025 OpenAI Codex
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +43,8 @@ def test_html_files_use_utf8_encoding(tmp_path):
     static_dir = tmp_path / "static"
     static_dir.mkdir()
     
-    # Switch with UTF-8 characters in various fields
+    # UTF-8 test data: Japanese katakana (スイッチ), kanji (説明), and emoji (🔧📡)
+    # for comprehensive multi-byte character encoding verification
     utf8_switch_name = "スイッチ-switch-🔧"
     utf8_port_descr = "ポート説明 - Port Description 📡"
     
