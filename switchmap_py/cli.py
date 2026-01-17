@@ -12,19 +12,16 @@
 
 from __future__ import annotations
 
-import csv
 from datetime import datetime
-import ipaddress
 import logging
 from pathlib import Path
-import re
 from typing import Optional
 
 import typer
 import yaml
 
 from switchmap_py.config import SiteConfig, default_config_path
-from switchmap_py.model.mac import MacEntry
+from switchmap_py.importers.arp_csv import load_arp_csv
 from switchmap_py.render.build import build_site
 from switchmap_py.search.app import SearchServer
 from switchmap_py.snmp.collectors import collect_port_snapshots, collect_switch_state
@@ -33,9 +30,6 @@ from switchmap_py.storage.idlesince_store import IdleSinceStore
 from switchmap_py.storage.maclist_store import MacListStore
 
 app = typer.Typer(help="Switchmap Python CLI")
-
-
-_MAC_ADDRESS_PATTERN = re.compile(r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
 
 
 def _load_config(path: Optional[Path]) -> SiteConfig:
@@ -67,18 +61,6 @@ def _configure_logging(
     else:
         handlers.append(logging.StreamHandler())
     logging.basicConfig(level=level, handlers=handlers)
-
-
-def _is_valid_mac(address: str) -> bool:
-    return bool(_MAC_ADDRESS_PATTERN.fullmatch(address))
-
-
-def _is_valid_ip(address: str) -> bool:
-    try:
-        ipaddress.ip_address(address)
-    except ValueError:
-        return False
-    return True
 
 
 @app.command("scan-switch")
@@ -133,45 +115,10 @@ def get_arp(
     _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile)
     site = _load_config(config)
     store = MacListStore(site.maclist_file)
-    entries: list[MacEntry] = []
     if source == "csv":
         if not csv_path:
             raise typer.BadParameter("--csv is required when source=csv")
-        logger = logging.getLogger(__name__)
-        with csv_path.open(newline="") as handle:
-            reader = csv.reader(handle)
-            for row_number, row in enumerate(reader, start=1):
-                if not row:
-                    continue
-                if row[0].strip().startswith("#"):
-                    continue
-                trimmed = [part.strip() for part in row]
-                if len(trimmed) < 2 or not trimmed[0] or not trimmed[1]:
-                    logger.warning(
-                        "Skipping CSV row %s: missing MAC/IP columns: %s",
-                        row_number,
-                        row,
-                    )
-                    continue
-                mac, ip = trimmed[0], trimmed[1]
-                if not _is_valid_mac(mac):
-                    logger.warning(
-                        "Skipping CSV row %s: invalid MAC address: %s",
-                        row_number,
-                        mac,
-                    )
-                    continue
-                if not _is_valid_ip(ip):
-                    logger.warning(
-                        "Skipping CSV row %s: invalid IP address: %s",
-                        row_number,
-                        ip,
-                    )
-                    continue
-                hostname = trimmed[2] if len(trimmed) > 2 and trimmed[2] else None
-                entries.append(
-                    MacEntry(mac=mac, ip=ip, hostname=hostname, switch=None, port=None)
-                )
+        entries = load_arp_csv(csv_path)
     else:
         raise typer.BadParameter("Only csv source is supported in this implementation")
     store.save(entries)
