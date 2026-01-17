@@ -13,6 +13,7 @@
 import logging
 
 from switchmap_py.snmp import collectors, mibs
+from switchmap_py.snmp.session import SnmpError
 
 
 class FakeSession:
@@ -21,7 +22,7 @@ class FakeSession:
 
     def get_table(self, oid: str) -> dict[str, str]:
         if oid in self.failures:
-            raise RuntimeError("boom")
+            raise SnmpError("boom")
         if oid == mibs.DOT1D_BASE_PORT_IFINDEX:
             return {f"{mibs.DOT1D_BASE_PORT_IFINDEX}.1": "10"}
         return {}

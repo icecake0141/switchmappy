@@ -28,6 +28,7 @@ from switchmap_py.model.mac import MacEntry
 from switchmap_py.render.build import build_site
 from switchmap_py.search.app import SearchServer
 from switchmap_py.snmp.collectors import collect_port_snapshots, collect_switch_state
+from switchmap_py.snmp.session import SnmpError
 from switchmap_py.storage.idlesince_store import IdleSinceStore
 from switchmap_py.storage.maclist_store import MacListStore
 
@@ -193,7 +194,7 @@ def build_html(
             switches.append(
                 collect_switch_state(sw, site.snmp_timeout, site.snmp_retries)
             )
-        except Exception:
+        except SnmpError:
             logger.exception("Failed to collect switch state for %s", sw.name)
             failed_switches.append(sw.name)
     build_site(

@@ -20,7 +20,7 @@ from switchmap_py.model.port import Port
 from switchmap_py.model.switch import Switch
 from switchmap_py.model.vlan import Vlan
 from switchmap_py.snmp import mibs
-from switchmap_py.snmp.session import SnmpConfig, SnmpSession
+from switchmap_py.snmp.session import SnmpConfig, SnmpError, SnmpSession
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ def _is_invalid_fdb_status(status: str | None) -> bool:
 def _bridge_port_map(session: SnmpSession) -> dict[str, int]:
     try:
         base_ports = session.get_table(mibs.DOT1D_BASE_PORT_IFINDEX)
-    except Exception:
+    except SnmpError:
         logger.warning(
             "Failed to fetch OID %s for bridge port map.",
             mibs.DOT1D_BASE_PORT_IFINDEX,
@@ -122,7 +122,7 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
     macs_by_ifindex: dict[int, set[str]] = {}
     try:
         vlan_fdb_ports = session.get_table(mibs.QBRIDGE_VLAN_FDB_PORT)
-    except Exception:
+    except SnmpError:
         logger.warning(
             "Failed to fetch OID %s for VLAN FDB ports.",
             mibs.QBRIDGE_VLAN_FDB_PORT,
@@ -133,7 +133,7 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
     if vlan_fdb_ports:
         try:
             vlan_fdb_status = session.get_table(mibs.QBRIDGE_VLAN_FDB_STATUS)
-        except Exception:
+        except SnmpError:
             logger.warning(
                 "Failed to fetch OID %s for VLAN FDB status.",
                 mibs.QBRIDGE_VLAN_FDB_STATUS,
@@ -158,7 +158,7 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
 
     try:
         fdb_ports = session.get_table(mibs.DOT1D_TP_FDB_PORT)
-    except Exception:
+    except SnmpError:
         logger.warning(
             "Failed to fetch OID %s for FDB ports.",
             mibs.DOT1D_TP_FDB_PORT,
@@ -167,7 +167,7 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
         return {}
     try:
         fdb_status = session.get_table(mibs.DOT1D_TP_FDB_STATUS)
-    except Exception:
+    except SnmpError:
         logger.warning(
             "Failed to fetch OID %s for FDB status.",
             mibs.DOT1D_TP_FDB_STATUS,
@@ -241,7 +241,7 @@ def collect_switch_state(
     vlans: list[Vlan] = []
     try:
         vlan_names = session.get_table(mibs.QBRIDGE_VLAN_NAME)
-    except Exception:
+    except SnmpError:
         vlan_names = {}
     for oid, vlan_name in vlan_names.items():
         vlan_id = oid.split(".")[-1]

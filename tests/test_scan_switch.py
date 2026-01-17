@@ -140,3 +140,35 @@ def test_scan_switch_keeps_missing_ports(tmp_path, monkeypatch):
     loaded = store.load("sw1")
     assert loaded["Gi1/0/2"].idle_since == missing_state.idle_since
     assert loaded["Gi1/0/2"].last_active == missing_state.last_active
+
+
+def test_scan_switch_propagates_snmp_errors(tmp_path, monkeypatch):
+    """Verify that SNMP errors cause scan-switch to fail fast."""
+    from switchmap_py.snmp.session import SnmpError
+
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                f"destination_directory: {tmp_path / 'output'}",
+                f"idlesince_directory: {tmp_path / 'idlesince'}",
+                f"maclist_file: {tmp_path / 'maclist.json'}",
+                "switches:",
+                "  - name: sw1",
+                "    management_ip: 192.0.2.1",
+                "    community: public",
+            ]
+        )
+    )
+
+    def fake_collect_port_snapshots(_switch, _timeout, _retries):
+        raise SnmpError("SNMP timeout")
+
+    monkeypatch.setattr("switchmap_py.cli.collect_port_snapshots", fake_collect_port_snapshots)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["scan-switch", "--config", str(config_path)])
+
+    # Scan-switch should fail fast on SNMP errors (not catch them)
+    assert result.exit_code != 0
+    assert isinstance(result.exception, SnmpError)

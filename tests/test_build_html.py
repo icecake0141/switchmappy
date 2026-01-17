@@ -16,6 +16,7 @@ from typer.testing import CliRunner
 
 from switchmap_py.cli import app
 from switchmap_py.model.switch import Switch
+from switchmap_py.snmp.session import SnmpError
 
 
 def test_build_html_logs_failed_switches_and_passes_successful(
@@ -41,7 +42,7 @@ def test_build_html_logs_failed_switches_and_passes_successful(
 
     def fake_collect_switch_state(sw, _timeout, _retries):
         if sw.name == "sw-bad":
-            raise RuntimeError("SNMP failure")
+            raise SnmpError("SNMP failure")
         return Switch(
             name=sw.name,
             management_ip=sw.management_ip,
@@ -67,3 +68,36 @@ def test_build_html_logs_failed_switches_and_passes_successful(
     assert [sw.name for sw in captured["switches"]] == ["sw-ok"]
     assert captured["failed_switches"] == ["sw-bad"]
     assert "sw-bad" in caplog.text
+
+
+def test_build_html_propagates_unexpected_errors(tmp_path, monkeypatch):
+    """Verify that non-SNMP errors cause the command to fail fast."""
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                f"destination_directory: {tmp_path / 'output'}",
+                f"idlesince_directory: {tmp_path / 'idlesince'}",
+                f"maclist_file: {tmp_path / 'maclist.json'}",
+                "switches:",
+                "  - name: sw-programming-error",
+                "    management_ip: 192.0.2.10",
+                "    community: public",
+            ]
+        )
+    )
+
+    def fake_collect_switch_state(sw, _timeout, _retries):
+        # This represents a programming error that should not be caught
+        raise ValueError("Unexpected programming error")
+
+    monkeypatch.setattr(
+        "switchmap_py.cli.collect_switch_state", fake_collect_switch_state
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["build-html", "--config", str(config_path)])
+
+    # The command should fail (non-zero exit code) for unexpected errors
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ValueError)
