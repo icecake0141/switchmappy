@@ -67,10 +67,52 @@ class IdleSinceStore:
         path = self._path_for(switch_name)
         if not path.exists():
             return {}
-        raw = path.read_text(encoding="utf-8")
-        data = json.loads(raw)
+        
+        # Read and parse JSON with error handling
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as e:
+            logger.error(
+                "Failed to read idle state file for switch %s: %s",
+                switch_name,
+                e,
+            )
+            return {}
+        
+        # Handle JSON parsing errors
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.error(
+                "Corrupted JSON in idle state file for switch %s at %s: %s",
+                switch_name,
+                path,
+                e,
+            )
+            return {}
+        
+        # Validate top-level structure is a dict
+        if not isinstance(data, dict):
+            logger.error(
+                "Invalid idle state file for switch %s: expected dict, got %s",
+                switch_name,
+                type(data).__name__,
+            )
+            return {}
+        
+        # Parse individual port entries with validation
         result: dict[str, PortIdleState] = {}
         for port, payload in data.items():
+            # Validate payload is a dict
+            if not isinstance(payload, dict):
+                logger.warning(
+                    "Invalid payload for port %s on switch %s: expected dict, got %s. Skipping.",
+                    port,
+                    switch_name,
+                    type(payload).__name__,
+                )
+                continue
+            
             idle_since = self._parse_timestamp(
                 payload, key="idle_since", port=port, switch_name=switch_name
             )

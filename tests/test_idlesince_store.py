@@ -87,3 +87,116 @@ def test_load_with_invalid_timestamps_logs_warning(tmp_path, caplog):
     assert loaded["Gi1/0/6"].last_active is None
     assert "Invalid idle_since timestamp" in caplog.text
     assert "Invalid last_active timestamp" in caplog.text
+
+
+def test_load_corrupted_json_returns_empty_and_logs_error(tmp_path, caplog):
+    """Test that corrupted/invalid JSON is handled gracefully."""
+    store = IdleSinceStore(tmp_path)
+    # Write invalid JSON to file
+    store._path_for("switch-3").write_text("{broken json syntax")
+
+    with caplog.at_level(logging.ERROR):
+        loaded = store.load("switch-3")
+
+    assert loaded == {}
+    assert "Corrupted JSON" in caplog.text
+    assert "switch-3" in caplog.text
+
+
+def test_load_non_dict_json_returns_empty_and_logs_error(tmp_path, caplog):
+    """Test that non-dict top-level JSON is handled gracefully."""
+    store = IdleSinceStore(tmp_path)
+    # Write array instead of dict
+    store._path_for("switch-4").write_text(json.dumps([1, 2, 3]))
+
+    with caplog.at_level(logging.ERROR):
+        loaded = store.load("switch-4")
+
+    assert loaded == {}
+    assert "Invalid idle state file" in caplog.text
+    assert "expected dict, got list" in caplog.text
+
+
+def test_load_non_dict_payload_skips_port_and_logs_warning(tmp_path, caplog):
+    """Test that non-dict payload values are skipped with warning."""
+    store = IdleSinceStore(tmp_path)
+    raw_data = {
+        "Gi1/0/7": "string-instead-of-dict",
+        "Gi1/0/8": {"idle_since": "2024-01-05T06:07:08+00:00", "last_active": None},
+        "Gi1/0/9": 123,  # number instead of dict
+    }
+    store._path_for("switch-5").write_text(json.dumps(raw_data))
+
+    with caplog.at_level(logging.WARNING):
+        loaded = store.load("switch-5")
+
+    # Only the valid port should be loaded
+    assert "Gi1/0/7" not in loaded
+    assert "Gi1/0/8" in loaded
+    assert loaded["Gi1/0/8"].idle_since == datetime(
+        2024, 1, 5, 6, 7, 8, tzinfo=timezone.utc
+    )
+    assert "Gi1/0/9" not in loaded
+    assert "Invalid payload for port Gi1/0/7" in caplog.text
+    assert "expected dict, got str" in caplog.text
+    assert "Invalid payload for port Gi1/0/9" in caplog.text
+    assert "expected dict, got int" in caplog.text
+
+
+def test_load_empty_file_returns_empty(tmp_path, caplog):
+    """Test that an empty file is handled gracefully."""
+    store = IdleSinceStore(tmp_path)
+    store._path_for("switch-6").write_text("")
+
+    with caplog.at_level(logging.ERROR):
+        loaded = store.load("switch-6")
+
+    assert loaded == {}
+    assert "Corrupted JSON" in caplog.text
+
+
+def test_load_unreadable_file_returns_empty_and_logs_error(tmp_path, caplog):
+    """Test that file read errors are handled gracefully."""
+    store = IdleSinceStore(tmp_path)
+    path = store._path_for("switch-7")
+    # Create file with invalid UTF-8
+    path.write_bytes(b"\xff\xfe invalid utf-8")
+
+    with caplog.at_level(logging.ERROR):
+        loaded = store.load("switch-7")
+
+    assert loaded == {}
+    assert "Failed to read idle state file" in caplog.text
+
+
+def test_load_mixed_valid_invalid_data_loads_valid_only(tmp_path, caplog):
+    """Test that file with mixed valid/invalid data loads valid entries only."""
+    store = IdleSinceStore(tmp_path)
+    raw_data = {
+        "Gi1/0/10": {"idle_since": "2024-01-06T07:08:09+00:00", "last_active": None},
+        "Gi1/0/11": "invalid",
+        "Gi1/0/12": {
+            "idle_since": None,
+            "last_active": "2024-01-07T08:09:10+00:00",
+        },
+        "Gi1/0/13": {"idle_since": "bad-timestamp", "last_active": None},
+    }
+    store._path_for("switch-8").write_text(json.dumps(raw_data))
+
+    with caplog.at_level(logging.WARNING):
+        loaded = store.load("switch-8")
+
+    # Valid ports should be loaded
+    assert "Gi1/0/10" in loaded
+    assert loaded["Gi1/0/10"].idle_since == datetime(
+        2024, 1, 6, 7, 8, 9, tzinfo=timezone.utc
+    )
+    assert "Gi1/0/12" in loaded
+    assert loaded["Gi1/0/12"].last_active == datetime(
+        2024, 1, 7, 8, 9, 10, tzinfo=timezone.utc
+    )
+    # Invalid non-dict port should be skipped
+    assert "Gi1/0/11" not in loaded
+    # Port with bad timestamp should still be loaded with None values
+    assert "Gi1/0/13" in loaded
+    assert loaded["Gi1/0/13"].idle_since is None
