@@ -16,8 +16,8 @@ from typer.testing import CliRunner
 
 from switchmap_py.cli import app
 from switchmap_py.snmp.collectors import PortSnapshot
-from switchmap_py.storage.idlesince_store import IdleSinceStore, PortIdleState
 from switchmap_py.storage import idlesince_store as idlesince_module
+from switchmap_py.storage.idlesince_store import IdleSinceStore, PortIdleState
 
 
 def test_scan_switch_updates_idle_since(tmp_path, monkeypatch):

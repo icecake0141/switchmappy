@@ -19,8 +19,8 @@ This test suite verifies that:
 3. JSON serialization uses consistent approach (asdict for dataclasses)
 """
 
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from switchmap_py.model.mac import MacEntry
@@ -42,12 +42,12 @@ def test_html_files_use_utf8_encoding(tmp_path):
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
-    
+
     # UTF-8 test data: Japanese katakana (スイッチ), kanji (説明), and emoji (🔧📡)
     # for comprehensive multi-byte character encoding verification
     utf8_switch_name = "スイッチ-switch-🔧"
     utf8_port_descr = "ポート説明 - Port Description 📡"
-    
+
     output_dir = tmp_path / "output"
     build_site(
         switches=[
@@ -75,17 +75,17 @@ def test_html_files_use_utf8_encoding(tmp_path):
         maclist_store=MacListStore(tmp_path / "maclist.json"),
         build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
-    
+
     # Verify index.html contains UTF-8 characters
     index_html = (output_dir / "index.html").read_text(encoding="utf-8")
     assert "スイッチ" in index_html
     assert "🔧" in index_html
-    
+
     # Verify switch HTML contains UTF-8 characters
     switch_html = (output_dir / "switches" / f"{utf8_switch_name}.html").read_text(encoding="utf-8")
     assert "ポート説明" in switch_html
     assert "📡" in switch_html
-    
+
     # Verify ports HTML contains UTF-8 characters
     ports_html = (output_dir / "ports" / "index.html").read_text(encoding="utf-8")
     assert "ポート説明" in ports_html
@@ -100,7 +100,7 @@ def test_search_json_uses_utf8_encoding(tmp_path):
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
-    
+
     # MAC list with UTF-8 characters
     maclist_file = tmp_path / "maclist.json"
     maclist_data = [
@@ -113,7 +113,7 @@ def test_search_json_uses_utf8_encoding(tmp_path):
         }
     ]
     maclist_file.write_text(json.dumps(maclist_data), encoding="utf-8")
-    
+
     output_dir = tmp_path / "output"
     build_site(
         switches=[
@@ -131,12 +131,12 @@ def test_search_json_uses_utf8_encoding(tmp_path):
         maclist_store=MacListStore(maclist_file),
         build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
-    
+
     # Verify search index JSON contains UTF-8 characters
     search_json_text = (output_dir / "search" / "index.json").read_text(encoding="utf-8")
     assert "ホスト名" in search_json_text
     assert "🖥️" in search_json_text
-    
+
     # Verify it can be loaded as JSON
     search_data = json.loads(search_json_text)
     assert search_data["maclist"][0]["hostname"] == "ホスト名-host-🖥️"
@@ -152,7 +152,7 @@ def test_search_json_is_deterministic(tmp_path):
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
-    
+
     # Create deterministic test data
     switches = [
         Switch(
@@ -184,9 +184,9 @@ def test_search_json_is_deterministic(tmp_path):
             vendor="vendor-a",
         ),
     ]
-    
+
     build_date = datetime(2024, 6, 15, 12, 30, 45, tzinfo=timezone.utc)
-    
+
     # Build site first time
     output_dir1 = tmp_path / "output1"
     build_site(
@@ -199,7 +199,7 @@ def test_search_json_is_deterministic(tmp_path):
         maclist_store=MacListStore(tmp_path / "maclist1.json"),
         build_date=build_date,
     )
-    
+
     # Build site second time with same data
     output_dir2 = tmp_path / "output2"
     build_site(
@@ -212,21 +212,21 @@ def test_search_json_is_deterministic(tmp_path):
         maclist_store=MacListStore(tmp_path / "maclist2.json"),
         build_date=build_date,
     )
-    
+
     # Read both JSON files
     json1 = (output_dir1 / "search" / "index.json").read_bytes()
     json2 = (output_dir2 / "search" / "index.json").read_bytes()
-    
+
     # Verify byte-for-byte identical output
     assert json1 == json2, "JSON output should be deterministic (identical across builds)"
-    
+
     # Parse and verify keys are sorted
     data = json.loads(json1)
-    
+
     # Check top-level keys are sorted
     top_keys = list(data.keys())
     assert top_keys == sorted(top_keys), "Top-level JSON keys should be sorted"
-    
+
     # Check switch object keys are sorted
     if data["switches"]:
         switch_keys = list(data["switches"][0].keys())
@@ -239,7 +239,7 @@ def test_maclist_store_uses_utf8_and_asdict(tmp_path):
     """
     maclist_file = tmp_path / "maclist.json"
     store = MacListStore(maclist_file)
-    
+
     # Create entries with UTF-8 characters
     entries = [
         MacEntry(
@@ -257,24 +257,24 @@ def test_maclist_store_uses_utf8_and_asdict(tmp_path):
             port="eth1",
         ),
     ]
-    
+
     # Save entries
     store.save(entries)
-    
+
     # Verify file was written with UTF-8
     content = maclist_file.read_text(encoding="utf-8")
     assert "ホスト-A-🖥️" in content
     assert "ホスト-B-💻" in content
-    
+
     # Verify JSON is valid and keys are sorted
     data = json.loads(content)
     assert len(data) == 2
-    
+
     # Check that keys are sorted in the JSON output
     for entry in data:
         keys = list(entry.keys())
         assert keys == sorted(keys), "MacEntry keys should be sorted in JSON"
-    
+
     # Verify roundtrip
     loaded_entries = store.load()
     assert len(loaded_entries) == 2
@@ -287,7 +287,7 @@ def test_idlesince_store_uses_utf8_encoding(tmp_path):
     Verify that IdleSinceStore uses UTF-8 encoding.
     """
     store = IdleSinceStore(tmp_path / "idlesince")
-    
+
     # Create idle state data
     switch_name = "スイッチ-1"
     data = {
@@ -302,21 +302,21 @@ def test_idlesince_store_uses_utf8_encoding(tmp_path):
             last_active=datetime(2024, 1, 2, tzinfo=timezone.utc),
         ),
     }
-    
+
     # Save data
     store.save(switch_name, data)
-    
+
     # Verify file was written with UTF-8
     idle_file = tmp_path / "idlesince" / f"{switch_name}.json"
     content = idle_file.read_text(encoding="utf-8")
     assert "ポート-1" in content
     assert "ポート-2" in content
-    
+
     # Verify JSON keys are sorted
     json_data = json.loads(content)
     keys = list(json_data.keys())
     assert keys == sorted(keys), "Port keys should be sorted in JSON"
-    
+
     # Verify roundtrip
     loaded_data = store.load(switch_name)
     assert "ポート-1" in loaded_data
@@ -330,7 +330,7 @@ def test_search_index_loader_uses_utf8_encoding(tmp_path):
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     (output_dir / "search").mkdir()
-    
+
     # Create search index with UTF-8 content
     search_data = {
         "generated_at": "2024-01-01T00:00:00+00:00",
@@ -346,13 +346,13 @@ def test_search_index_loader_uses_utf8_encoding(tmp_path):
         "maclist": [],
         "failed_switches": [],
     }
-    
+
     search_file = output_dir / "search" / "index.json"
     search_file.write_text(json.dumps(search_data), encoding="utf-8")
-    
+
     # Load using the function
     loaded_data = load_index(output_dir)
-    
+
     # Verify UTF-8 characters are preserved
     assert loaded_data["switches"][0]["name"] == "スイッチ-1"
     assert loaded_data["switches"][0]["vendor"] == "ベンダー"
@@ -367,7 +367,7 @@ def test_json_schema_consistency_with_asdict(tmp_path):
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
-    
+
     # Create MAC list
     maclist_file = tmp_path / "maclist.json"
     maclist_data = [
@@ -380,7 +380,7 @@ def test_json_schema_consistency_with_asdict(tmp_path):
         }
     ]
     maclist_file.write_text(json.dumps(maclist_data), encoding="utf-8")
-    
+
     output_dir = tmp_path / "output"
     build_site(
         switches=[
@@ -408,10 +408,10 @@ def test_json_schema_consistency_with_asdict(tmp_path):
         maclist_store=MacListStore(maclist_file),
         build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
-    
+
     # Load and verify JSON structure
     search_json = json.loads((output_dir / "search" / "index.json").read_text(encoding="utf-8"))
-    
+
     # Verify switches are properly serialized
     assert "switches" in search_json
     assert len(search_json["switches"]) == 1
@@ -421,7 +421,7 @@ def test_json_schema_consistency_with_asdict(tmp_path):
     assert "vendor" in switch
     assert "ports" in switch
     assert "vlans" in switch
-    
+
     # Verify ports within switch are properly serialized
     assert len(switch["ports"]) == 1
     port = switch["ports"][0]
@@ -431,7 +431,7 @@ def test_json_schema_consistency_with_asdict(tmp_path):
     assert "oper_status" in port
     assert "speed" in port
     assert "vlan" in port
-    
+
     # Verify maclist entries are properly serialized
     assert "maclist" in search_json
     assert len(search_json["maclist"]) == 1
@@ -441,7 +441,7 @@ def test_json_schema_consistency_with_asdict(tmp_path):
     assert "hostname" in mac_entry
     assert "switch" in mac_entry
     assert "port" in mac_entry
-    
+
     # Verify all expected fields are present (asdict includes all dataclass fields)
     # MacEntry has exactly these 5 fields
     assert set(mac_entry.keys()) == {"mac", "ip", "hostname", "switch", "port"}

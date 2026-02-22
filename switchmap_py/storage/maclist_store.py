@@ -12,9 +12,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import json
 import logging
+from dataclasses import asdict
 from pathlib import Path
 
 from switchmap_py.model.mac import MacEntry

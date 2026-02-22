@@ -32,8 +32,8 @@ from __future__ import annotations
 import csv
 import ipaddress
 import logging
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Iterator, TextIO
 
 from switchmap_py.model.mac import MacEntry
@@ -43,10 +43,10 @@ _MAC_ADDRESS_PATTERN = re.compile(r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
 
 def is_valid_mac(address: str) -> bool:
     """Check if a MAC address is valid.
-    
+
     Args:
         address: MAC address string to validate
-        
+
     Returns:
         True if the address matches the expected MAC address format, False otherwise
     """
@@ -55,10 +55,10 @@ def is_valid_mac(address: str) -> bool:
 
 def is_valid_ip(address: str) -> bool:
     """Check if an IP address is valid.
-    
+
     Args:
         address: IP address string to validate
-        
+
     Returns:
         True if the address is a valid IPv4 or IPv6 address, False otherwise
     """
@@ -71,36 +71,36 @@ def is_valid_ip(address: str) -> bool:
 
 def parse_arp_csv(file_handle: TextIO) -> Iterator[MacEntry]:
     """Parse ARP data from a CSV file handle.
-    
+
     Yields MacEntry objects for each valid row in the CSV. Invalid rows are
     skipped with warning logs. The CSV format is:
     - Column 1: MAC address (required)
     - Column 2: IP address (required)
     - Column 3: hostname (optional)
-    
+
     Comment lines (starting with '#') and blank lines are ignored.
-    
+
     Args:
         file_handle: Open text file handle for reading CSV data
-        
+
     Yields:
         MacEntry objects for each valid CSV row
     """
     logger = logging.getLogger(__name__)
     reader = csv.reader(file_handle)
-    
+
     for row_number, row in enumerate(reader, start=1):
         # Skip blank lines
         if not row:
             continue
-            
+
         # Skip comment lines
         if row[0].strip().startswith("#"):
             continue
-            
+
         # Trim whitespace from all columns
         trimmed = [part.strip() for part in row]
-        
+
         # Validate required columns exist and are not empty
         if len(trimmed) < 2 or not trimmed[0] or not trimmed[1]:
             logger.warning(
@@ -109,9 +109,9 @@ def parse_arp_csv(file_handle: TextIO) -> Iterator[MacEntry]:
                 row,
             )
             continue
-            
+
         mac, ip = trimmed[0], trimmed[1]
-        
+
         # Validate MAC address format
         if not is_valid_mac(mac):
             logger.warning(
@@ -120,7 +120,7 @@ def parse_arp_csv(file_handle: TextIO) -> Iterator[MacEntry]:
                 mac,
             )
             continue
-            
+
         # Validate IP address format
         if not is_valid_ip(ip):
             logger.warning(
@@ -129,26 +129,26 @@ def parse_arp_csv(file_handle: TextIO) -> Iterator[MacEntry]:
                 ip,
             )
             continue
-            
+
         # Extract optional hostname
         hostname = trimmed[2] if len(trimmed) > 2 and trimmed[2] else None
-        
+
         yield MacEntry(mac=mac, ip=ip, hostname=hostname, switch=None, port=None)
 
 
 def load_arp_csv(csv_path: Path) -> list[MacEntry]:
     """Load ARP entries from a CSV file.
-    
+
     Opens the CSV file and parses all valid entries into a list of MacEntry objects.
     The newline='' parameter is required by Python's csv module to ensure proper
     handling of newlines across different platforms.
-    
+
     Args:
         csv_path: Path to the CSV file to load
-        
+
     Returns:
         List of MacEntry objects parsed from the CSV file
-        
+
     Raises:
         FileNotFoundError: If the CSV file does not exist
         PermissionError: If the CSV file cannot be read

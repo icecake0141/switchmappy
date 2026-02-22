@@ -10,9 +10,9 @@
 # This file was created or modified with the assistance of an AI (Large Language Model).
 # Review required for correctness, security, and licensing.
 
-from datetime import datetime, timezone
 import json
 import logging
+from datetime import datetime, timezone
 
 from switchmap_py.storage.idlesince_store import IdleSinceStore, PortIdleState
 
