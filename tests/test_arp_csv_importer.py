@@ -18,10 +18,10 @@ import logging
 import pytest
 
 from switchmap_py.importers.arp_csv import (
-    is_valid_mac,
     is_valid_ip,
-    parse_arp_csv,
+    is_valid_mac,
     load_arp_csv,
+    parse_arp_csv,
 )
 
 
@@ -83,7 +83,7 @@ class TestParseArpCsv:
     def test_parse_valid_csv_with_hostname(self):
         csv_data = "aa:bb:cc:dd:ee:ff,192.0.2.10,example-host\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 1
         assert entries[0].mac == "aa:bb:cc:dd:ee:ff"
         assert entries[0].ip == "192.0.2.10"
@@ -94,7 +94,7 @@ class TestParseArpCsv:
     def test_parse_valid_csv_without_hostname(self):
         csv_data = "11:22:33:44:55:66,192.0.2.20\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 1
         assert entries[0].mac == "11:22:33:44:55:66"
         assert entries[0].ip == "192.0.2.20"
@@ -107,7 +107,7 @@ class TestParseArpCsv:
             "22:33:44:55:66:77,10.0.0.1\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 3
         assert entries[0].hostname == "host1"
         assert entries[1].hostname == "host2"
@@ -121,7 +121,7 @@ class TestParseArpCsv:
             "11:22:33:44:55:66,192.0.2.20,host2\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
         assert entries[0].mac == "aa:bb:cc:dd:ee:ff"
         assert entries[1].mac == "11:22:33:44:55:66"
@@ -135,13 +135,13 @@ class TestParseArpCsv:
             "\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
 
     def test_parse_trim_whitespace(self):
         csv_data = "  aa:bb:cc:dd:ee:ff  ,  192.0.2.10  ,  host1  \n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 1
         assert entries[0].mac == "aa:bb:cc:dd:ee:ff"
         assert entries[0].ip == "192.0.2.10"
@@ -155,7 +155,7 @@ class TestParseArpCsv:
             "11:22:33:44:55:66,192.0.2.30,host3\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
         assert entries[0].mac == "aa:bb:cc:dd:ee:ff"
         assert entries[1].mac == "11:22:33:44:55:66"
@@ -169,7 +169,7 @@ class TestParseArpCsv:
             "22:33:44:55:66:77,192.0.2.30,host3\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
         assert entries[0].ip == "192.0.2.10"
         assert entries[1].ip == "192.0.2.30"
@@ -183,7 +183,7 @@ class TestParseArpCsv:
             "11:22:33:44:55:66,192.0.2.20,host2\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
         assert any("missing MAC/IP columns" in record.message for record in caplog.records)
 
@@ -195,7 +195,7 @@ class TestParseArpCsv:
             "11:22:33:44:55:66,192.0.2.30,host3\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
         assert any("missing MAC/IP columns" in record.message for record in caplog.records)
 
@@ -207,21 +207,21 @@ class TestParseArpCsv:
             "22:33:44:55:66:77,192.0.2.30,host3\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
         assert any("missing MAC/IP columns" in record.message for record in caplog.records)
 
     def test_parse_empty_hostname_treated_as_none(self):
         csv_data = "aa:bb:cc:dd:ee:ff,192.0.2.10,\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 1
         assert entries[0].hostname is None
 
     def test_parse_whitespace_only_hostname_treated_as_none(self):
         csv_data = "aa:bb:cc:dd:ee:ff,192.0.2.10,   \n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 1
         assert entries[0].hostname is None
 
@@ -231,7 +231,7 @@ class TestParseArpCsv:
             "11:22:33:44:55:66,::1,host2\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 2
         assert entries[0].ip == "2001:db8::1"
         assert entries[1].ip == "::1"
@@ -239,7 +239,7 @@ class TestParseArpCsv:
     def test_parse_hyphen_mac_addresses(self):
         csv_data = "aa-bb-cc-dd-ee-ff,192.0.2.10,host1\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         assert len(entries) == 1
         assert entries[0].mac == "aa-bb-cc-dd-ee-ff"
 
@@ -256,12 +256,12 @@ class TestParseArpCsv:
             "33:44:55:66:77:88,192.0.2.12,valid-host\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
-        
+
         # Only 2 valid entries
         assert len(entries) == 2
         assert entries[0].mac == "aa:bb:cc:dd:ee:ff"
         assert entries[1].mac == "33:44:55:66:77:88"
-        
+
         # Should have warning logs for invalid rows
         warning_messages = [record.message for record in caplog.records]
         assert any("missing MAC/IP columns" in msg for msg in warning_messages)
@@ -293,16 +293,16 @@ class TestLoadArpCsv:
             "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
             "11:22:33:44:55:66,192.0.2.20,host2\n"
         )
-        
+
         entries = load_arp_csv(csv_path)
-        
+
         assert len(entries) == 2
         assert entries[0].mac == "aa:bb:cc:dd:ee:ff"
         assert entries[1].mac == "11:22:33:44:55:66"
 
     def test_load_file_not_found(self, tmp_path):
         csv_path = tmp_path / "nonexistent.csv"
-        
+
         with pytest.raises(FileNotFoundError):
             load_arp_csv(csv_path)
 
@@ -316,9 +316,9 @@ class TestLoadArpCsv:
             "invalid-mac,192.0.2.20\n"
             "11:22:33:44:55:66,192.0.2.30,host2\n"
         )
-        
+
         entries = load_arp_csv(csv_path)
-        
+
         assert len(entries) == 2
         assert entries[0].mac == "aa:bb:cc:dd:ee:ff"
         assert entries[1].mac == "11:22:33:44:55:66"

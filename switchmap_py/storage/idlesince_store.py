@@ -12,10 +12,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import logging
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ class IdleSinceStore:
         path = self._path_for(switch_name)
         if not path.exists():
             return {}
-        
+
         # Read and parse JSON with error handling
         try:
             raw = path.read_text(encoding="utf-8")
@@ -78,7 +78,7 @@ class IdleSinceStore:
                 e,
             )
             return {}
-        
+
         # Handle JSON parsing errors
         try:
             data = json.loads(raw)
@@ -90,7 +90,7 @@ class IdleSinceStore:
                 e,
             )
             return {}
-        
+
         # Validate top-level structure is a dict
         if not isinstance(data, dict):
             logger.error(
@@ -99,7 +99,7 @@ class IdleSinceStore:
                 type(data).__name__,
             )
             return {}
-        
+
         # Parse individual port entries with validation
         result: dict[str, PortIdleState] = {}
         for port, payload in data.items():
@@ -112,7 +112,7 @@ class IdleSinceStore:
                     type(payload).__name__,
                 )
                 continue
-            
+
             idle_since = self._parse_timestamp(
                 payload, key="idle_since", port=port, switch_name=switch_name
             )

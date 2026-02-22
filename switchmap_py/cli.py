@@ -12,8 +12,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -78,7 +78,7 @@ def scan_switch(
     ),
 ) -> None:
     """Scan switches and update idlesince data.
-    
+
     This command fails fast on any error (including SNMP errors) to ensure
     scan failures are immediately visible to the operator.
     """
@@ -134,7 +134,7 @@ def build_html(
     logfile: Optional[Path] = typer.Option(None, "--logfile"),
 ) -> None:
     """Build static HTML output.
-    
+
     Collects state from all configured switches and generates static HTML reports.
     SNMP errors for individual switches are logged and those switches are marked as
     failed, allowing the build to continue with remaining switches. Any other

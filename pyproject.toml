@@ -38,6 +38,12 @@ snmp = ["pysnmp>=4.4.12"]
 [project.scripts]
 switchmap = "switchmap_py.cli:app"
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
