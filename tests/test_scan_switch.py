@@ -108,15 +108,11 @@ def test_scan_switch_keeps_missing_ports(tmp_path, monkeypatch):
     monkeypatch.setattr(idlesince_module, "datetime", FixedDateTime)
 
     store = IdleSinceStore(idlesince_dir)
-    missing_state = PortIdleState(
-        port="Gi1/0/2", idle_since=fixed_time, last_active=None
-    )
+    missing_state = PortIdleState(port="Gi1/0/2", idle_since=fixed_time, last_active=None)
     store.save(
         "sw1",
         {
-            "Gi1/0/1": PortIdleState(
-                port="Gi1/0/1", idle_since=None, last_active=fixed_time
-            ),
+            "Gi1/0/1": PortIdleState(port="Gi1/0/1", idle_since=None, last_active=fixed_time),
             "Gi1/0/2": missing_state,
         },
     )

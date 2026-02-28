@@ -96,9 +96,7 @@ def test_scan_switch_json_logs_success_and_error(tmp_path, monkeypatch):
 
     error_payloads = _parse_log_lines(error_log)
     assert any(
-        entry["event"] == "scan_switch"
-        and entry["status"] == "error"
-        and entry["error_code"] == "SNMP_TIMEOUT"
+        entry["event"] == "scan_switch" and entry["status"] == "error" and entry["error_code"] == "SNMP_TIMEOUT"
         for entry in error_payloads
     )
 

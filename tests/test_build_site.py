@@ -118,7 +118,7 @@ def test_build_site_escapes_xss_in_user_controlled_data(tmp_path):
 
     # Multiple XSS payloads that should be escaped
     xss_script = '<script>alert("XSS")</script>'
-    xss_img = '<img src=x onerror=alert(1)>'
+    xss_img = "<img src=x onerror=alert(1)>"
     xss_event = '<div onclick="alert(2)">click</div>'
 
     output_dir = tmp_path / "output"
@@ -198,7 +198,7 @@ def test_build_site_escapes_switch_name_in_multiple_contexts(tmp_path):
     static_dir.mkdir()
 
     # XSS payload using characters that need HTML escaping but are valid in filenames
-    xss_in_name = 'sw&test"name\'test'
+    xss_in_name = "sw&test\"name'test"
 
     output_dir = tmp_path / "output"
     build_site(
@@ -222,13 +222,13 @@ def test_build_site_escapes_switch_name_in_multiple_contexts(tmp_path):
     # Check index.html - ampersands and quotes should be escaped
     index_html = (output_dir / "index.html").read_text()
     # Ampersands should be escaped to &amp;
-    assert '&amp;' in index_html, "Ampersands should be HTML-escaped"
+    assert "&amp;" in index_html, "Ampersands should be HTML-escaped"
     # Quotes in href context should be escaped
-    assert '&quot;' in index_html or '&#34;' in index_html, "Quotes should be escaped"
+    assert "&quot;" in index_html or "&#34;" in index_html, "Quotes should be escaped"
 
     # Check switch page exists and has proper escaping
     switch_html = (output_dir / "switches" / f"{xss_in_name}.html").read_text()
-    assert '&amp;' in switch_html, "Ampersands should be escaped in switch page"
+    assert "&amp;" in switch_html, "Ampersands should be escaped in switch page"
 
 
 def test_build_site_escapes_mac_list_in_search_json(tmp_path):
@@ -249,7 +249,7 @@ def test_build_site_escapes_mac_list_in_search_json(tmp_path):
 
     # XSS payloads in MAC list data
     xss_hostname = '<script>alert("hostname")</script>'
-    xss_ip = '1.2.3.4<img src=x onerror=alert(1)>'
+    xss_ip = "1.2.3.4<img src=x onerror=alert(1)>"
 
     # Create MAC list with XSS payloads
     maclist_file = tmp_path / "maclist.json"
@@ -295,7 +295,7 @@ def test_build_site_escapes_mac_list_in_search_json(tmp_path):
     # Ensure search.html itself doesn't contain unescaped XSS
     # (it's a static template, but failed_switches could inject)
     search_html = (output_dir / "search" / "index.html").read_text()
-    assert '<script>alert(' not in search_html, "No script tags should appear in search.html"
+    assert "<script>alert(" not in search_html, "No script tags should appear in search.html"
 
 
 def test_build_site_escapes_all_port_fields(tmp_path):
@@ -326,12 +326,12 @@ def test_build_site_escapes_all_port_fields(tmp_path):
                 vendor="test",
                 ports=[
                     Port(
-                        name='eth0<script>alert(1)</script>',
-                        descr='Port <img src=x onerror=alert(2)>',
-                        admin_status='up<script>alert(3)</script>',
+                        name="eth0<script>alert(1)</script>",
+                        descr="Port <img src=x onerror=alert(2)>",
+                        admin_status="up<script>alert(3)</script>",
                         oper_status='down" onclick="alert(4)"',
                         speed=1000,
-                        vlan='100<script>alert(5)</script>',
+                        vlan="100<script>alert(5)</script>",
                     ),
                 ],
             )
@@ -347,23 +347,23 @@ def test_build_site_escapes_all_port_fields(tmp_path):
 
     # Check switch page
     switch_html = (output_dir / "switches" / "test-sw.html").read_text()
-    assert '<script>alert(1)</script>' not in switch_html
-    assert '<script>alert(2)</script>' not in switch_html
-    assert '<script>alert(3)</script>' not in switch_html
+    assert "<script>alert(1)</script>" not in switch_html
+    assert "<script>alert(2)</script>" not in switch_html
+    assert "<script>alert(3)</script>" not in switch_html
     assert 'onclick="alert(4)"' not in switch_html
-    assert '<script>alert(5)</script>' not in switch_html
-    assert '&lt;script&gt;' in switch_html, "Script tags should be escaped"
-    assert '&lt;img' in switch_html, "Img tags should be escaped"
+    assert "<script>alert(5)</script>" not in switch_html
+    assert "&lt;script&gt;" in switch_html, "Script tags should be escaped"
+    assert "&lt;img" in switch_html, "Img tags should be escaped"
     # Check that onclick is properly escaped (either &quot; or &#34; are valid)
     # The key is that onclick= should not appear as an unescaped attribute
-    assert 'onclick=' not in switch_html or (
-        '&quot; onclick=' in switch_html or '&#34; onclick=' in switch_html
-    ), "Event handlers should be escaped"
+    assert "onclick=" not in switch_html or ("&quot; onclick=" in switch_html or "&#34; onclick=" in switch_html), (
+        "Event handlers should be escaped"
+    )
 
     # Check ports page
     ports_html = (output_dir / "ports" / "index.html").read_text()
-    assert '<script>alert(' not in ports_html
-    assert '&lt;script&gt;' in ports_html, "Script tags should be escaped in ports page"
+    assert "<script>alert(" not in ports_html
+    assert "&lt;script&gt;" in ports_html, "Script tags should be escaped in ports page"
 
 
 def test_build_site_escapes_management_ip_and_vendor(tmp_path):
@@ -399,9 +399,9 @@ def test_build_site_escapes_management_ip_and_vendor(tmp_path):
     )
 
     switch_html = (output_dir / "switches" / "test-sw.html").read_text()
-    assert '<script>alert(' not in switch_html, "Unescaped script tags should not be present"
+    assert "<script>alert(" not in switch_html, "Unescaped script tags should not be present"
     # Check that script tags are properly escaped (both forms are valid)
-    assert '&lt;script&gt;' in switch_html, "Script tags should be HTML-escaped"
+    assert "&lt;script&gt;" in switch_html, "Script tags should be HTML-escaped"
 
 
 def test_build_site_escapes_failed_switches_list(tmp_path):
@@ -420,7 +420,7 @@ def test_build_site_escapes_failed_switches_list(tmp_path):
     output_dir = tmp_path / "output"
     build_site(
         switches=[],
-        failed_switches=[xss_failed, 'normal-switch'],
+        failed_switches=[xss_failed, "normal-switch"],
         output_dir=output_dir,
         template_dir=template_dir,
         static_dir=static_dir,
@@ -431,8 +431,8 @@ def test_build_site_escapes_failed_switches_list(tmp_path):
 
     index_html = (output_dir / "index.html").read_text()
     assert '<script>alert("failed")</script>' not in index_html
-    assert '&lt;script&gt;' in index_html, "Script tags in failed switches should be escaped"
-    assert 'evil-switch' in index_html, "Failed switch name should still appear (escaped)"
+    assert "&lt;script&gt;" in index_html, "Script tags in failed switches should be escaped"
+    assert "evil-switch" in index_html, "Failed switch name should still appear (escaped)"
 
 
 def test_build_site_prevents_attribute_injection_in_links(tmp_path):
@@ -475,8 +475,9 @@ def test_build_site_prevents_attribute_injection_in_links(tmp_path):
     # The escaped quotes prevent breaking out of the href attribute
     # Example: href="/switches/test.html&#34; onclick=&#34;alert(1).html"
     # This is SAFE because &#34; inside an attribute value is still part of the value
-    assert '&#34; onclick=&#34;' in index_html or '&quot; onclick=&quot;' in index_html, \
+    assert "&#34; onclick=&#34;" in index_html or "&quot; onclick=&quot;" in index_html, (
         "Quotes should be HTML-escaped to prevent attribute injection"
+    )
 
 
 def test_search_page_includes_switch_port_search_logic(tmp_path):

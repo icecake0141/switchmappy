@@ -100,9 +100,7 @@ def _event_extra(
         "status": status,
         "target": target,
         "error_code": error_code,
-        "elapsed_ms": int((elapsed_seconds or 0.0) * 1000)
-        if elapsed_seconds is not None
-        else None,
+        "elapsed_ms": int((elapsed_seconds or 0.0) * 1000) if elapsed_seconds is not None else None,
     }
     if target:
         payload["switch"] = target
@@ -116,9 +114,7 @@ def _load_config(path: Optional[Path]) -> SiteConfig:
     except FileNotFoundError as exc:
         raise CliUsageError(str(exc)) from exc
     except (ValueError, yaml.YAMLError) as exc:
-        raise CliUsageError(
-            f"Failed to load config '{config_path}': {exc}"
-        ) from exc
+        raise CliUsageError(f"Failed to load config '{config_path}': {exc}") from exc
 
 
 def _configure_logging(
@@ -149,11 +145,7 @@ def _configure_logging(
     setattr(handler, _SWITCHMAP_HANDLER_ATTR, True)
 
     root = logging.getLogger()
-    root.handlers = [
-        existing
-        for existing in root.handlers
-        if not getattr(existing, _SWITCHMAP_HANDLER_ATTR, False)
-    ]
+    root.handlers = [existing for existing in root.handlers if not getattr(existing, _SWITCHMAP_HANDLER_ATTR, False)]
     root.setLevel(level)
     root.addHandler(handler)
 
@@ -187,9 +179,7 @@ def scan_switch(
     warn = warn if _is_bool(warn) else False
     prune_missing = prune_missing if _is_bool(prune_missing) else False
 
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     store = IdleSinceStore(site.idlesince_directory)
@@ -250,9 +240,7 @@ def get_arp(
     log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Update MAC list from ARP data."""
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     store = MacListStore(site.maclist_file)
@@ -272,9 +260,7 @@ def get_arp(
         )
     elif source == "snmp":
         if not site.routers:
-            raise CliUsageError(
-                "No routers configured in site.yml; add routers or use --source csv"
-            )
+            raise CliUsageError("No routers configured in site.yml; add routers or use --source csv")
         started = time.monotonic()
         entries = load_arp_snmp(site.routers, site.snmp_timeout, site.snmp_retries)
         logger.info(
@@ -308,9 +294,7 @@ def build_html(
     failed, allowing the build to continue with remaining switches. Any other
     exception type will cause the command to fail fast.
     """
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     build_date = datetime.fromisoformat(date) if date else datetime.now()
@@ -320,9 +304,7 @@ def build_html(
     for sw in site.switches:
         started = time.monotonic()
         try:
-            switches.append(
-                collect_switch_state(sw, site.snmp_timeout, site.snmp_retries)
-            )
+            switches.append(collect_switch_state(sw, site.snmp_timeout, site.snmp_retries))
             logger.info(
                 "Collected switch state",
                 extra=_event_extra(
@@ -380,9 +362,7 @@ def serve_search(
     log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Serve search UI from built HTML output."""
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     site = _load_config(config)
     server = SearchServer(site.destination_directory, host, port)
     server.serve()

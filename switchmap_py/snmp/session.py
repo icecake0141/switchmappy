@@ -141,9 +141,7 @@ class SnmpSession:
             if error_indication:
                 raise SnmpError(str(error_indication))
             if error_status:
-                raise SnmpError(
-                    f"SNMP error {error_status.prettyPrint()} at {error_index}"
-                )
+                raise SnmpError(f"SNMP error {error_status.prettyPrint()} at {error_index}")
             for name, val in var_binds:
                 results[str(name)] = str(val)
         return results

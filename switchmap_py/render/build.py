@@ -123,9 +123,7 @@ def build_site(
 
     maclist = maclist_store.load()
     mac_entries_by_mac = _build_mac_lookup(maclist)
-    idle_states_by_switch = {
-        switch.name: idlesince_store.load(switch.name) for switch in switches
-    }
+    idle_states_by_switch = {switch.name: idlesince_store.load(switch.name) for switch in switches}
     unused_ports_by_switch = _build_unused_ports(
         idle_states_by_switch=idle_states_by_switch,
         build_date=build_date,

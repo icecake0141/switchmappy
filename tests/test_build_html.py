@@ -19,9 +19,7 @@ from switchmap_py.model.switch import Switch
 from switchmap_py.snmp.session import SnmpError
 
 
-def test_build_html_logs_failed_switches_and_passes_successful(
-    tmp_path, monkeypatch, caplog
-):
+def test_build_html_logs_failed_switches_and_passes_successful(tmp_path, monkeypatch, caplog):
     config_path = tmp_path / "site.yml"
     config_path.write_text(
         "\n".join(
@@ -54,9 +52,7 @@ def test_build_html_logs_failed_switches_and_passes_successful(
     def fake_build_site(**kwargs):
         captured.update(kwargs)
 
-    monkeypatch.setattr(
-        "switchmap_py.cli.collect_switch_state", fake_collect_switch_state
-    )
+    monkeypatch.setattr("switchmap_py.cli.collect_switch_state", fake_collect_switch_state)
     monkeypatch.setattr("switchmap_py.cli.build_site", fake_build_site)
 
     caplog.set_level(logging.ERROR)
@@ -92,9 +88,7 @@ def test_build_html_propagates_unexpected_errors(tmp_path, monkeypatch):
         # This represents a programming error that should not be caught
         raise ValueError("Unexpected programming error")
 
-    monkeypatch.setattr(
-        "switchmap_py.cli.collect_switch_state", fake_collect_switch_state
-    )
+    monkeypatch.setattr("switchmap_py.cli.collect_switch_state", fake_collect_switch_state)
 
     runner = CliRunner()
     result = runner.invoke(app, ["build-html", "--config", str(config_path)])

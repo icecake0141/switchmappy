@@ -58,7 +58,7 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
                 "  - name: sw-ok",
                 "    management_ip: 192.0.2.10",
                 "    community: public",
-                "    trunk_ports: [\"Gi1/0/1\"]",
+                '    trunk_ports: ["Gi1/0/1"]',
                 "  - name: sw-bad",
                 "    management_ip: 192.0.2.11",
                 "    community: public",

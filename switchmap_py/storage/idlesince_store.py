@@ -36,9 +36,7 @@ class IdleSinceStore:
     def _path_for(self, switch_name: str) -> Path:
         return self.directory / f"{switch_name}.json"
 
-    def _parse_timestamp(
-        self, payload: dict[str, object], *, key: str, port: str, switch_name: str
-    ) -> datetime | None:
+    def _parse_timestamp(self, payload: dict[str, object], *, key: str, port: str, switch_name: str) -> datetime | None:
         raw = payload.get(key)
         if not raw:
             return None
@@ -113,15 +111,9 @@ class IdleSinceStore:
                 )
                 continue
 
-            idle_since = self._parse_timestamp(
-                payload, key="idle_since", port=port, switch_name=switch_name
-            )
-            last_active = self._parse_timestamp(
-                payload, key="last_active", port=port, switch_name=switch_name
-            )
-            result[port] = PortIdleState(
-                port=port, idle_since=idle_since, last_active=last_active
-            )
+            idle_since = self._parse_timestamp(payload, key="idle_since", port=port, switch_name=switch_name)
+            last_active = self._parse_timestamp(payload, key="last_active", port=port, switch_name=switch_name)
+            result[port] = PortIdleState(port=port, idle_since=idle_since, last_active=last_active)
         return result
 
     def save(self, switch_name: str, data: dict[str, PortIdleState]) -> None:
@@ -129,12 +121,8 @@ class IdleSinceStore:
         # The ensure_ascii=False preserves UTF-8 characters in output (instead of \uXXXX escapes).
         payload = {
             port: {
-                "idle_since": state.idle_since.isoformat()
-                if state.idle_since
-                else None,
-                "last_active": state.last_active.isoformat()
-                if state.last_active
-                else None,
+                "idle_since": state.idle_since.isoformat() if state.idle_since else None,
+                "last_active": state.last_active.isoformat() if state.last_active else None,
             }
             for port, state in data.items()
         }
@@ -155,7 +143,5 @@ class IdleSinceStore:
         if is_active:
             return PortIdleState(port=port, idle_since=None, last_active=observed_at)
         if state and state.idle_since:
-            return PortIdleState(
-                port=port, idle_since=state.idle_since, last_active=state.last_active
-            )
+            return PortIdleState(port=port, idle_since=state.idle_since, last_active=state.last_active)
         return PortIdleState(port=port, idle_since=observed_at, last_active=None)

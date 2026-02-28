@@ -102,9 +102,7 @@ class TestParseArpCsv:
 
     def test_parse_multiple_valid_entries(self):
         csv_data = (
-            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
-            "11:22:33:44:55:66,192.0.2.20,host2\n"
-            "22:33:44:55:66:77,10.0.0.1\n"
+            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n11:22:33:44:55:66,192.0.2.20,host2\n22:33:44:55:66:77,10.0.0.1\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
 
@@ -127,13 +125,7 @@ class TestParseArpCsv:
         assert entries[1].mac == "11:22:33:44:55:66"
 
     def test_parse_skip_blank_lines(self):
-        csv_data = (
-            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
-            "\n"
-            "11:22:33:44:55:66,192.0.2.20,host2\n"
-            "\n"
-            "\n"
-        )
+        csv_data = "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n\n11:22:33:44:55:66,192.0.2.20,host2\n\n\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
 
         assert len(entries) == 2
@@ -150,9 +142,7 @@ class TestParseArpCsv:
     def test_parse_skip_invalid_mac(self, caplog):
         caplog.set_level(logging.WARNING)
         csv_data = (
-            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
-            "not-a-mac,192.0.2.20,host2\n"
-            "11:22:33:44:55:66,192.0.2.30,host3\n"
+            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\nnot-a-mac,192.0.2.20,host2\n11:22:33:44:55:66,192.0.2.30,host3\n"
         )
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
 
@@ -177,11 +167,7 @@ class TestParseArpCsv:
 
     def test_parse_skip_missing_columns(self, caplog):
         caplog.set_level(logging.WARNING)
-        csv_data = (
-            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
-            "missing-ip-column\n"
-            "11:22:33:44:55:66,192.0.2.20,host2\n"
-        )
+        csv_data = "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\nmissing-ip-column\n11:22:33:44:55:66,192.0.2.20,host2\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
 
         assert len(entries) == 2
@@ -189,11 +175,7 @@ class TestParseArpCsv:
 
     def test_parse_skip_empty_mac(self, caplog):
         caplog.set_level(logging.WARNING)
-        csv_data = (
-            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
-            ",192.0.2.20,host2\n"
-            "11:22:33:44:55:66,192.0.2.30,host3\n"
-        )
+        csv_data = "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n,192.0.2.20,host2\n11:22:33:44:55:66,192.0.2.30,host3\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
 
         assert len(entries) == 2
@@ -201,11 +183,7 @@ class TestParseArpCsv:
 
     def test_parse_skip_empty_ip(self, caplog):
         caplog.set_level(logging.WARNING)
-        csv_data = (
-            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
-            "11:22:33:44:55:66,,host2\n"
-            "22:33:44:55:66:77,192.0.2.30,host3\n"
-        )
+        csv_data = "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n11:22:33:44:55:66,,host2\n22:33:44:55:66:77,192.0.2.30,host3\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
 
         assert len(entries) == 2
@@ -226,10 +204,7 @@ class TestParseArpCsv:
         assert entries[0].hostname is None
 
     def test_parse_ipv6_addresses(self):
-        csv_data = (
-            "aa:bb:cc:dd:ee:ff,2001:db8::1,host1\n"
-            "11:22:33:44:55:66,::1,host2\n"
-        )
+        csv_data = "aa:bb:cc:dd:ee:ff,2001:db8::1,host1\n11:22:33:44:55:66,::1,host2\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
 
         assert len(entries) == 2
@@ -274,12 +249,7 @@ class TestParseArpCsv:
         assert len(entries) == 0
 
     def test_parse_only_comments_and_blanks(self):
-        csv_data = (
-            "# comment 1\n"
-            "\n"
-            "# comment 2\n"
-            "\n"
-        )
+        csv_data = "# comment 1\n\n# comment 2\n\n"
         entries = list(parse_arp_csv(io.StringIO(csv_data)))
         assert len(entries) == 0
 
@@ -289,10 +259,7 @@ class TestLoadArpCsv:
 
     def test_load_valid_file(self, tmp_path):
         csv_path = tmp_path / "test.csv"
-        csv_path.write_text(
-            "aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n"
-            "11:22:33:44:55:66,192.0.2.20,host2\n"
-        )
+        csv_path.write_text("aa:bb:cc:dd:ee:ff,192.0.2.10,host1\n11:22:33:44:55:66,192.0.2.20,host2\n")
 
         entries = load_arp_csv(csv_path)
 

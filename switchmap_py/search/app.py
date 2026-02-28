@@ -30,8 +30,7 @@ class SearchServer:
             from fastapi.staticfiles import StaticFiles  # type: ignore[import-not-found]
         except ModuleNotFoundError as exc:
             raise RuntimeError(
-                "Search server requires optional dependencies. "
-                "Install with: pip install -e .[search]"
+                "Search server requires optional dependencies. Install with: pip install -e .[search]"
             ) from exc
 
         app = FastAPI(title="switchmappy-search", docs_url=None, redoc_url=None)
@@ -52,8 +51,7 @@ class SearchServer:
             import uvicorn  # type: ignore[import-not-found]
         except ModuleNotFoundError as exc:
             raise RuntimeError(
-                "Search server requires optional dependencies. "
-                "Install with: pip install -e .[search]"
+                "Search server requires optional dependencies. Install with: pip install -e .[search]"
             ) from exc
         app = self.build_app()
         logger.info("Serving search UI at http://%s:%s/search/", self.host, self.port)
