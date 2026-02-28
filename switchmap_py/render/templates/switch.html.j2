@@ -26,7 +26,7 @@
     </thead>
     <tbody>
       {% for port in switch.ports %}
-      <tr>
+      <tr id="port-{{ port.name | replace('/', '-') | replace(' ', '-') | replace('.', '-') }}">
         <td>{{ port.name }}</td>
         <td>{{ port.descr }}</td>
         <td>{{ port.admin_status }}</td>

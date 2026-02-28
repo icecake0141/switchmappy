@@ -23,9 +23,11 @@ Review required for correctness, security, and licensing.
     <h1>VLANs</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
+  <label for="vlanFilter">Filter VLAN ID/Name:</label>
+  <input id="vlanFilter" type="text" placeholder="e.g. 10 or users" />
   {% for switch in switches %}
   <section>
-    <h2>{{ switch.name }}</h2>
+    <h2><a href="/switches/{{ switch.name }}.html">{{ switch.name }}</a></h2>
     <table>
       <thead>
         <tr>
@@ -36,15 +38,31 @@ Review required for correctness, security, and licensing.
       </thead>
       <tbody>
       {% for vlan in switch.vlans %}
-        <tr>
+        <tr data-vlan-id="{{ vlan.vlan_id }}" data-vlan-name="{{ vlan.name | lower }}">
           <td>{{ vlan.vlan_id }}</td>
           <td>{{ vlan.name }}</td>
-          <td>{{ vlan.ports | join(", ") }}</td>
+          <td>
+            {% for port_name in vlan.ports %}
+              <a href="/switches/{{ switch.name }}.html#port-{{ port_name | replace('/', '-') | replace(' ', '-') | replace('.', '-') }}">{{ port_name }}</a>{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          </td>
         </tr>
       {% endfor %}
       </tbody>
     </table>
   </section>
   {% endfor %}
+  <script>
+    const filterInput = document.getElementById('vlanFilter');
+    filterInput.addEventListener('input', (event) => {
+      const query = event.target.value.toLowerCase().trim();
+      for (const row of document.querySelectorAll('tbody tr[data-vlan-id]')) {
+        const vlanId = (row.dataset.vlanId || '').toLowerCase();
+        const vlanName = (row.dataset.vlanName || '').toLowerCase();
+        const match = !query || vlanId.includes(query) || vlanName.includes(query);
+        row.style.display = match ? '' : 'none';
+      }
+    });
+  </script>
 </body>
 </html>
