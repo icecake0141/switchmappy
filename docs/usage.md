@@ -37,7 +37,7 @@ pip install -e .[dev]
 ## Configuration
 
 Create `site.yml` in the repository root (or pass `--config`).
-SNMP v2c is the only supported version.
+SNMP v1/v2c/v3 are supported.
 If the file is missing or invalid, the CLI reports a configuration error. An empty file
 is treated as an empty configuration that uses defaults.
 
@@ -52,14 +52,29 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c  # v2c only
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
     trunk_ports: ["Gi1/0/48"]
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c  # v2c only
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
+```
+
+SNMPv3 example:
+
+```yaml
+switches:
+  - name: core-sw1
+    management_ip: 192.0.2.10
+    snmp_version: 3
+    username: snmpv3-user
+    security_level: authPriv   # noAuthNoPriv | authNoPriv | authPriv
+    auth_protocol: SHA256      # MD5 | SHA | SHA224 | SHA256 | SHA384 | SHA512
+    auth_password: your-auth-pass
+    priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
+    priv_password: your-priv-pass
 ```
 
 ## CLI
@@ -103,7 +118,7 @@ aa:bb:cc:dd:ee:ff,192.0.2.10,example-host
 ### ARP SNMP source
 
 `switchmap get-arp --source snmp` reads ARP tables from routers defined under
-`routers:` in `site.yml` via SNMP v2c. If `routers` is empty, the command exits
+`routers:` in `site.yml` via SNMP (v1/v2c/v3). If `routers` is empty, the command exits
 with a configuration error. The implementation first reads legacy
 `ipNetToMedia` and falls back to `ipNetToPhysical` when needed. For
 `ipNetToPhysical`, only `reachable(1)` entries are imported. ARP import is
@@ -126,7 +141,7 @@ currently limited to IPv4 entries.
 - `No routers configured in site.yml; add routers or use --source csv`
   - Add at least one router entry under `routers:` for `get-arp --source snmp`
 - SNMP collection fails for specific switches/routers
-  - Verify `management_ip`, `snmp_version: 2c`, `community`, timeout/retry
+  - Verify `management_ip`, `snmp_version`, credentials (`community` or v3 user/auth/priv), timeout/retry
   - Check network reachability and ACL/firewall to UDP/161
 - Generated report is missing a switch
   - Open `output/index.html` and check the failed switch section/reason

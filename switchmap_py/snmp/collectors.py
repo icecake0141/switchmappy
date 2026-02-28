@@ -49,6 +49,12 @@ def build_session(switch: SwitchConfig, timeout: int, retries: int) -> SnmpSessi
             hostname=switch.management_ip,
             version=switch.snmp_version,
             community=switch.community,
+            username=switch.username,
+            security_level=switch.security_level,
+            auth_protocol=switch.auth_protocol,
+            auth_password=switch.auth_password,
+            priv_protocol=switch.priv_protocol,
+            priv_password=switch.priv_password,
             timeout=timeout,
             retries=retries,
         )

@@ -27,7 +27,7 @@ SNMP collection, idle port tracking, static HTML generation, and a lightweight s
 ## Requirements
 
 - Python 3.12+
-- SNMP v2c access to network devices (for `scan-switch` / `build-html`)
+- SNMP v1/v2c/v3 access to network devices (for `scan-switch` / `build-html`)
 - Optional dependencies for SNMP and search features
 
 ## Installation
@@ -68,14 +68,29 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c  # v2c only
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
     trunk_ports: ["Gi1/0/48"]
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c  # v2c only
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
+```
+
+SNMPv3 example:
+
+```yaml
+switches:
+  - name: core-sw1
+    management_ip: 192.0.2.10
+    snmp_version: 3
+    username: snmpv3-user
+    security_level: authPriv   # noAuthNoPriv | authNoPriv | authPriv
+    auth_protocol: SHA256      # MD5 | SHA | SHA224 | SHA256 | SHA384 | SHA512
+    auth_password: your-auth-pass
+    priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
+    priv_password: your-priv-pass
 ```
 
 For more detail, see `docs/usage.md`.
@@ -139,7 +154,7 @@ SNMP収集、アイドルポートの追跡、静的HTML生成、軽量な検索
 ## 動作要件
 
 - Python 3.12以上
-- ネットワーク機器へのSNMP v2cアクセス（`scan-switch` / `build-html`で使用）
+- ネットワーク機器へのSNMP v1/v2c/v3アクセス（`scan-switch` / `build-html`で使用）
 - SNMPや検索機能のためのオプション依存関係
 
 ## インストール
@@ -179,14 +194,29 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c  # v2cのみ
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
     trunk_ports: ["Gi1/0/48"]
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c  # v2cのみ
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
+```
+
+SNMPv3設定例:
+
+```yaml
+switches:
+  - name: core-sw1
+    management_ip: 192.0.2.10
+    snmp_version: 3
+    username: snmpv3-user
+    security_level: authPriv   # noAuthNoPriv | authNoPriv | authPriv
+    auth_protocol: SHA256      # MD5 | SHA | SHA224 | SHA256 | SHA384 | SHA512
+    auth_password: your-auth-pass
+    priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
+    priv_password: your-priv-pass
 ```
 
 詳細は`docs/usage.md`を参照してください。

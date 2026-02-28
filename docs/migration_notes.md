@@ -12,4 +12,4 @@
 ## Notes
 
 - This implementation focuses on parity for file-based storage and static HTML output first.
-- SNMP v2c is currently supported; vendor-specific MIB coverage can be extended in `switchmap_py/snmp/mibs.py`.
+- SNMP v1/v2c/v3 are supported; vendor-specific MIB coverage can be extended in `switchmap_py/snmp/mibs.py`.

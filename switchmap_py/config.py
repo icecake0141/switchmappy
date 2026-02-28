@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -23,31 +23,131 @@ class SwitchConfig(BaseModel):
     name: str
     management_ip: str
     vendor: str = "generic"
-    snmp_version: Literal["2c"] = "2c"
+    snmp_version: Union[str, int] = "2c"
     community: Optional[str] = None
     trunk_ports: list[str] = Field(default_factory=list)
+    username: Optional[str] = None
+    security_level: Literal["noAuthNoPriv", "authNoPriv", "authPriv"] = (
+        "noAuthNoPriv"
+    )
+    auth_protocol: Optional[
+        Literal["MD5", "SHA", "SHA224", "SHA256", "SHA384", "SHA512"]
+    ] = None
+    auth_password: Optional[str] = None
+    priv_protocol: Optional[
+        Literal["DES", "3DES", "AES", "AES128", "AES192", "AES256"]
+    ] = None
+    priv_password: Optional[str] = None
 
     @model_validator(mode="after")
-    def validate_snmp_v2c_requires_community(self) -> "SwitchConfig":
-        if self.snmp_version == "2c" and not self.community:
+    def validate_snmp_credentials(self) -> "SwitchConfig":
+        self.snmp_version = str(self.snmp_version)
+        if self.snmp_version not in {"1", "2c", "3"}:
             raise ValueError(
-                f"Switch '{self.name}' requires 'community' when snmp_version is 2c"
+                f"Switch '{self.name}' has unsupported snmp_version '{self.snmp_version}'; expected one of: 1, 2c, 3"
             )
+        if self.snmp_version in {"1", "2c"}:
+            if not self.community:
+                raise ValueError(
+                    f"Switch '{self.name}' requires 'community' when snmp_version is {self.snmp_version}"
+                )
+            if self.username:
+                raise ValueError(
+                    f"Switch '{self.name}' must not set 'username' when snmp_version is {self.snmp_version}"
+                )
+            return self
+        if not self.username:
+            raise ValueError(
+                f"Switch '{self.name}' requires 'username' when snmp_version is 3"
+            )
+        if self.security_level == "noAuthNoPriv":
+            if self.auth_password or self.priv_password:
+                raise ValueError(
+                    f"Switch '{self.name}' must not set auth/priv passwords when security_level is noAuthNoPriv"
+                )
+        elif self.security_level == "authNoPriv":
+            if not self.auth_password:
+                raise ValueError(
+                    f"Switch '{self.name}' requires 'auth_password' when security_level is authNoPriv"
+                )
+            if self.priv_password:
+                raise ValueError(
+                    f"Switch '{self.name}' must not set 'priv_password' when security_level is authNoPriv"
+                )
+        elif self.security_level == "authPriv":
+            if not self.auth_password:
+                raise ValueError(
+                    f"Switch '{self.name}' requires 'auth_password' when security_level is authPriv"
+                )
+            if not self.priv_password:
+                raise ValueError(
+                    f"Switch '{self.name}' requires 'priv_password' when security_level is authPriv"
+                )
         return self
 
 
 class RouterConfig(BaseModel):
     name: str
     management_ip: str
-    snmp_version: Literal["2c"] = "2c"
+    snmp_version: Union[str, int] = "2c"
     community: Optional[str] = None
+    username: Optional[str] = None
+    security_level: Literal["noAuthNoPriv", "authNoPriv", "authPriv"] = (
+        "noAuthNoPriv"
+    )
+    auth_protocol: Optional[
+        Literal["MD5", "SHA", "SHA224", "SHA256", "SHA384", "SHA512"]
+    ] = None
+    auth_password: Optional[str] = None
+    priv_protocol: Optional[
+        Literal["DES", "3DES", "AES", "AES128", "AES192", "AES256"]
+    ] = None
+    priv_password: Optional[str] = None
 
     @model_validator(mode="after")
-    def validate_snmp_v2c_requires_community(self) -> "RouterConfig":
-        if self.snmp_version == "2c" and not self.community:
+    def validate_snmp_credentials(self) -> "RouterConfig":
+        self.snmp_version = str(self.snmp_version)
+        if self.snmp_version not in {"1", "2c", "3"}:
             raise ValueError(
-                f"Router '{self.name}' requires 'community' when snmp_version is 2c"
+                f"Router '{self.name}' has unsupported snmp_version '{self.snmp_version}'; expected one of: 1, 2c, 3"
             )
+        if self.snmp_version in {"1", "2c"}:
+            if not self.community:
+                raise ValueError(
+                    f"Router '{self.name}' requires 'community' when snmp_version is {self.snmp_version}"
+                )
+            if self.username:
+                raise ValueError(
+                    f"Router '{self.name}' must not set 'username' when snmp_version is {self.snmp_version}"
+                )
+            return self
+        if not self.username:
+            raise ValueError(
+                f"Router '{self.name}' requires 'username' when snmp_version is 3"
+            )
+        if self.security_level == "noAuthNoPriv":
+            if self.auth_password or self.priv_password:
+                raise ValueError(
+                    f"Router '{self.name}' must not set auth/priv passwords when security_level is noAuthNoPriv"
+                )
+        elif self.security_level == "authNoPriv":
+            if not self.auth_password:
+                raise ValueError(
+                    f"Router '{self.name}' requires 'auth_password' when security_level is authNoPriv"
+                )
+            if self.priv_password:
+                raise ValueError(
+                    f"Router '{self.name}' must not set 'priv_password' when security_level is authNoPriv"
+                )
+        elif self.security_level == "authPriv":
+            if not self.auth_password:
+                raise ValueError(
+                    f"Router '{self.name}' requires 'auth_password' when security_level is authPriv"
+                )
+            if not self.priv_password:
+                raise ValueError(
+                    f"Router '{self.name}' requires 'priv_password' when security_level is authPriv"
+                )
         return self
 
 
