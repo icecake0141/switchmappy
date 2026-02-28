@@ -214,3 +214,45 @@ def test_load_arp_snmp_skips_ipv6_entries(monkeypatch):
 
     entries = arp_snmp.load_arp_snmp(routers, timeout=2, retries=1)
     assert entries == []
+
+
+def test_load_arp_snmp_supports_dotted_decimal_mac_format(monkeypatch):
+    routers = [
+        RouterConfig(name="r1", management_ip="192.0.2.1", community="public"),
+    ]
+    fake_session = FakeSession(
+        {
+            mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS}.1.192.0.2.10": "0.17.34.51.68.85",
+            },
+            mibs.IP_NET_TO_MEDIA_NET_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_NET_ADDRESS}.1.192.0.2.10": "192.0.2.10",
+            },
+        }
+    )
+    monkeypatch.setattr(arp_snmp, "_build_session", lambda *_args, **_kwargs: fake_session)
+
+    entries = arp_snmp.load_arp_snmp(routers, timeout=2, retries=1)
+    assert len(entries) == 1
+    assert entries[0].mac == "00:11:22:33:44:55"
+
+
+def test_load_arp_snmp_supports_whitespace_decimal_mac_format(monkeypatch):
+    routers = [
+        RouterConfig(name="r1", management_ip="192.0.2.1", community="public"),
+    ]
+    fake_session = FakeSession(
+        {
+            mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS}.1.192.0.2.10": "0 17 34 51 68 85",
+            },
+            mibs.IP_NET_TO_MEDIA_NET_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_NET_ADDRESS}.1.192.0.2.10": "192.0.2.10",
+            },
+        }
+    )
+    monkeypatch.setattr(arp_snmp, "_build_session", lambda *_args, **_kwargs: fake_session)
+
+    entries = arp_snmp.load_arp_snmp(routers, timeout=2, retries=1)
+    assert len(entries) == 1
+    assert entries[0].mac == "00:11:22:33:44:55"

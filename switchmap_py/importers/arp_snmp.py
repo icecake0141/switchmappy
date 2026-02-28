@@ -27,10 +27,41 @@ logger = logging.getLogger(__name__)
 _HEX_PAIR_RE = re.compile(r"^[0-9a-fA-F]{2}$")
 
 
+def _bytes_to_mac(parts: list[int]) -> str | None:
+    if len(parts) != 6:
+        return None
+    if not all(0 <= part <= 255 for part in parts):
+        return None
+    return ":".join(f"{part:02x}" for part in parts)
+
+
 def _normalize_mac(raw: str) -> str | None:
     value = raw.strip()
     if not value:
         return None
+
+    # Some SNMP implementations return dotted-decimal byte arrays.
+    if "." in value and ":" not in value and "-" not in value:
+        dotted_parts = value.split(".")
+        if len(dotted_parts) == 6 and all(part.isdigit() for part in dotted_parts):
+            return _bytes_to_mac([int(part) for part in dotted_parts])
+
+    # Some implementations return whitespace-separated bytes.
+    if " " in value and ":" not in value and "-" not in value and "." not in value:
+        ws_parts = [part for part in value.split() if part]
+        if len(ws_parts) == 6:
+            parsed: list[int] = []
+            for part in ws_parts:
+                if part.isdigit():
+                    parsed.append(int(part))
+                elif _HEX_PAIR_RE.fullmatch(part):
+                    parsed.append(int(part, 16))
+                else:
+                    parsed = []
+                    break
+            if parsed:
+                return _bytes_to_mac(parsed)
+
     if value.lower().startswith("0x"):
         value = value[2:]
     value = value.replace("-", "").replace(":", "").replace(".", "").replace(" ", "")
