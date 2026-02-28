@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,12 +27,28 @@ class SwitchConfig(BaseModel):
     community: Optional[str] = None
     trunk_ports: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def validate_snmp_v2c_requires_community(self) -> "SwitchConfig":
+        if self.snmp_version == "2c" and not self.community:
+            raise ValueError(
+                f"Switch '{self.name}' requires 'community' when snmp_version is 2c"
+            )
+        return self
+
 
 class RouterConfig(BaseModel):
     name: str
     management_ip: str
     snmp_version: Literal["2c"] = "2c"
     community: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_snmp_v2c_requires_community(self) -> "RouterConfig":
+        if self.snmp_version == "2c" and not self.community:
+            raise ValueError(
+                f"Router '{self.name}' requires 'community' when snmp_version is 2c"
+            )
+        return self
 
 
 class SiteConfig(BaseSettings):
@@ -46,6 +62,25 @@ class SiteConfig(BaseSettings):
     routers: list[RouterConfig] = Field(default_factory=list)
     snmp_timeout: int = 2
     snmp_retries: int = 1
+
+    @model_validator(mode="after")
+    def validate_unique_names(self) -> "SiteConfig":
+        switch_names = [switch.name for switch in self.switches]
+        router_names = [router.name for router in self.routers]
+        duplicate_switches = sorted(
+            {name for name in switch_names if switch_names.count(name) > 1}
+        )
+        duplicate_routers = sorted(
+            {name for name in router_names if router_names.count(name) > 1}
+        )
+        errors: list[str] = []
+        if duplicate_switches:
+            errors.append(f"duplicate switch names: {', '.join(duplicate_switches)}")
+        if duplicate_routers:
+            errors.append(f"duplicate router names: {', '.join(duplicate_routers)}")
+        if errors:
+            raise ValueError("; ".join(errors))
+        return self
 
     @classmethod
     def load(cls, path: Path) -> "SiteConfig":

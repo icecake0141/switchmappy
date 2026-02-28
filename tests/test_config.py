@@ -58,3 +58,67 @@ def test_site_config_load(tmp_path):
     assert config.routers[0].name == "edge-1"
     assert config.routers[0].management_ip == "10.0.0.254"
     assert config.routers[0].community == "public"
+
+
+def test_site_config_rejects_missing_community_for_v2c_switch(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: core-1
+            management_ip: 10.0.0.1
+        """
+    )
+
+    with pytest.raises(ValueError, match="requires 'community'"):
+        SiteConfig.load(config_path)
+
+
+def test_site_config_rejects_missing_community_for_v2c_router(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        routers:
+          - name: edge-1
+            management_ip: 10.0.0.254
+        """
+    )
+
+    with pytest.raises(ValueError, match="requires 'community'"):
+        SiteConfig.load(config_path)
+
+
+def test_site_config_rejects_duplicate_switch_names(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: core-1
+            management_ip: 10.0.0.1
+            community: public
+          - name: core-1
+            management_ip: 10.0.0.2
+            community: public
+        """
+    )
+
+    with pytest.raises(ValueError, match="duplicate switch names"):
+        SiteConfig.load(config_path)
+
+
+def test_site_config_rejects_duplicate_router_names(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        routers:
+          - name: edge-1
+            management_ip: 10.0.0.254
+            community: public
+          - name: edge-1
+            management_ip: 10.0.0.253
+            community: public
+        """
+    )
+
+    with pytest.raises(ValueError, match="duplicate router names"):
+        SiteConfig.load(config_path)
