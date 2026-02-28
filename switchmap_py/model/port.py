@@ -29,6 +29,8 @@ class Port:
     neighbors: list[str] = field(default_factory=list)
     input_errors: Optional[int] = None
     output_errors: Optional[int] = None
+    poe_status: Optional[str] = None
+    poe_power_w: Optional[float] = None
     idle_since: Optional[datetime] = None
     last_active: Optional[datetime] = None
     is_trunk: bool = False

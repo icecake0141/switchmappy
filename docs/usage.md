@@ -103,6 +103,10 @@ Current SSH collector support is a foundation:
   - Cisco-like / Arista EOS: `show interfaces counters errors`
   - Juniper devices: `show interfaces extensive | match "Physical interface|Input errors|Output errors"`
   - Fortinet FortiSwitch OS: `diagnose switch physical-ports error-counters`
+- PoE status:
+  - Cisco-like / Arista EOS: `show power inline`
+  - Juniper devices: `show poe interface`
+  - Fortinet FortiSwitch OS: `get switch poe inline-status`
 - It can be extended incrementally for additional vendor-specific commands.
 
 ## CLI

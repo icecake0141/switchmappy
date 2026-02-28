@@ -37,6 +37,7 @@ _MAC_RE = re.compile(r"^(?:[0-9a-fA-F]{2}[:.-]?){6}$")
 _VLAN_ID_RE = re.compile(r"^\d{1,4}$")
 _PORT_HINT_RE = re.compile(r"^(?:gi|fa|te|eth|et|ge|xe|ae|po|port|internal)\d", re.IGNORECASE)
 _INTEGER_RE = re.compile(r"^\d+$")
+_POWER_RE = re.compile(r"(\d+(?:\.\d+)?)\s*w?$", re.IGNORECASE)
 
 
 def _vendor_profile(vendor: str) -> str:
@@ -527,6 +528,96 @@ def _parse_fortiswitch_error_counters(text: str) -> dict[str, tuple[int, int]]:
     return errors_by_port
 
 
+def _parse_power_value(token: str) -> float | None:
+    match = _POWER_RE.search(token.strip())
+    if not match:
+        return None
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
+
+def _parse_cisco_like_poe(text: str) -> dict[str, tuple[str, float | None]]:
+    poe_by_port: dict[str, tuple[str, float | None]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("interface", "port", "----", "available")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 3:
+            continue
+        port_token = tokens[0]
+        if not _looks_like_port(port_token):
+            continue
+        status = tokens[2].lower()
+        power = None
+        for token in tokens[3:]:
+            parsed = _parse_power_value(token)
+            if parsed is not None:
+                power = parsed
+                break
+        poe_by_port[_canonical_port_name(port_token)] = (status, power)
+    return poe_by_port
+
+
+def _parse_juniper_poe(text: str) -> dict[str, tuple[str, float | None]]:
+    poe_by_port: dict[str, tuple[str, float | None]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("interface", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 3:
+            continue
+        port_token = tokens[0]
+        if "/" not in port_token:
+            continue
+        status = " ".join(tokens[2:4]).lower() if len(tokens) > 3 else tokens[2].lower()
+        power = None
+        for token in tokens[1:]:
+            if "w" not in token.lower():
+                continue
+            parsed = _parse_power_value(token)
+            if parsed is not None:
+                power = parsed
+                break
+        poe_by_port[_canonical_port_name(port_token)] = (status, power)
+    return poe_by_port
+
+
+def _parse_fortiswitch_poe(text: str) -> dict[str, tuple[str, float | None]]:
+    poe_by_port: dict[str, tuple[str, float | None]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("port ", "name ", "interface ", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 3:
+            continue
+        port_token = tokens[0]
+        if not re.match(r"^(port|internal)\d+", port_token.lower()):
+            continue
+        status = tokens[2].lower()
+        power = None
+        for token in tokens[3:]:
+            parsed = _parse_power_value(token)
+            if parsed is not None:
+                power = parsed
+                break
+        poe_by_port[_canonical_port_name(port_token)] = (status, power)
+    return poe_by_port
+
+
 def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
@@ -594,6 +685,19 @@ def _collect_error_counters(session: SshSession, switch: SwitchConfig, timeout: 
 
     output = session.run("show interfaces counters errors", timeout=timeout)
     return _parse_cisco_like_error_counters(output)
+
+
+def _collect_poe_status(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, tuple[str, float | None]]:
+    profile = _vendor_profile(switch.vendor)
+    if profile == "juniper":
+        output = session.run("show poe interface", timeout=timeout)
+        return _parse_juniper_poe(output)
+    if profile == "fortiswitch":
+        output = session.run("get switch poe inline-status", timeout=timeout)
+        return _parse_fortiswitch_poe(output)
+
+    output = session.run("show power inline", timeout=timeout)
+    return _parse_cisco_like_poe(output)
 
 
 def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
@@ -669,6 +773,21 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
         except SshError:
             logger.warning(
                 "SSH error counter collection command failed for switch %s; continuing without counters.",
+                switch.name,
+                exc_info=True,
+            )
+        try:
+            poe_by_port = _collect_poe_status(session, switch, timeout=timeout)
+            for port in ports:
+                canonical = _canonical_port_name(port.name)
+                poe_state = poe_by_port.get(canonical)
+                if not poe_state:
+                    continue
+                port.poe_status = poe_state[0]
+                port.poe_power_w = poe_state[1]
+        except SshError:
+            logger.warning(
+                "SSH PoE collection command failed for switch %s; continuing without PoE data.",
                 switch.name,
                 exc_info=True,
             )

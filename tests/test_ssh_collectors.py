@@ -60,6 +60,7 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
             "show vlan brief": "10 default active Gi1/0/1",
             "show lldp neighbors detail": "Local Intf: Gi1/0/1\nSystem Name: dist-sw1\n",
             "show interfaces counters errors": "Gi1/0/1 0 0 5 7 0 0",
+            "show power inline": "Gi1/0/1 auto on 15.4 30.0",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -71,6 +72,7 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
         "show vlan brief",
         "show lldp neighbors detail",
         "show interfaces counters errors",
+        "show power inline",
     ]
     assert len(state.ports) == 2
     assert state.ports[0].name == "Gi1/0/1"
@@ -83,6 +85,8 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
     assert state.ports[0].neighbors == ["dist-sw1"]
     assert state.ports[0].input_errors == 7
     assert state.ports[0].output_errors == 5
+    assert state.ports[0].poe_status == "on"
+    assert state.ports[0].poe_power_w == 15.4
     assert state.ports[1].macs == []
     assert state.ports[1].oper_status == "down"
 
@@ -102,6 +106,7 @@ def test_collect_port_snapshots_marks_up_ports_active(monkeypatch):
             "show vlan brief": "10 default active Gi1/0/1",
             "show lldp neighbors detail": "Local Intf: Gi1/0/1\nSystem Name: access1\n",
             "show interfaces counters errors": "Gi1/0/1 0 0 1 2 0 0",
+            "show power inline": "Gi1/0/1 auto on 5.0 30.0",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -164,6 +169,7 @@ def test_collect_switch_state_keeps_ports_when_mac_command_fails(monkeypatch):
         "show lldp neighbors detail",
         "show cdp neighbors detail",
         "show interfaces counters errors",
+        "show power inline",
     ]
     assert [port.name for port in state.ports] == ["Gi1/0/1"]
     assert state.ports[0].macs == []
@@ -198,6 +204,7 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
                 "Input errors: 3, Output drops: 0\n"
                 "Output errors: 8, Carrier transitions: 1\n"
             ),
+            "show poe interface": "ge-0/0/1 Enabled Delivering 7.2W class-4",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -209,6 +216,7 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
         "show vlans",
         "show lldp neighbors",
         'show interfaces extensive | match "Physical interface|Input errors|Output errors"',
+        "show poe interface",
     ]
     assert [port.name for port in state.ports] == ["ge-0/0/1", "ge-0/0/2"]
     assert state.ports[0].oper_status == "up"
@@ -217,6 +225,8 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
     assert state.ports[0].neighbors == ["dist-junos-1"]
     assert state.ports[0].input_errors == 3
     assert state.ports[0].output_errors == 8
+    assert state.ports[0].poe_status == "delivering 7.2w"
+    assert state.ports[0].poe_power_w == 7.2
     assert state.ports[1].oper_status == "down"
 
 
@@ -242,6 +252,7 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
             "show vlan brief": "10 default active Et1",
             "show lldp neighbors detail": "Local Intf: Et1\nSystem Name: leaf-1\n",
             "show interfaces counters errors": "Et1 0 0 9 4 0 0",
+            "show power inline": "Et1 auto on 3.5 30.0",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -253,6 +264,7 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
         "show vlan brief",
         "show lldp neighbors detail",
         "show interfaces counters errors",
+        "show power inline",
     ]
     assert [port.name for port in state.ports] == ["Et1"]
     assert state.ports[0].oper_status == "up"
@@ -260,6 +272,8 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
     assert state.ports[0].neighbors == ["leaf-1"]
     assert state.ports[0].input_errors == 4
     assert state.ports[0].output_errors == 9
+    assert state.ports[0].poe_status == "on"
+    assert state.ports[0].poe_power_w == 3.5
 
 
 def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
@@ -285,6 +299,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
             "show switch vlan": "default 10 port1,port2",
             "get switch lldp neighbors-detail": "port1 aa:bb:cc:dd:ee:ff port48 fsw-core-1",
             "diagnose switch physical-ports error-counters": "port1 2 3\nport2 0 1",
+            "get switch poe inline-status": "port1 Enabled Delivering 8.8W\nport2 Enabled Off 0.0W",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -296,6 +311,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
         "show switch vlan",
         "get switch lldp neighbors-detail",
         "diagnose switch physical-ports error-counters",
+        "get switch poe inline-status",
     ]
     assert [port.name for port in state.ports] == ["port1", "port2"]
     assert state.ports[0].oper_status == "up"
@@ -305,10 +321,14 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     assert state.ports[0].neighbors == ["fsw-core-1"]
     assert state.ports[0].input_errors == 2
     assert state.ports[0].output_errors == 3
+    assert state.ports[0].poe_status == "delivering"
+    assert state.ports[0].poe_power_w == 8.8
     assert state.ports[1].oper_status == "down"
     assert state.ports[1].vlan == "10"
     assert state.ports[1].input_errors == 0
     assert state.ports[1].output_errors == 1
+    assert state.ports[1].poe_status == "off"
+    assert state.ports[1].poe_power_w == 0.0
 
 
 def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
@@ -340,6 +360,8 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
                 return "Device ID: cdp-edge-1\nInterface: Gi1/0/1, Port ID (outgoing port): Gi0/1\n"
             if command == "show interfaces counters errors":
                 return "Gi1/0/1 0 0 4 6 0 0"
+            if command == "show power inline":
+                return "Gi1/0/1 auto on 11.2 30.0"
             raise AssertionError(f"unexpected command: {command}")
 
     session = CdpFallbackSession()
@@ -353,8 +375,11 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
         "show lldp neighbors detail",
         "show cdp neighbors detail",
         "show interfaces counters errors",
+        "show power inline",
     ]
     assert [port.name for port in state.ports] == ["Gi1/0/1"]
     assert state.ports[0].neighbors == ["cdp-edge-1"]
     assert state.ports[0].input_errors == 6
     assert state.ports[0].output_errors == 4
+    assert state.ports[0].poe_status == "on"
+    assert state.ports[0].poe_power_w == 11.2

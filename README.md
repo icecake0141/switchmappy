@@ -119,6 +119,10 @@ Current SSH parser coverage is intentionally minimal:
   - Cisco-like / Arista EOS: `show interfaces counters errors`
   - Juniper devices: `show interfaces extensive | match "Physical interface|Input errors|Output errors"`
   - Fortinet FortiSwitch OS: `diagnose switch physical-ports error-counters`
+- PoE status:
+  - Cisco-like / Arista EOS: `show power inline`
+  - Juniper devices: `show poe interface`
+  - Fortinet FortiSwitch OS: `get switch poe inline-status`
 
 For more detail, see `docs/usage.md`.
 
