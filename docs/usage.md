@@ -116,3 +116,17 @@ currently limited to IPv4 entries.
 # Build HTML nightly
 0 2 * * * /usr/bin/env bash -lc 'cd /opt/switchmap && . .venv/bin/activate && switchmap build-html'
 ```
+
+## Troubleshooting
+
+- `RuntimeError: Search server requires optional dependencies`
+  - Install search extras: `pip install -e .[search]`
+- `No routers configured in site.yml; add routers or use --source csv`
+  - Add at least one router entry under `routers:` for `get-arp --source snmp`
+- SNMP collection fails for specific switches/routers
+  - Verify `management_ip`, `snmp_version: 2c`, `community`, timeout/retry
+  - Check network reachability and ACL/firewall to UDP/161
+- Generated report is missing a switch
+  - Open `output/index.html` and check the failed switch section/reason
+- VLAN page has limited names (e.g. `VLAN 20`)
+  - Device did not expose VLAN name table; IDs are derived from FDB entries
