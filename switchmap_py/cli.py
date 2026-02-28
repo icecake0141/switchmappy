@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -34,11 +34,17 @@ from switchmap_py.storage.maclist_store import MacListStore
 
 app = typer.Typer(help="Switchmap Python CLI")
 
+_SWITCHMAP_HANDLER_ATTR = "_switchmap_handler"
+
+
+class CliUsageError(ValueError):
+    pass
+
 
 class JsonLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -100,9 +106,9 @@ def _load_config(path: Optional[Path]) -> SiteConfig:
     try:
         return SiteConfig.load(config_path)
     except FileNotFoundError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+        raise CliUsageError(str(exc)) from exc
     except (ValueError, yaml.YAMLError) as exc:
-        raise typer.BadParameter(
+        raise CliUsageError(
             f"Failed to load config '{config_path}': {exc}"
         ) from exc
 
@@ -132,9 +138,14 @@ def _configure_logging(
         handler.setFormatter(JsonLogFormatter())
     else:
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    setattr(handler, _SWITCHMAP_HANDLER_ATTR, True)
 
     root = logging.getLogger()
-    root.handlers.clear()
+    root.handlers = [
+        existing
+        for existing in root.handlers
+        if not getattr(existing, _SWITCHMAP_HANDLER_ATTR, False)
+    ]
     root.setLevel(level)
     root.addHandler(handler)
 
@@ -230,7 +241,7 @@ def get_arp(
     store = MacListStore(site.maclist_file)
     if source == "csv":
         if not csv_path:
-            raise typer.BadParameter("--csv is required when source=csv")
+            raise CliUsageError("--csv is required when source=csv")
         started = time.monotonic()
         entries = load_arp_csv(csv_path)
         logger.info(
@@ -244,7 +255,7 @@ def get_arp(
         )
     elif source == "snmp":
         if not site.routers:
-            raise typer.BadParameter(
+            raise CliUsageError(
                 "No routers configured in site.yml; add routers or use --source csv"
             )
         started = time.monotonic()
@@ -259,7 +270,7 @@ def get_arp(
             ),
         )
     else:
-        raise typer.BadParameter("source must be one of: csv, snmp")
+        raise CliUsageError("source must be one of: csv, snmp")
     store.save(entries)
 
 
