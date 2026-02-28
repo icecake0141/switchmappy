@@ -49,7 +49,7 @@ class JsonLogFormatter(logging.Formatter):
             "elapsed_ms": getattr(record, "elapsed_ms", None),
             "error_code": getattr(record, "error_code", None),
         }
-        for key in ("switch", "router", "oid", "error_type"):
+        for key in ("switch", "router", "oid", "error_type", "entries_count"):
             value = getattr(record, key, None)
             if value is not None:
                 payload[key] = value

@@ -15,6 +15,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import re
+import time
 from typing import Iterable
 
 from switchmap_py.config import RouterConfig
@@ -99,6 +100,8 @@ def load_arp_snmp(
     seen: set[tuple[str, str, str | None]] = set()
     entries: list[MacEntry] = []
     for router in routers:
+        started = time.monotonic()
+        before = len(entries)
         try:
             session = _build_session(router, timeout, retries)
             mac_by_oid = session.get_table(mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS)
@@ -120,8 +123,13 @@ def load_arp_snmp(
                 "Failed to collect ARP entries from router %s",
                 router.name,
                 extra={
+                    "event": "get_arp_snmp_router",
                     "command": "get-arp",
+                    "status": "error",
+                    "target": router.name,
                     "router": router.name,
+                    "elapsed_ms": int((time.monotonic() - started) * 1000),
+                    "error_code": "SNMP_ERROR",
                     "error_type": "SnmpError",
                 },
                 exc_info=True,
@@ -149,5 +157,17 @@ def load_arp_snmp(
             entries.append(
                 MacEntry(mac=mac, ip=ip, hostname=None, switch=router.name, port=None)
             )
+        logger.info(
+            "Collected ARP entries from router",
+            extra={
+                "event": "get_arp_snmp_router",
+                "command": "get-arp",
+                "status": "success",
+                "target": router.name,
+                "router": router.name,
+                "entries_count": len(entries) - before,
+                "elapsed_ms": int((time.monotonic() - started) * 1000),
+            },
+        )
     entries.sort(key=lambda entry: (entry.switch or "", entry.ip or "", entry.mac))
     return entries
