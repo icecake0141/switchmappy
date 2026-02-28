@@ -24,6 +24,15 @@ from switchmap_py.ssh.session import SshConfig, SshError, SshSession
 logger = logging.getLogger(__name__)
 
 _WS_RE = re.compile(r"\s+")
+_STATUS_TOKENS = {
+    "connected",
+    "notconnect",
+    "disabled",
+    "err-disabled",
+    "inactive",
+    "up",
+    "down",
+}
 
 
 def build_session(switch: SwitchConfig, timeout: int) -> SshSession:
@@ -43,12 +52,22 @@ def _normalize_oper_status(status: str) -> str:
     value = status.lower()
     if value in {"connected", "up"}:
         return "up"
-    if value in {"notconnect", "down", "disabled"}:
+    if value in {"notconnect", "down", "disabled", "err-disabled", "inactive"}:
         return "down"
     return value
 
 
-def _parse_interface_status(text: str, switch: SwitchConfig) -> list[Port]:
+def _parse_speed(token: str) -> int | None:
+    match = re.search(r"(\d+)$", token)
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return None
+
+
+def _parse_cisco_interface_status(text: str, switch: SwitchConfig) -> list[Port]:
     ports: list[Port] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -57,17 +76,65 @@ def _parse_interface_status(text: str, switch: SwitchConfig) -> list[Port]:
         lower = line.lower()
         if lower.startswith(("port ", "name ", "----")):
             continue
-        parts = _WS_RE.split(line, maxsplit=2)
-        if len(parts) < 2:
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 2:
             continue
-        name = parts[0]
-        oper_status = _normalize_oper_status(parts[1])
-        descr = parts[2] if len(parts) > 2 else ""
+        name = tokens[0]
+        status_index = -1
+        for index, token in enumerate(tokens[1:], start=1):
+            if token.lower() in _STATUS_TOKENS:
+                status_index = index
+                break
+        if status_index < 1:
+            continue
+        descr = " ".join(tokens[1:status_index]) if status_index > 1 else ""
+        raw_status = tokens[status_index]
+        oper_status = _normalize_oper_status(raw_status)
+        admin_status = "down" if raw_status.lower() in {"disabled", "err-disabled"} else "up"
+        vlan = None
+        if status_index + 1 < len(tokens):
+            vlan = tokens[status_index + 1]
+        speed = None
+        if status_index + 3 < len(tokens):
+            speed = _parse_speed(tokens[status_index + 3])
         ports.append(
             Port(
                 name=name,
                 descr=descr,
-                admin_status="up",
+                admin_status=admin_status,
+                oper_status=oper_status,
+                speed=speed,
+                vlan=vlan,
+                macs=[],
+                is_trunk=name in switch.trunk_ports,
+            )
+        )
+    return ports
+
+
+def _parse_juniper_interfaces_terse(text: str, switch: SwitchConfig) -> list[Port]:
+    ports: list[Port] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("interface", "physical interface", "---")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 3:
+            continue
+        name = tokens[0]
+        if "." in name:
+            # Skip logical interfaces and focus on physical ports.
+            continue
+        admin_status = _normalize_oper_status(tokens[1])
+        oper_status = _normalize_oper_status(tokens[2])
+        ports.append(
+            Port(
+                name=name,
+                descr="",
+                admin_status=admin_status,
                 oper_status=oper_status,
                 speed=None,
                 vlan=None,
@@ -78,12 +145,24 @@ def _parse_interface_status(text: str, switch: SwitchConfig) -> list[Port]:
     return ports
 
 
+def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
+    vendor = switch.vendor.lower()
+    if "juniper" in vendor:
+        command = "show interfaces terse"
+    else:
+        command = "show interfaces status"
+    return session.run(command, timeout=timeout)
+
+
 def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
     session = build_session(switch, timeout=timeout)
     ports: list[Port] = []
     try:
-        output = session.run("show interfaces status", timeout=timeout)
-        ports = _parse_interface_status(output, switch)
+        output = _collect_interface_output(session, switch, timeout=timeout)
+        if "juniper" in switch.vendor.lower():
+            ports = _parse_juniper_interfaces_terse(output, switch)
+        else:
+            ports = _parse_cisco_interface_status(output, switch)
     except SshError:
         logger.warning(
             "SSH collection command failed for switch %s; returning empty switch state.",

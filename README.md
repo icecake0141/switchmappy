@@ -106,6 +106,10 @@ switches:
     trunk_ports: ["Gi1/0/24"]
 ```
 
+Current SSH parser coverage is intentionally minimal:
+- Cisco-like devices: `show interfaces status`
+- Juniper devices: `show interfaces terse`
+
 For more detail, see `docs/usage.md`.
 
 ## CLI quick start

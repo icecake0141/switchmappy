@@ -90,7 +90,10 @@ switches:
     trunk_ports: ["Gi1/0/24"]
 ```
 
-Current SSH collector support is a foundation: it attempts to parse `show interfaces status` output and can be extended for vendor-specific commands.
+Current SSH collector support is a foundation:
+- Cisco-like devices: parses `show interfaces status`
+- Juniper devices: parses `show interfaces terse`
+- It can be extended incrementally for additional vendor-specific commands.
 
 ## CLI
 
