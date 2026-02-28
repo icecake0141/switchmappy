@@ -78,3 +78,41 @@ def test_get_arp_snmp_uses_router_config(tmp_path, monkeypatch):
     assert len(saved) == 1
     assert saved[0]["mac"] == "00:11:22:33:44:55"
     assert saved[0]["switch"] == "r1"
+
+
+def test_get_arp_snmp_requires_routers_in_config(tmp_path, monkeypatch):
+    fake_typer = ModuleType("typer")
+
+    class FakeTyperApp:
+        def command(self, *_args, **_kwargs):
+            def decorator(func):
+                return func
+
+            return decorator
+
+    class FakeBadParameter(ValueError):
+        pass
+
+    def fake_option(default=None, *_args, **_kwargs):
+        return default
+
+    fake_typer.Typer = lambda **_kwargs: FakeTyperApp()
+    fake_typer.Option = fake_option
+    fake_typer.BadParameter = FakeBadParameter
+    monkeypatch.setitem(sys.modules, "typer", fake_typer)
+    cli = importlib.import_module("switchmap_py.cli")
+
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                f"maclist_file: {tmp_path / 'maclist.json'}",
+            ]
+        )
+    )
+
+    try:
+        cli.get_arp(source="snmp", csv_path=None, config=config_path, logfile=None)
+        assert False, "Expected BadParameter when routers are missing"
+    except ValueError as exc:
+        assert "No routers configured" in str(exc)

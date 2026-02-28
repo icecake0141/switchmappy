@@ -121,6 +121,10 @@ def get_arp(
             raise typer.BadParameter("--csv is required when source=csv")
         entries = load_arp_csv(csv_path)
     elif source == "snmp":
+        if not site.routers:
+            raise typer.BadParameter(
+                "No routers configured in site.yml; add routers or use --source csv"
+            )
         entries = load_arp_snmp(site.routers, site.snmp_timeout, site.snmp_retries)
     else:
         raise typer.BadParameter("source must be one of: csv, snmp")

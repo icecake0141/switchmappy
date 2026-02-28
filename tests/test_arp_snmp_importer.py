@@ -58,6 +58,7 @@ def test_load_arp_snmp_collects_entries(monkeypatch):
     assert entries[0].ip == "192.0.2.10"
     assert entries[0].switch == "r1"
     assert entries[1].mac == "00:11:22:33:44:66"
+    assert entries[1].ip == "192.0.2.11"
 
 
 def test_load_arp_snmp_skips_invalid_rows(monkeypatch):
@@ -113,3 +114,27 @@ def test_load_arp_snmp_continues_on_snmp_error(monkeypatch):
     assert calls["count"] == 2
     assert len(entries) == 1
     assert entries[0].switch == "r2"
+
+
+def test_load_arp_snmp_deduplicates_entries(monkeypatch):
+    routers = [
+        RouterConfig(name="r1", management_ip="192.0.2.1", community="public"),
+    ]
+    fake_session = FakeSession(
+        {
+            mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS}.1.192.0.2.10": "00:11:22:33:44:55",
+                f"{mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS}.2.192.0.2.10": "00:11:22:33:44:55",
+            },
+            mibs.IP_NET_TO_MEDIA_NET_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_NET_ADDRESS}.1.192.0.2.10": "192.0.2.10",
+                f"{mibs.IP_NET_TO_MEDIA_NET_ADDRESS}.2.192.0.2.10": "192.0.2.10",
+            },
+        }
+    )
+    monkeypatch.setattr(arp_snmp, "_build_session", lambda *_args, **_kwargs: fake_session)
+
+    entries = arp_snmp.load_arp_snmp(routers, timeout=2, retries=1)
+    assert len(entries) == 1
+    assert entries[0].mac == "00:11:22:33:44:55"
+    assert entries[0].ip == "192.0.2.10"

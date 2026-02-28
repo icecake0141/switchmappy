@@ -65,6 +65,7 @@ def _build_session(router: RouterConfig, timeout: int, retries: int) -> SnmpSess
 def load_arp_snmp(
     routers: Iterable[RouterConfig], timeout: int, retries: int
 ) -> list[MacEntry]:
+    seen: set[tuple[str, str, str | None]] = set()
     entries: list[MacEntry] = []
     for router in routers:
         try:
@@ -88,13 +89,12 @@ def load_arp_snmp(
             mac = _normalize_mac(raw_mac)
             if not mac:
                 continue
+            key = (mac, ip, router.name)
+            if key in seen:
+                continue
+            seen.add(key)
             entries.append(
-                MacEntry(
-                    mac=mac,
-                    ip=ip,
-                    hostname=None,
-                    switch=router.name,
-                    port=None,
-                )
+                MacEntry(mac=mac, ip=ip, hostname=None, switch=router.name, port=None)
             )
+    entries.sort(key=lambda entry: (entry.switch or "", entry.ip or "", entry.mac))
     return entries

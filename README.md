@@ -90,6 +90,8 @@ switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```
 
+`get-arp --source snmp` requires at least one router in `site.yml` under `routers:`.
+
 ## Validation (local, same as CI)
 
 ```bash
@@ -186,6 +188,8 @@ switchmap get-arp --source snmp
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```
+
+`get-arp --source snmp` を使う場合は、`site.yml` の `routers:` に最低1台の定義が必要です。
 
 ## 検証コマンド（ローカル/CI共通）
 
