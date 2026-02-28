@@ -115,6 +115,7 @@ Current SSH parser coverage is intentionally minimal:
   - Cisco-like / Arista EOS: `show lldp neighbors detail` (fallback: `show cdp neighbors detail`)
   - Juniper devices: `show lldp neighbors`
   - Fortinet FortiSwitch OS: `get switch lldp neighbors-detail`
+  - Stored as structured fields (`device`, `port`, `protocol`) per switch port
 - Port error counters:
   - Cisco-like / Arista EOS: `show interfaces counters errors`
   - Juniper devices: `show interfaces extensive | match "Physical interface|Input errors|Output errors"`
@@ -123,6 +124,11 @@ Current SSH parser coverage is intentionally minimal:
   - Cisco-like / Arista EOS: `show power inline`
   - Juniper devices: `show poe interface`
   - Fortinet FortiSwitch OS: `get switch poe inline-status`
+
+SSH command execution also includes command-level resilience:
+- retry on critical command failures
+- retry-aware fallback paths (for example, LLDP -> CDP)
+- timeout scaling for expensive commands (for example, Juniper `interfaces extensive`)
 
 For more detail, see `docs/usage.md`.
 

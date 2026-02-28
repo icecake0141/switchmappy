@@ -24,11 +24,19 @@ class StubSession:
         self.commands: list[str] = []
 
     def run(self, command: str, timeout: int) -> str:
-        assert timeout == 3
+        assert timeout in {3, 6}
         self.commands.append(command)
         if command in self.by_command:
             return self.by_command[command]
         return self.output
+
+
+def _neighbor_devices(port) -> list[str]:
+    return [neighbor.device for neighbor in port.neighbors]
+
+
+def _neighbor_protocols(port) -> list[str]:
+    return [neighbor.protocol for neighbor in port.neighbors]
 
 
 def test_collect_switch_state_parses_interface_status(monkeypatch):
@@ -82,7 +90,8 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
     assert state.ports[0].vlan == "10"
     assert state.ports[0].speed == 1000
     assert state.ports[0].macs == ["00:11:22:33:44:55"]
-    assert state.ports[0].neighbors == ["dist-sw1"]
+    assert _neighbor_devices(state.ports[0]) == ["dist-sw1"]
+    assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[0].input_errors == 7
     assert state.ports[0].output_errors == 5
     assert state.ports[0].poe_status == "on"
@@ -128,7 +137,7 @@ def test_collect_switch_state_returns_empty_on_ssh_error(monkeypatch):
 
     class ErrorSession:
         def run(self, _command: str, timeout: int) -> str:
-            assert timeout == 3
+            assert timeout in {3, 6}
             raise SshError("command failed")
 
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: ErrorSession())
@@ -150,7 +159,7 @@ def test_collect_switch_state_keeps_ports_when_mac_command_fails(monkeypatch):
             self.commands: list[str] = []
 
         def run(self, command: str, timeout: int) -> str:
-            assert timeout == 3
+            assert timeout in {3, 6}
             self.commands.append(command)
             if command == "show interfaces status":
                 return "Gi1/0/1 Uplink connected 10 full 1000 copper"
@@ -222,7 +231,8 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].macs == ["00:11:22:33:44:66"]
     assert state.ports[0].vlan == "10"
-    assert state.ports[0].neighbors == ["dist-junos-1"]
+    assert _neighbor_devices(state.ports[0]) == ["dist-junos-1"]
+    assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[0].input_errors == 3
     assert state.ports[0].output_errors == 8
     assert state.ports[0].poe_status == "delivering 7.2w"
@@ -269,7 +279,8 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
     assert [port.name for port in state.ports] == ["Et1"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].macs == ["00:11:22:33:44:66"]
-    assert state.ports[0].neighbors == ["leaf-1"]
+    assert _neighbor_devices(state.ports[0]) == ["leaf-1"]
+    assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[0].input_errors == 4
     assert state.ports[0].output_errors == 9
     assert state.ports[0].poe_status == "on"
@@ -318,7 +329,8 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     assert state.ports[0].speed == 1000
     assert state.ports[0].macs == ["00:11:22:33:44:77"]
     assert state.ports[0].vlan == "10"
-    assert state.ports[0].neighbors == ["fsw-core-1"]
+    assert _neighbor_devices(state.ports[0]) == ["fsw-core-1"]
+    assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[0].input_errors == 2
     assert state.ports[0].output_errors == 3
     assert state.ports[0].poe_status == "delivering"
@@ -346,7 +358,7 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
             self.commands: list[str] = []
 
         def run(self, command: str, timeout: int) -> str:
-            assert timeout == 3
+            assert timeout in {3, 6}
             self.commands.append(command)
             if command == "show interfaces status":
                 return "Gi1/0/1 Uplink connected 10 full 1000 copper"
@@ -378,7 +390,8 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
         "show power inline",
     ]
     assert [port.name for port in state.ports] == ["Gi1/0/1"]
-    assert state.ports[0].neighbors == ["cdp-edge-1"]
+    assert _neighbor_devices(state.ports[0]) == ["cdp-edge-1"]
+    assert _neighbor_protocols(state.ports[0]) == ["cdp"]
     assert state.ports[0].input_errors == 6
     assert state.ports[0].output_errors == 4
     assert state.ports[0].poe_status == "on"

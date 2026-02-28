@@ -541,3 +541,17 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert 'id="resetFilters"' in search_html
     assert 'id="emptyState"' in search_html
     assert "No matching entries." in search_html
+
+    switch_html = (output_dir / "switches" / "sw1.html").read_text(encoding="utf-8")
+    assert 'id="poeFilter"' in switch_html
+    assert 'id="neighborFilter"' in switch_html
+    assert 'id="inErrFilter"' in switch_html
+    assert 'id="outErrFilter"' in switch_html
+    assert "No matching ports." in switch_html
+
+    ports_html = (output_dir / "ports" / "index.html").read_text(encoding="utf-8")
+    assert 'id="poeFilter"' in ports_html
+    assert 'id="neighborFilter"' in ports_html
+    assert 'id="inErrFilter"' in ports_html
+    assert 'id="outErrFilter"' in ports_html
+    assert "No matching ports." in ports_html

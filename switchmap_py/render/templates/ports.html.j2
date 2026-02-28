@@ -23,6 +23,25 @@ Review required for correctness, security, and licensing.
     <h1>Ports</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
+  <div>
+    <label for="statusFilter">Status:</label>
+    <select id="statusFilter">
+      <option value="">All</option>
+      <option value="up">up</option>
+      <option value="down">down</option>
+    </select>
+    <label for="poeFilter">PoE:</label>
+    <input id="poeFilter" type="text" placeholder="e.g. on, delivering" />
+    <label for="neighborFilter">Neighbor:</label>
+    <input id="neighborFilter" type="text" placeholder="e.g. dist-sw1" />
+    <label for="inErrFilter">In Err >=</label>
+    <input id="inErrFilter" type="number" min="0" step="1" placeholder="0" />
+    <label for="outErrFilter">Out Err >=</label>
+    <input id="outErrFilter" type="number" min="0" step="1" placeholder="0" />
+    <button id="resetFilters" type="button">Reset</button>
+  </div>
+  <p id="resultCount">0 results</p>
+  <p id="emptyState" hidden>No matching ports.</p>
   {% for switch in switches %}
   <section>
     <h2>{{ switch.name }}</h2>
@@ -32,8 +51,11 @@ Review required for correctness, security, and licensing.
           <th>Port</th>
           <th>Description</th>
           <th>Oper</th>
+          <th>Neighbor</th>
           <th>In Err</th>
           <th>Out Err</th>
+          <th>PoE</th>
+          <th>PoE W</th>
           <th>Trunk</th>
           <th>Idle Since</th>
           <th>Unused (>= {{ unused_after_days }}d)</th>
@@ -44,12 +66,21 @@ Review required for correctness, security, and licensing.
       {% set idle_states = idle_states_by_switch.get(switch.name, {}) %}
       {% set unused_ports = unused_ports_by_switch.get(switch.name, []) %}
       {% for port in switch.ports %}
-        <tr>
+        <tr
+          data-status="{{ port.oper_status | lower }}"
+          data-neighbor="{{ port.neighbor_names | join(',') | lower }}"
+          data-poe="{{ (port.poe_status or '') | lower }}"
+          data-in-err="{{ port.input_errors if port.input_errors is not none else 0 }}"
+          data-out-err="{{ port.output_errors if port.output_errors is not none else 0 }}"
+        >
           <td>{{ port.name }}</td>
           <td>{{ port.descr }}</td>
           <td>{{ port.oper_status }}</td>
+          <td>{{ port.neighbor_names | join(', ') }}</td>
           <td>{{ port.input_errors if port.input_errors is not none else '' }}</td>
           <td>{{ port.output_errors if port.output_errors is not none else '' }}</td>
+          <td>{{ port.poe_status or '' }}</td>
+          <td>{{ port.poe_power_w if port.poe_power_w is not none else '' }}</td>
           <td>{% if port.is_trunk %}yes{% else %}-{% endif %}</td>
           <td>
             {% set idle = idle_states.get(port.name) %}
@@ -73,5 +104,52 @@ Review required for correctness, security, and licensing.
     </table>
   </section>
   {% endfor %}
+  <script>
+    function applyFilters() {
+      const status = document.getElementById('statusFilter').value;
+      const poe = document.getElementById('poeFilter').value.toLowerCase().trim();
+      const neighbor = document.getElementById('neighborFilter').value.toLowerCase().trim();
+      const inErr = document.getElementById('inErrFilter').value.trim();
+      const outErr = document.getElementById('outErrFilter').value.trim();
+      const minInErr = inErr ? Number.parseInt(inErr, 10) : null;
+      const minOutErr = outErr ? Number.parseInt(outErr, 10) : null;
+
+      let visible = 0;
+      for (const row of document.querySelectorAll('tbody tr')) {
+        const rowStatus = row.dataset.status || '';
+        const rowPoe = row.dataset.poe || '';
+        const rowNeighbor = row.dataset.neighbor || '';
+        const rowInErr = Number(row.dataset.inErr || '0');
+        const rowOutErr = Number(row.dataset.outErr || '0');
+        const match =
+          (!status || rowStatus === status) &&
+          (!poe || rowPoe.includes(poe)) &&
+          (!neighbor || rowNeighbor.includes(neighbor)) &&
+          (minInErr === null || !Number.isFinite(minInErr) || rowInErr >= minInErr) &&
+          (minOutErr === null || !Number.isFinite(minOutErr) || rowOutErr >= minOutErr);
+        row.hidden = !match;
+        if (match) visible += 1;
+      }
+      document.getElementById('resultCount').textContent = `${visible} results`;
+      document.getElementById('emptyState').hidden = visible > 0;
+    }
+
+    function resetFilters() {
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('poeFilter').value = '';
+      document.getElementById('neighborFilter').value = '';
+      document.getElementById('inErrFilter').value = '';
+      document.getElementById('outErrFilter').value = '';
+      applyFilters();
+    }
+
+    document.getElementById('statusFilter').addEventListener('change', applyFilters);
+    document.getElementById('poeFilter').addEventListener('input', applyFilters);
+    document.getElementById('neighborFilter').addEventListener('input', applyFilters);
+    document.getElementById('inErrFilter').addEventListener('input', applyFilters);
+    document.getElementById('outErrFilter').addEventListener('input', applyFilters);
+    document.getElementById('resetFilters').addEventListener('click', resetFilters);
+    applyFilters();
+  </script>
 </body>
 </html>

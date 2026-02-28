@@ -16,6 +16,7 @@ import logging
 import re
 
 from switchmap_py.config import SwitchConfig
+from switchmap_py.model.neighbor import Neighbor
 from switchmap_py.model.port import Port
 from switchmap_py.model.switch import Switch
 from switchmap_py.snmp.collectors import PortSnapshot
@@ -38,6 +39,10 @@ _VLAN_ID_RE = re.compile(r"^\d{1,4}$")
 _PORT_HINT_RE = re.compile(r"^(?:gi|fa|te|eth|et|ge|xe|ae|po|port|internal)\d", re.IGNORECASE)
 _INTEGER_RE = re.compile(r"^\d+$")
 _POWER_RE = re.compile(r"(\d+(?:\.\d+)?)\s*w?$", re.IGNORECASE)
+
+_DEFAULT_COMMAND_RETRIES = 0
+_PRIMARY_COMMAND_RETRIES = 1
+_SLOW_COMMAND_TIMEOUT_FACTOR = 2
 
 
 def _vendor_profile(vendor: str) -> str:
@@ -367,8 +372,36 @@ def _extract_neighbor_name(token: str) -> str | None:
     return value
 
 
-def _parse_neighbor_table(text: str) -> dict[str, set[str]]:
-    neighbors_by_port: dict[str, set[str]] = {}
+def _run_command(session: SshSession, command: str, timeout: int, retries: int = _DEFAULT_COMMAND_RETRIES) -> str:
+    tries = max(1, retries + 1)
+    effective_timeout = timeout * _SLOW_COMMAND_TIMEOUT_FACTOR if "extensive" in command else timeout
+    last_error: SshError | None = None
+    for _ in range(tries):
+        try:
+            return session.run(command, timeout=effective_timeout)
+        except SshError as exc:
+            last_error = exc
+    if last_error:
+        raise last_error
+    raise SshError(f"failed to run command: {command}")
+
+
+def _add_neighbor(
+    table: dict[str, list[Neighbor]],
+    local_port: str,
+    device: str,
+    protocol: str,
+    remote_port: str | None = None,
+) -> None:
+    neighbors = table.setdefault(local_port, [])
+    key = (device.lower(), (remote_port or "").lower(), protocol.lower())
+    if any((n.device.lower(), (n.port or "").lower(), n.protocol.lower()) == key for n in neighbors):
+        return
+    neighbors.append(Neighbor(device=device, protocol=protocol, port=remote_port))
+
+
+def _parse_neighbor_table(text: str, protocol: str) -> dict[str, list[Neighbor]]:
+    neighbors_by_port: dict[str, list[Neighbor]] = {}
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
@@ -383,6 +416,15 @@ def _parse_neighbor_table(text: str) -> dict[str, set[str]]:
         local = _canonical_port_name(local_token)
         if not local:
             continue
+        remote_port = None
+        for token in reversed(tokens):
+            candidate = token.strip(",")
+            if not _looks_like_port(candidate):
+                continue
+            if _canonical_port_name(candidate) == local:
+                continue
+            remote_port = candidate
+            break
         neighbor = None
         for token in reversed(tokens):
             candidate = _extract_neighbor_name(token)
@@ -390,21 +432,29 @@ def _parse_neighbor_table(text: str) -> dict[str, set[str]]:
                 neighbor = candidate
                 break
         if neighbor:
-            neighbors_by_port.setdefault(local, set()).add(neighbor)
+            _add_neighbor(neighbors_by_port, local, neighbor, protocol, remote_port=remote_port)
     return neighbors_by_port
 
 
-def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, set[str]]:
-    neighbors_by_port: dict[str, set[str]] = {}
+def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
+    neighbors_by_port: dict[str, list[Neighbor]] = {}
     current_local: str | None = None
     current_neighbor: str | None = None
+    current_remote_port: str | None = None
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
             if current_local and current_neighbor:
-                neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+                _add_neighbor(
+                    neighbors_by_port,
+                    current_local,
+                    current_neighbor,
+                    "lldp",
+                    remote_port=current_remote_port,
+                )
             current_local = None
             current_neighbor = None
+            current_remote_port = None
             continue
         lower = line.lower()
         if lower.startswith("local intf:") or lower.startswith("local interface:"):
@@ -414,33 +464,48 @@ def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, set[str]]:
         if lower.startswith("system name:"):
             current_neighbor = line.split(":", 1)[1].strip()
             continue
+        if lower.startswith("port id:"):
+            current_remote_port = line.split(":", 1)[1].strip()
+            continue
     if current_local and current_neighbor:
-        neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+        _add_neighbor(neighbors_by_port, current_local, current_neighbor, "lldp", remote_port=current_remote_port)
     return neighbors_by_port
 
 
-def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, set[str]]:
-    neighbors_by_port: dict[str, set[str]] = {}
+def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
+    neighbors_by_port: dict[str, list[Neighbor]] = {}
     current_local: str | None = None
     current_neighbor: str | None = None
+    current_remote_port: str | None = None
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
             if current_local and current_neighbor:
-                neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+                _add_neighbor(
+                    neighbors_by_port,
+                    current_local,
+                    current_neighbor,
+                    "cdp",
+                    remote_port=current_remote_port,
+                )
             current_local = None
             current_neighbor = None
+            current_remote_port = None
             continue
         lower = line.lower()
         if lower.startswith("device id:"):
             current_neighbor = line.split(":", 1)[1].strip()
             continue
         if lower.startswith("interface:"):
-            value = line.split(":", 1)[1].split(",", 1)[0].strip()
+            rhs = line.split(":", 1)[1]
+            value = rhs.split(",", 1)[0].strip()
             current_local = _canonical_port_name(value)
+            if "port id" in lower:
+                tail = rhs.split("Port ID", 1)[1]
+                current_remote_port = tail.split(":", 1)[1].strip() if ":" in tail else None
             continue
     if current_local and current_neighbor:
-        neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+        _add_neighbor(neighbors_by_port, current_local, current_neighbor, "cdp", remote_port=current_remote_port)
     return neighbors_by_port
 
 
@@ -626,7 +691,7 @@ def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout
         command = "get switch interface status"
     else:
         command = "show interfaces status"
-    return session.run(command, timeout=timeout)
+    return _run_command(session, command, timeout=timeout, retries=_PRIMARY_COMMAND_RETRIES)
 
 
 def _collect_mac_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
@@ -637,7 +702,7 @@ def _collect_mac_output(session: SshSession, switch: SwitchConfig, timeout: int)
         command = "get switch mac-address-table"
     else:
         command = "show mac address-table"
-    return session.run(command, timeout=timeout)
+    return _run_command(session, command, timeout=timeout)
 
 
 def _collect_vlan_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
@@ -648,55 +713,57 @@ def _collect_vlan_output(session: SshSession, switch: SwitchConfig, timeout: int
         command = "show switch vlan"
     else:
         command = "show vlan brief"
-    return session.run(command, timeout=timeout)
+    return _run_command(session, command, timeout=timeout)
 
 
-def _collect_neighbors(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, set[str]]:
+def _collect_neighbors(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, list[Neighbor]]:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
-        return _parse_neighbor_table(session.run("show lldp neighbors", timeout=timeout))
+        return _parse_neighbor_table(_run_command(session, "show lldp neighbors", timeout=timeout), "lldp")
     if profile == "fortiswitch":
-        return _parse_neighbor_table(session.run("get switch lldp neighbors-detail", timeout=timeout))
+        output = _run_command(session, "get switch lldp neighbors-detail", timeout=timeout)
+        return _parse_neighbor_table(output, "lldp")
 
-    lldp_neighbors: dict[str, set[str]] = {}
+    lldp_neighbors: dict[str, list[Neighbor]] = {}
     try:
-        lldp_output = session.run("show lldp neighbors detail", timeout=timeout)
+        lldp_output = _run_command(session, "show lldp neighbors detail", timeout=timeout)
         lldp_neighbors = _parse_cisco_lldp_neighbors_detail(lldp_output)
     except SshError:
         lldp_neighbors = {}
     if lldp_neighbors:
         return lldp_neighbors
 
-    cdp_output = session.run("show cdp neighbors detail", timeout=timeout)
+    cdp_output = _run_command(session, "show cdp neighbors detail", timeout=timeout)
     return _parse_cisco_cdp_neighbors_detail(cdp_output)
 
 
 def _collect_error_counters(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, tuple[int, int]]:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
-        output = session.run(
+        output = _run_command(
+            session,
             'show interfaces extensive | match "Physical interface|Input errors|Output errors"',
             timeout=timeout,
         )
         return _parse_juniper_error_counters(output)
     if profile == "fortiswitch":
-        output = session.run("diagnose switch physical-ports error-counters", timeout=timeout)
+        output = _run_command(session, "diagnose switch physical-ports error-counters", timeout=timeout)
         return _parse_fortiswitch_error_counters(output)
 
-    output = session.run("show interfaces counters errors", timeout=timeout)
+    output = _run_command(session, "show interfaces counters errors", timeout=timeout)
     return _parse_cisco_like_error_counters(output)
 
 
 def _collect_poe_status(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, tuple[str, float | None]]:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
-        output = session.run("show poe interface", timeout=timeout)
+        output = _run_command(session, "show poe interface", timeout=timeout)
         return _parse_juniper_poe(output)
     if profile == "fortiswitch":
-        output = session.run("get switch poe inline-status", timeout=timeout)
+        output = _run_command(session, "get switch poe inline-status", timeout=timeout)
         return _parse_fortiswitch_poe(output)
 
-    output = session.run("show power inline", timeout=timeout)
+    output = _run_command(session, "show power inline", timeout=timeout)
     return _parse_cisco_like_poe(output)
 
 
@@ -754,7 +821,7 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
             neighbors_by_port = _collect_neighbors(session, switch, timeout=timeout)
             for port in ports:
                 canonical = _canonical_port_name(port.name)
-                port.neighbors = sorted(neighbors_by_port.get(canonical, set()))
+                port.neighbors = neighbors_by_port.get(canonical, [])
         except SshError:
             logger.warning(
                 "SSH neighbor collection command failed for switch %s; continuing without neighbors.",

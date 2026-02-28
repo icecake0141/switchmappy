@@ -186,7 +186,7 @@ Review required for correctness, security, and licensing.
             port: port.name ?? '',
             status: port.oper_status ?? '',
             vlan: port.vlan ?? '',
-            neighbor: (port.neighbors || []).join(', '),
+            neighbor: (port.neighbors || []).map((n) => n.device || '').filter(Boolean).join(', '),
             input_errors: port.input_errors ?? 0,
             output_errors: port.output_errors ?? 0,
             mac: (port.macs || []).join(', '),

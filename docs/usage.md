@@ -99,6 +99,7 @@ Current SSH collector support is a foundation:
   - Cisco-like / Arista EOS: `show lldp neighbors detail` (fallback: `show cdp neighbors detail`)
   - Juniper devices: `show lldp neighbors`
   - Fortinet FortiSwitch OS: `get switch lldp neighbors-detail`
+  - Neighbor data is saved as structured fields (`device`, `port`, `protocol`)
 - Port error counters:
   - Cisco-like / Arista EOS: `show interfaces counters errors`
   - Juniper devices: `show interfaces extensive | match "Physical interface|Input errors|Output errors"`
@@ -107,6 +108,10 @@ Current SSH collector support is a foundation:
   - Cisco-like / Arista EOS: `show power inline`
   - Juniper devices: `show poe interface`
   - Fortinet FortiSwitch OS: `get switch poe inline-status`
+- SSH resilience:
+  - command-level retries (primary/critical commands)
+  - LLDP failure fallback to CDP on Cisco-like devices
+  - timeout scaling for heavy commands (for example, `show interfaces extensive ...`)
 - It can be extended incrementally for additional vendor-specific commands.
 
 ## CLI
