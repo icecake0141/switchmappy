@@ -520,3 +520,10 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert "<th>VLAN</th>" in search_html
     assert "switchPortEntries(index)" in search_html
     assert "buildEntries(index)" in search_html
+    assert 'id="typeFilter"' in search_html
+    assert 'id="statusFilter"' in search_html
+    assert 'id="vlanFilter"' in search_html
+    assert 'id="sortBy"' in search_html
+    assert 'id="resultCount"' in search_html
+    assert "applyFilters(entries)" in search_html
+    assert "sortEntries(entries)" in search_html

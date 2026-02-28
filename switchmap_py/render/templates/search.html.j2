@@ -23,6 +23,29 @@ Review required for correctness, security, and licensing.
     <h1>Search</h1>
   </header>
   <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, IP, MAC, host" />
+  <div>
+    <label for="typeFilter">Type:</label>
+    <select id="typeFilter">
+      <option value="">All</option>
+      <option value="port">Port</option>
+      <option value="mac">MAC</option>
+    </select>
+    <label for="statusFilter">Status:</label>
+    <select id="statusFilter">
+      <option value="">All</option>
+      <option value="up">up</option>
+      <option value="down">down</option>
+    </select>
+    <label for="vlanFilter">VLAN:</label>
+    <input id="vlanFilter" type="text" placeholder="e.g. 10" />
+    <label for="sortBy">Sort:</label>
+    <select id="sortBy">
+      <option value="switch-port">Switch/Port</option>
+      <option value="vlan">VLAN</option>
+      <option value="type">Type</option>
+    </select>
+  </div>
+  <p id="resultCount">0 results</p>
   <table>
     <thead>
       <tr>
@@ -59,6 +82,42 @@ Review required for correctness, security, and licensing.
         .join(' ')
         .toLowerCase();
       return haystack.includes(query);
+    }
+
+    function applyFilters(entries) {
+      const query = document.getElementById('query').value.toLowerCase().trim();
+      const type = document.getElementById('typeFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const vlan = document.getElementById('vlanFilter').value.toLowerCase().trim();
+      return entries.filter((entry) => {
+        if (type && entry.type !== type) {
+          return false;
+        }
+        if (status && entry.status !== status) {
+          return false;
+        }
+        if (vlan && !(entry.vlan || '').toLowerCase().includes(vlan)) {
+          return false;
+        }
+        return !query || match(entry, query);
+      });
+    }
+
+    function sortEntries(entries) {
+      const sortBy = document.getElementById('sortBy').value;
+      const sorted = [...entries];
+      if (sortBy === 'vlan') {
+        sorted.sort((a, b) => (a.vlan || '').localeCompare(b.vlan || ''));
+      } else if (sortBy === 'type') {
+        sorted.sort((a, b) => (a.type || '').localeCompare(b.type || ''));
+      } else {
+        sorted.sort((a, b) => {
+          const left = `${a.switch || ''}/${a.port || ''}`;
+          const right = `${b.switch || ''}/${b.port || ''}`;
+          return left.localeCompare(right);
+        });
+      }
+      return sorted;
     }
 
     function macEntries(index) {
@@ -100,6 +159,7 @@ Review required for correctness, security, and licensing.
     function render(entries) {
       const tbody = document.getElementById('results');
       tbody.replaceChildren();
+      document.getElementById('resultCount').textContent = `${entries.length} results`;
       for (const entry of entries) {
         const row = document.createElement('tr');
         const values = [
@@ -124,15 +184,15 @@ Review required for correctness, security, and licensing.
     async function init() {
       const index = await loadIndex();
       const entries = buildEntries(index);
-      render(entries);
-      document.getElementById('query').addEventListener('input', (event) => {
-        const query = event.target.value.toLowerCase();
-        if (!query) {
-          render(entries);
-          return;
-        }
-        render(entries.filter((entry) => match(entry, query)));
-      });
+      const refresh = () => {
+        render(sortEntries(applyFilters(entries)));
+      };
+      refresh();
+      document.getElementById('query').addEventListener('input', refresh);
+      document.getElementById('typeFilter').addEventListener('change', refresh);
+      document.getElementById('statusFilter').addEventListener('change', refresh);
+      document.getElementById('vlanFilter').addEventListener('input', refresh);
+      document.getElementById('sortBy').addEventListener('change', refresh);
     }
 
     init();
