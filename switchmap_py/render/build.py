@@ -39,12 +39,36 @@ def build_environment(template_dir: Path) -> Environment:
 
 
 def _build_mac_lookup(maclist: list[MacEntry]) -> dict[str, list[MacEntry]]:
-    lookup: dict[str, list[MacEntry]] = {}
+    grouped: dict[str, dict[str, MacEntry]] = {}
     for entry in maclist:
         if not entry.mac:
             continue
-        key = entry.mac.lower()
-        lookup.setdefault(key, []).append(entry)
+        mac_key = entry.mac.lower()
+        ip_key = entry.ip or ""
+        per_ip = grouped.setdefault(mac_key, {})
+        existing = per_ip.get(ip_key)
+        if existing is None:
+            per_ip[ip_key] = MacEntry(
+                mac=entry.mac,
+                ip=entry.ip,
+                hostname=entry.hostname,
+                switch=entry.switch,
+                port=entry.port,
+            )
+            continue
+        if not existing.hostname and entry.hostname:
+            per_ip[ip_key] = MacEntry(
+                mac=entry.mac,
+                ip=entry.ip,
+                hostname=entry.hostname,
+                switch=entry.switch,
+                port=entry.port,
+            )
+    lookup: dict[str, list[MacEntry]] = {}
+    for mac_key, per_ip in grouped.items():
+        values = list(per_ip.values())
+        values.sort(key=lambda value: (value.ip or "", value.hostname or ""))
+        lookup[mac_key] = values
     return lookup
 
 
