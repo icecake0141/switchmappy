@@ -44,8 +44,10 @@ Review required for correctness, security, and licensing.
       <option value="vlan">VLAN</option>
       <option value="type">Type</option>
     </select>
+    <button id="resetFilters" type="button">Reset</button>
   </div>
   <p id="resultCount">0 results</p>
+  <p id="emptyState" hidden>No matching entries.</p>
   <table>
     <thead>
       <tr>
@@ -165,6 +167,7 @@ Review required for correctness, security, and licensing.
     function render(entries) {
       const tbody = document.getElementById('results');
       tbody.replaceChildren();
+      document.getElementById('emptyState').hidden = entries.length > 0;
       document.getElementById('resultCount').textContent = `${entries.length} results`;
       for (const entry of entries) {
         const row = document.createElement('tr');
@@ -227,12 +230,21 @@ Review required for correctness, security, and licensing.
         render(sortEntries(applyFilters(entries)));
         writeFiltersToUrl();
       };
+      const reset = () => {
+        document.getElementById('query').value = '';
+        document.getElementById('typeFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('vlanFilter').value = '';
+        document.getElementById('sortBy').value = 'switch-port';
+        refresh();
+      };
       refresh();
       document.getElementById('query').addEventListener('input', refresh);
       document.getElementById('typeFilter').addEventListener('change', refresh);
       document.getElementById('statusFilter').addEventListener('change', refresh);
       document.getElementById('vlanFilter').addEventListener('input', refresh);
       document.getElementById('sortBy').addEventListener('change', refresh);
+      document.getElementById('resetFilters').addEventListener('click', reset);
     }
 
     init();

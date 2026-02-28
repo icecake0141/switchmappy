@@ -531,3 +531,6 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert "writeFiltersToUrl()" in search_html
     assert "window.history.replaceState" in search_html
     assert "window.location.href = entry.target_url" in search_html
+    assert 'id="resetFilters"' in search_html
+    assert 'id="emptyState"' in search_html
+    assert "No matching entries." in search_html
