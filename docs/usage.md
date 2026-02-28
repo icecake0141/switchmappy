@@ -51,6 +51,7 @@ snmp_retries: 1
 switches:
   - name: core-sw1
     management_ip: 192.0.2.10
+    collection_method: snmp  # snmp | ssh
     vendor: cisco
     snmp_version: 2c  # 1 | 2c | 3
     community: public
@@ -76,6 +77,20 @@ switches:
     priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
     priv_password: your-priv-pass
 ```
+
+SSH collection (foundation) example:
+
+```yaml
+switches:
+  - name: access-sw1
+    management_ip: 192.0.2.20
+    collection_method: ssh
+    ssh_username: ops
+    ssh_private_key: /home/ops/.ssh/id_ed25519
+    trunk_ports: ["Gi1/0/24"]
+```
+
+Current SSH collector support is a foundation: it attempts to parse `show interfaces status` output and can be extended for vendor-specific commands.
 
 ## CLI
 

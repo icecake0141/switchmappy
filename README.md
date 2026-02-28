@@ -67,6 +67,7 @@ snmp_retries: 1
 switches:
   - name: core-sw1
     management_ip: 192.0.2.10
+    collection_method: snmp  # snmp | ssh
     vendor: cisco
     snmp_version: 2c  # 1 | 2c | 3
     community: public
@@ -91,6 +92,18 @@ switches:
     auth_password: your-auth-pass
     priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
     priv_password: your-priv-pass
+```
+
+SSH collection (foundation) example:
+
+```yaml
+switches:
+  - name: access-sw1
+    management_ip: 192.0.2.20
+    collection_method: ssh
+    ssh_username: ops
+    ssh_private_key: /home/ops/.ssh/id_ed25519
+    trunk_ports: ["Gi1/0/24"]
 ```
 
 For more detail, see `docs/usage.md`.
@@ -193,6 +206,7 @@ snmp_retries: 1
 switches:
   - name: core-sw1
     management_ip: 192.0.2.10
+    collection_method: snmp  # snmp | ssh
     vendor: cisco
     snmp_version: 2c  # 1 | 2c | 3
     community: public
@@ -217,6 +231,18 @@ switches:
     auth_password: your-auth-pass
     priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
     priv_password: your-priv-pass
+```
+
+SSH収集（基盤実装）設定例:
+
+```yaml
+switches:
+  - name: access-sw1
+    management_ip: 192.0.2.20
+    collection_method: ssh
+    ssh_username: ops
+    ssh_private_key: /home/ops/.ssh/id_ed25519
+    trunk_ports: ["Gi1/0/24"]
 ```
 
 詳細は`docs/usage.md`を参照してください。

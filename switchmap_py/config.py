@@ -23,6 +23,7 @@ class SwitchConfig(BaseModel):
     name: str
     management_ip: str
     vendor: str = "generic"
+    collection_method: Literal["snmp", "ssh"] = "snmp"
     snmp_version: Union[str, int] = "2c"
     community: Optional[str] = None
     trunk_ports: list[str] = Field(default_factory=list)
@@ -32,9 +33,25 @@ class SwitchConfig(BaseModel):
     auth_password: Optional[str] = None
     priv_protocol: Optional[Literal["DES", "3DES", "AES", "AES128", "AES192", "AES256"]] = None
     priv_password: Optional[str] = None
+    ssh_port: int = 22
+    ssh_username: Optional[str] = None
+    ssh_password: Optional[str] = None
+    ssh_private_key: Optional[str] = None
 
     @model_validator(mode="after")
     def validate_snmp_credentials(self) -> "SwitchConfig":
+        if self.collection_method == "ssh":
+            if not self.ssh_username:
+                raise ValueError(f"Switch '{self.name}' requires 'ssh_username' when collection_method is ssh")
+            if not self.ssh_password and not self.ssh_private_key:
+                raise ValueError(
+                    f"Switch '{self.name}' requires either 'ssh_password' or "
+                    f"'ssh_private_key' when collection_method is ssh"
+                )
+            if self.ssh_port <= 0:
+                raise ValueError(f"Switch '{self.name}' has invalid ssh_port '{self.ssh_port}'")
+            return self
+
         self.snmp_version = str(self.snmp_version)
         if self.snmp_version not in {"1", "2c", "3"}:
             raise ValueError(

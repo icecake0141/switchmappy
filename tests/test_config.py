@@ -168,6 +168,58 @@ def test_site_config_rejects_snmpv3_authpriv_missing_priv_password(tmp_path):
         SiteConfig.load(config_path)
 
 
+def test_site_config_accepts_ssh_collection_method(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: access-ssh
+            management_ip: 10.0.0.20
+            collection_method: ssh
+            ssh_username: ops
+            ssh_password: secret
+            trunk_ports: ["Gi1/0/48"]
+        """
+    )
+
+    config = SiteConfig.load(config_path)
+    assert config.switches[0].collection_method == "ssh"
+    assert config.switches[0].ssh_username == "ops"
+    assert config.switches[0].ssh_port == 22
+
+
+def test_site_config_rejects_ssh_without_username(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: access-ssh
+            management_ip: 10.0.0.20
+            collection_method: ssh
+            ssh_password: secret
+        """
+    )
+
+    with pytest.raises(ValueError, match="requires 'ssh_username'"):
+        SiteConfig.load(config_path)
+
+
+def test_site_config_rejects_ssh_without_credentials(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: access-ssh
+            management_ip: 10.0.0.20
+            collection_method: ssh
+            ssh_username: ops
+        """
+    )
+
+    with pytest.raises(ValueError, match="requires either 'ssh_password' or 'ssh_private_key'"):
+        SiteConfig.load(config_path)
+
+
 def test_site_config_rejects_duplicate_switch_names(tmp_path):
     config_path = tmp_path / "site.yml"
     config_path.write_text(

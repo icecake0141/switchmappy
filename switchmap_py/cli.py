@@ -22,13 +22,14 @@ from typing import Optional
 import typer
 import yaml
 
+from switchmap_py.collectors import collect_port_snapshots, collect_switch_state
 from switchmap_py.config import SiteConfig, default_config_path
 from switchmap_py.importers.arp_csv import load_arp_csv
 from switchmap_py.importers.arp_snmp import load_arp_snmp
 from switchmap_py.render.build import build_site
 from switchmap_py.search.app import SearchServer
-from switchmap_py.snmp.collectors import collect_port_snapshots, collect_switch_state
 from switchmap_py.snmp.session import SnmpError
+from switchmap_py.ssh.session import SshError
 from switchmap_py.storage.idlesince_store import IdleSinceStore
 from switchmap_py.storage.maclist_store import MacListStore
 
@@ -80,6 +81,12 @@ def _classify_error(exc: BaseException) -> str:
         if "oid" in message or "no such" in message:
             return "SNMP_OID"
         return "SNMP_ERROR"
+    if isinstance(exc, SshError):
+        if "timed out" in message or "timeout" in message:
+            return "SSH_TIMEOUT"
+        if "permission denied" in message or "auth" in message:
+            return "SSH_AUTH"
+        return "SSH_ERROR"
     if isinstance(exc, (ValueError, yaml.YAMLError)):
         return "CONFIG_ERROR"
     return "UNEXPECTED_ERROR"
@@ -189,7 +196,7 @@ def scan_switch(
         started = time.monotonic()
         try:
             snapshots = collect_port_snapshots(sw, site.snmp_timeout, site.snmp_retries)
-        except SnmpError as exc:
+        except (SnmpError, SshError) as exc:
             logger.exception(
                 "Failed to scan switch %s",
                 sw.name,
@@ -315,7 +322,7 @@ def build_html(
                     elapsed_seconds=time.monotonic() - started,
                 ),
             )
-        except SnmpError as exc:
+        except (SnmpError, SshError) as exc:
             # Only catch expected SNMP operational errors. Log and continue
             # with other switches. Programming errors will propagate.
             code = _classify_error(exc)

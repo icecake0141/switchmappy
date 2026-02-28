@@ -13,3 +13,4 @@
 
 - This implementation focuses on parity for file-based storage and static HTML output first.
 - SNMP v1/v2c/v3 are supported; vendor-specific MIB coverage can be extended in `switchmap_py/snmp/mibs.py`.
+- Switch collection supports `collection_method: snmp|ssh`; SSH support is a foundation and can be expanded incrementally.
