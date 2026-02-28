@@ -11,17 +11,10 @@
 # Review required for correctness, security, and licensing.
 from __future__ import annotations
 
-import http.server
 import logging
-import socketserver
-from functools import partial
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-
-class ThreadingSearchServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
 
 
 class SearchServer:
@@ -31,9 +24,27 @@ class SearchServer:
         self.port = port
 
     def serve(self) -> None:
-        handler = partial(
-            http.server.SimpleHTTPRequestHandler, directory=str(self.output_dir)
+        try:
+            import uvicorn  # type: ignore[import-not-found]
+            from fastapi import FastAPI  # type: ignore[import-not-found]
+            from fastapi.responses import RedirectResponse  # type: ignore[import-not-found]
+            from fastapi.staticfiles import StaticFiles  # type: ignore[import-not-found]
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Search server requires optional dependencies. "
+                "Install with: pip install -e .[search]"
+            ) from exc
+
+        app = FastAPI(title="switchmappy-search", docs_url=None, redoc_url=None)
+
+        @app.get("/", include_in_schema=False)
+        def redirect_to_search() -> RedirectResponse:
+            return RedirectResponse(url="/search/")
+
+        app.mount(
+            "/",
+            StaticFiles(directory=str(self.output_dir), html=True),
+            name="switchmap-static-site",
         )
-        with ThreadingSearchServer((self.host, self.port), handler) as httpd:
-            logger.info("Serving search UI at http://%s:%s/search/", self.host, self.port)
-            httpd.serve_forever()
+        logger.info("Serving search UI at http://%s:%s/search/", self.host, self.port)
+        uvicorn.run(app, host=self.host, port=self.port)
