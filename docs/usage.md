@@ -51,6 +51,7 @@ snmp_retries: 1
 switches:
   - name: core-sw1
     management_ip: 192.0.2.10
+    collection_method: snmp  # snmp | ssh
     vendor: cisco
     snmp_version: 2c  # 1 | 2c | 3
     community: public
@@ -76,6 +77,42 @@ switches:
     priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
     priv_password: your-priv-pass
 ```
+
+SSH collection (foundation) example:
+
+```yaml
+switches:
+  - name: access-sw1
+    management_ip: 192.0.2.20
+    collection_method: ssh
+    ssh_username: ops
+    ssh_private_key: /home/ops/.ssh/id_ed25519
+    trunk_ports: ["Gi1/0/24"]
+```
+
+Current SSH collector support is a foundation:
+- Cisco-like devices: parses `show interfaces status`
+- Arista EOS: parses `show interfaces status`
+- Juniper devices: parses `show interfaces terse`
+- Fortinet FortiSwitch OS: parses `get switch interface status`
+- Neighbor discovery:
+  - Cisco-like / Arista EOS: `show lldp neighbors detail` (fallback: `show cdp neighbors detail`)
+  - Juniper devices: `show lldp neighbors`
+  - Fortinet FortiSwitch OS: `get switch lldp neighbors-detail`
+  - Neighbor data is saved as structured fields (`device`, `port`, `protocol`)
+- Port error counters:
+  - Cisco-like / Arista EOS: `show interfaces counters errors`
+  - Juniper devices: `show interfaces extensive | match "Physical interface|Input errors|Output errors"`
+  - Fortinet FortiSwitch OS: `diagnose switch physical-ports error-counters`
+- PoE status:
+  - Cisco-like / Arista EOS: `show power inline`
+  - Juniper devices: `show poe interface`
+  - Fortinet FortiSwitch OS: `get switch poe inline-status`
+- SSH resilience:
+  - command-level retries (primary/critical commands)
+  - LLDP failure fallback to CDP on Cisco-like devices
+  - timeout scaling for heavy commands (for example, `show interfaces extensive ...`)
+- It can be extended incrementally for additional vendor-specific commands.
 
 ## CLI
 

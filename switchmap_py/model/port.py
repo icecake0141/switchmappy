@@ -1,4 +1,4 @@
-# Copyright 2025 OpenAI Codex
+# Copyright 2026 OpenAI
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
+from .neighbor import Neighbor
+
 
 @dataclass
 class Port:
@@ -26,6 +28,11 @@ class Port:
     speed: Optional[int]
     vlan: Optional[str]
     macs: list[str] = field(default_factory=list)
+    neighbors: list[Neighbor] = field(default_factory=list)
+    input_errors: Optional[int] = None
+    output_errors: Optional[int] = None
+    poe_status: Optional[str] = None
+    poe_power_w: Optional[float] = None
     idle_since: Optional[datetime] = None
     last_active: Optional[datetime] = None
     is_trunk: bool = False
@@ -33,3 +40,7 @@ class Port:
     @property
     def is_active(self) -> bool:
         return self.oper_status.lower() == "up" and bool(self.macs)
+
+    @property
+    def neighbor_names(self) -> list[str]:
+        return [neighbor.device for neighbor in self.neighbors if neighbor.device]

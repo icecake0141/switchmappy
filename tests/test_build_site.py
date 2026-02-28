@@ -515,15 +515,21 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     )
 
     search_html = (output_dir / "search" / "index.html").read_text(encoding="utf-8")
-    assert "Search by switch, port, status, VLAN" in search_html
+    assert "Search by switch, port, status, VLAN, neighbor" in search_html
     assert "<th>Type</th>" in search_html
     assert "<th>Status</th>" in search_html
     assert "<th>VLAN</th>" in search_html
+    assert "<th>Neighbor</th>" in search_html
+    assert "<th>In Err</th>" in search_html
+    assert "<th>Out Err</th>" in search_html
     assert "switchPortEntries(index)" in search_html
     assert "buildEntries(index)" in search_html
     assert 'id="typeFilter"' in search_html
     assert 'id="statusFilter"' in search_html
     assert 'id="vlanFilter"' in search_html
+    assert 'id="neighborFilter"' in search_html
+    assert 'id="inErrFilter"' in search_html
+    assert 'id="outErrFilter"' in search_html
     assert 'id="sortBy"' in search_html
     assert 'id="resultCount"' in search_html
     assert "applyFilters(entries)" in search_html
@@ -535,3 +541,17 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert 'id="resetFilters"' in search_html
     assert 'id="emptyState"' in search_html
     assert "No matching entries." in search_html
+
+    switch_html = (output_dir / "switches" / "sw1.html").read_text(encoding="utf-8")
+    assert 'id="poeFilter"' in switch_html
+    assert 'id="neighborFilter"' in switch_html
+    assert 'id="inErrFilter"' in switch_html
+    assert 'id="outErrFilter"' in switch_html
+    assert "No matching ports." in switch_html
+
+    ports_html = (output_dir / "ports" / "index.html").read_text(encoding="utf-8")
+    assert 'id="poeFilter"' in ports_html
+    assert 'id="neighborFilter"' in ports_html
+    assert 'id="inErrFilter"' in ports_html
+    assert 'id="outErrFilter"' in ports_html
+    assert "No matching ports." in ports_html
