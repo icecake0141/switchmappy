@@ -22,15 +22,18 @@ Review required for correctness, security, and licensing.
   <header>
     <h1>Search</h1>
   </header>
-  <input id="query" type="text" placeholder="Search by IP, MAC, host, switch, port" />
+  <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, IP, MAC, host" />
   <table>
     <thead>
       <tr>
+        <th>Type</th>
+        <th>Switch</th>
+        <th>Port</th>
+        <th>Status</th>
+        <th>VLAN</th>
         <th>MAC</th>
         <th>IP</th>
         <th>Hostname</th>
-        <th>Switch</th>
-        <th>Port</th>
       </tr>
     </thead>
     <tbody id="results"></tbody>
@@ -42,11 +45,56 @@ Review required for correctness, security, and licensing.
     }
 
     function match(entry, query) {
-      const haystack = [entry.mac, entry.ip, entry.hostname, entry.switch, entry.port]
+      const haystack = [
+        entry.type,
+        entry.switch,
+        entry.port,
+        entry.status,
+        entry.vlan,
+        entry.mac,
+        entry.ip,
+        entry.hostname,
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return haystack.includes(query);
+    }
+
+    function macEntries(index) {
+      return (index.maclist || []).map((entry) => ({
+        type: 'mac',
+        switch: entry.switch ?? '',
+        port: entry.port ?? '',
+        status: '',
+        vlan: '',
+        mac: entry.mac ?? '',
+        ip: entry.ip ?? '',
+        hostname: entry.hostname ?? '',
+      }));
+    }
+
+    function switchPortEntries(index) {
+      const rows = [];
+      for (const sw of index.switches || []) {
+        for (const port of sw.ports || []) {
+          rows.push({
+            type: 'port',
+            switch: sw.name ?? '',
+            port: port.name ?? '',
+            status: port.oper_status ?? '',
+            vlan: port.vlan ?? '',
+            mac: (port.macs || []).join(', '),
+            ip: '',
+            hostname: '',
+          });
+        }
+      }
+      return rows;
+    }
+
+    function buildEntries(index) {
+      return macEntries(index).concat(switchPortEntries(index));
     }
 
     function render(entries) {
@@ -55,11 +103,14 @@ Review required for correctness, security, and licensing.
       for (const entry of entries) {
         const row = document.createElement('tr');
         const values = [
+          entry.type ?? '',
+          entry.switch ?? '',
+          entry.port ?? '',
+          entry.status ?? '',
+          entry.vlan ?? '',
           entry.mac ?? '',
           entry.ip ?? '',
           entry.hostname ?? '',
-          entry.switch ?? '',
-          entry.port ?? '',
         ];
         for (const value of values) {
           const cell = document.createElement('td');
@@ -72,7 +123,7 @@ Review required for correctness, security, and licensing.
 
     async function init() {
       const index = await loadIndex();
-      const entries = index.maclist || [];
+      const entries = buildEntries(index);
       render(entries);
       document.getElementById('query').addEventListener('input', (event) => {
         const query = event.target.value.toLowerCase();

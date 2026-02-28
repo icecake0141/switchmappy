@@ -477,3 +477,46 @@ def test_build_site_prevents_attribute_injection_in_links(tmp_path):
     # This is SAFE because &#34; inside an attribute value is still part of the value
     assert '&#34; onclick=&#34;' in index_html or '&quot; onclick=&quot;' in index_html, \
         "Quotes should be HTML-escaped to prevent attribute injection"
+
+
+def test_search_page_includes_switch_port_search_logic(tmp_path):
+    template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    output_dir = tmp_path / "output"
+
+    build_site(
+        switches=[
+            Switch(
+                name="sw1",
+                management_ip="192.0.2.10",
+                vendor="test",
+                ports=[
+                    Port(
+                        name="Gi1/0/1",
+                        descr="Uplink",
+                        admin_status="up",
+                        oper_status="up",
+                        speed=1000,
+                        vlan="10",
+                        macs=["00:11:22:33:44:55"],
+                    )
+                ],
+            )
+        ],
+        failed_switches=[],
+        output_dir=output_dir,
+        template_dir=template_dir,
+        static_dir=static_dir,
+        idlesince_store=IdleSinceStore(tmp_path / "idlesince"),
+        maclist_store=MacListStore(tmp_path / "maclist.json"),
+        build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+    )
+
+    search_html = (output_dir / "search" / "index.html").read_text(encoding="utf-8")
+    assert "Search by switch, port, status, VLAN" in search_html
+    assert "<th>Type</th>" in search_html
+    assert "<th>Status</th>" in search_html
+    assert "<th>VLAN</th>" in search_html
+    assert "switchPortEntries(index)" in search_html
+    assert "buildEntries(index)" in search_html
