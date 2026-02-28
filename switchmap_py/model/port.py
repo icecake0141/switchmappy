@@ -26,6 +26,7 @@ class Port:
     speed: Optional[int]
     vlan: Optional[str]
     macs: list[str] = field(default_factory=list)
+    neighbors: list[str] = field(default_factory=list)
     idle_since: Optional[datetime] = None
     last_active: Optional[datetime] = None
     is_trunk: bool = False

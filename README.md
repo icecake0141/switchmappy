@@ -111,6 +111,10 @@ Current SSH parser coverage is intentionally minimal:
 - Arista EOS: `show interfaces status`
 - Juniper devices: `show interfaces terse`
 - Fortinet FortiSwitch OS: `get switch interface status`
+- Neighbor discovery:
+  - Cisco-like / Arista EOS: `show lldp neighbors detail` (fallback: `show cdp neighbors detail`)
+  - Juniper devices: `show lldp neighbors`
+  - Fortinet FortiSwitch OS: `get switch lldp neighbors-detail`
 
 For more detail, see `docs/usage.md`.
 

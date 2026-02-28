@@ -58,12 +58,18 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
             "show interfaces status": status_output,
             "show mac address-table": mac_output,
             "show vlan brief": "10 default active Gi1/0/1",
+            "show lldp neighbors detail": "Local Intf: Gi1/0/1\nSystem Name: dist-sw1\n",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces status", "show mac address-table", "show vlan brief"]
+    assert session.commands == [
+        "show interfaces status",
+        "show mac address-table",
+        "show vlan brief",
+        "show lldp neighbors detail",
+    ]
     assert len(state.ports) == 2
     assert state.ports[0].name == "Gi1/0/1"
     assert state.ports[0].descr == "Uplink-Core"
@@ -72,6 +78,7 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
     assert state.ports[0].vlan == "10"
     assert state.ports[0].speed == 1000
     assert state.ports[0].macs == ["00:11:22:33:44:55"]
+    assert state.ports[0].neighbors == ["dist-sw1"]
     assert state.ports[1].macs == []
     assert state.ports[1].oper_status == "down"
 
@@ -89,6 +96,7 @@ def test_collect_port_snapshots_marks_up_ports_active(monkeypatch):
             "show interfaces status": "Gi1/0/1 Uplink connected 10 full 1000 copper",
             "show mac address-table": "10 00:11:22:33:44:55 dynamic Gi1/0/1",
             "show vlan brief": "10 default active Gi1/0/1",
+            "show lldp neighbors detail": "Local Intf: Gi1/0/1\nSystem Name: access1\n",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -144,7 +152,13 @@ def test_collect_switch_state_keeps_ports_when_mac_command_fails(monkeypatch):
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces status", "show mac address-table", "show vlan brief"]
+    assert session.commands == [
+        "show interfaces status",
+        "show mac address-table",
+        "show vlan brief",
+        "show lldp neighbors detail",
+        "show cdp neighbors detail",
+    ]
     assert [port.name for port in state.ports] == ["Gi1/0/1"]
     assert state.ports[0].macs == []
 
@@ -172,16 +186,23 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
             "show interfaces terse": status_output,
             "show ethernet-switching table": mac_output,
             "show vlans": "default 10 ge-0/0/1.0",
+            "show lldp neighbors": "ge-0/0/1 - aa:bb:cc:dd:ee:ff ge-0/0/48 dist-junos-1",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces terse", "show ethernet-switching table", "show vlans"]
+    assert session.commands == [
+        "show interfaces terse",
+        "show ethernet-switching table",
+        "show vlans",
+        "show lldp neighbors",
+    ]
     assert [port.name for port in state.ports] == ["ge-0/0/1", "ge-0/0/2"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].macs == ["00:11:22:33:44:66"]
     assert state.ports[0].vlan == "10"
+    assert state.ports[0].neighbors == ["dist-junos-1"]
     assert state.ports[1].oper_status == "down"
 
 
@@ -205,15 +226,22 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
             "show interfaces status": status_output,
             "show mac address-table": "10 0011.2233.4466 dynamic Et1",
             "show vlan brief": "10 default active Et1",
+            "show lldp neighbors detail": "Local Intf: Et1\nSystem Name: leaf-1\n",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces status", "show mac address-table", "show vlan brief"]
+    assert session.commands == [
+        "show interfaces status",
+        "show mac address-table",
+        "show vlan brief",
+        "show lldp neighbors detail",
+    ]
     assert [port.name for port in state.ports] == ["Et1"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].macs == ["00:11:22:33:44:66"]
+    assert state.ports[0].neighbors == ["leaf-1"]
 
 
 def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
@@ -237,16 +265,67 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
             "get switch interface status": status_output,
             "get switch mac-address-table": "10 00:11:22:33:44:77 dynamic port1",
             "show switch vlan": "default 10 port1,port2",
+            "get switch lldp neighbors-detail": "port1 aa:bb:cc:dd:ee:ff port48 fsw-core-1",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["get switch interface status", "get switch mac-address-table", "show switch vlan"]
+    assert session.commands == [
+        "get switch interface status",
+        "get switch mac-address-table",
+        "show switch vlan",
+        "get switch lldp neighbors-detail",
+    ]
     assert [port.name for port in state.ports] == ["port1", "port2"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].speed == 1000
     assert state.ports[0].macs == ["00:11:22:33:44:77"]
     assert state.ports[0].vlan == "10"
+    assert state.ports[0].neighbors == ["fsw-core-1"]
     assert state.ports[1].oper_status == "down"
     assert state.ports[1].vlan == "10"
+
+
+def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
+    switch = SwitchConfig(
+        name="sw-cisco",
+        management_ip="192.0.2.90",
+        vendor="cisco",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+    )
+
+    class CdpFallbackSession:
+        def __init__(self) -> None:
+            self.commands: list[str] = []
+
+        def run(self, command: str, timeout: int) -> str:
+            assert timeout == 3
+            self.commands.append(command)
+            if command == "show interfaces status":
+                return "Gi1/0/1 Uplink connected 10 full 1000 copper"
+            if command == "show mac address-table":
+                return "10 00:11:22:33:44:55 dynamic Gi1/0/1"
+            if command == "show vlan brief":
+                return "10 default active Gi1/0/1"
+            if command == "show lldp neighbors detail":
+                raise SshError("lldp unsupported")
+            if command == "show cdp neighbors detail":
+                return "Device ID: cdp-edge-1\nInterface: Gi1/0/1, Port ID (outgoing port): Gi0/1\n"
+            raise AssertionError(f"unexpected command: {command}")
+
+    session = CdpFallbackSession()
+    monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
+
+    state = collectors.collect_switch_state(switch, timeout=3)
+    assert session.commands == [
+        "show interfaces status",
+        "show mac address-table",
+        "show vlan brief",
+        "show lldp neighbors detail",
+        "show cdp neighbors detail",
+    ]
+    assert [port.name for port in state.ports] == ["Gi1/0/1"]
+    assert state.ports[0].neighbors == ["cdp-edge-1"]

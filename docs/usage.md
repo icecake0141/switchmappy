@@ -95,6 +95,10 @@ Current SSH collector support is a foundation:
 - Arista EOS: parses `show interfaces status`
 - Juniper devices: parses `show interfaces terse`
 - Fortinet FortiSwitch OS: parses `get switch interface status`
+- Neighbor discovery:
+  - Cisco-like / Arista EOS: `show lldp neighbors detail` (fallback: `show cdp neighbors detail`)
+  - Juniper devices: `show lldp neighbors`
+  - Fortinet FortiSwitch OS: `get switch lldp neighbors-detail`
 - It can be extended incrementally for additional vendor-specific commands.
 
 ## CLI

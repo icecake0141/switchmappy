@@ -35,6 +35,7 @@ _STATUS_TOKENS = {
 }
 _MAC_RE = re.compile(r"^(?:[0-9a-fA-F]{2}[:.-]?){6}$")
 _VLAN_ID_RE = re.compile(r"^\d{1,4}$")
+_PORT_HINT_RE = re.compile(r"^(?:gi|fa|te|eth|et|ge|xe|ae|po|port|internal)\d", re.IGNORECASE)
 
 
 def _vendor_profile(vendor: str) -> str:
@@ -342,6 +343,105 @@ def _parse_fortiswitch_vlans(text: str) -> dict[str, str]:
     return vlan_by_port
 
 
+def _looks_like_port(token: str) -> bool:
+    value = token.strip().lower().rstrip(",")
+    if not value:
+        return False
+    return bool(_PORT_HINT_RE.match(value) or "/" in value)
+
+
+def _extract_neighbor_name(token: str) -> str | None:
+    value = token.strip().strip(",")
+    if not value:
+        return None
+    if _looks_like_port(value):
+        return None
+    if _VLAN_ID_RE.match(value):
+        return None
+    if _MAC_RE.match(value):
+        return None
+    if value in {"-", "--"}:
+        return None
+    return value
+
+
+def _parse_neighbor_table(text: str) -> dict[str, set[str]]:
+    neighbors_by_port: dict[str, set[str]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("local", "interface", "chassis", "----", "capability", "total", "name")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 2:
+            continue
+        local_token = next((tok for tok in tokens if _looks_like_port(tok)), "")
+        local = _canonical_port_name(local_token)
+        if not local:
+            continue
+        neighbor = None
+        for token in reversed(tokens):
+            candidate = _extract_neighbor_name(token)
+            if candidate:
+                neighbor = candidate
+                break
+        if neighbor:
+            neighbors_by_port.setdefault(local, set()).add(neighbor)
+    return neighbors_by_port
+
+
+def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, set[str]]:
+    neighbors_by_port: dict[str, set[str]] = {}
+    current_local: str | None = None
+    current_neighbor: str | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            if current_local and current_neighbor:
+                neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+            current_local = None
+            current_neighbor = None
+            continue
+        lower = line.lower()
+        if lower.startswith("local intf:") or lower.startswith("local interface:"):
+            value = line.split(":", 1)[1].strip()
+            current_local = _canonical_port_name(value)
+            continue
+        if lower.startswith("system name:"):
+            current_neighbor = line.split(":", 1)[1].strip()
+            continue
+    if current_local and current_neighbor:
+        neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+    return neighbors_by_port
+
+
+def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, set[str]]:
+    neighbors_by_port: dict[str, set[str]] = {}
+    current_local: str | None = None
+    current_neighbor: str | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            if current_local and current_neighbor:
+                neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+            current_local = None
+            current_neighbor = None
+            continue
+        lower = line.lower()
+        if lower.startswith("device id:"):
+            current_neighbor = line.split(":", 1)[1].strip()
+            continue
+        if lower.startswith("interface:"):
+            value = line.split(":", 1)[1].split(",", 1)[0].strip()
+            current_local = _canonical_port_name(value)
+            continue
+    if current_local and current_neighbor:
+        neighbors_by_port.setdefault(current_local, set()).add(current_neighbor)
+    return neighbors_by_port
+
+
 def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
@@ -373,6 +473,26 @@ def _collect_vlan_output(session: SshSession, switch: SwitchConfig, timeout: int
     else:
         command = "show vlan brief"
     return session.run(command, timeout=timeout)
+
+
+def _collect_neighbors(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, set[str]]:
+    profile = _vendor_profile(switch.vendor)
+    if profile == "juniper":
+        return _parse_neighbor_table(session.run("show lldp neighbors", timeout=timeout))
+    if profile == "fortiswitch":
+        return _parse_neighbor_table(session.run("get switch lldp neighbors-detail", timeout=timeout))
+
+    lldp_neighbors: dict[str, set[str]] = {}
+    try:
+        lldp_output = session.run("show lldp neighbors detail", timeout=timeout)
+        lldp_neighbors = _parse_cisco_lldp_neighbors_detail(lldp_output)
+    except SshError:
+        lldp_neighbors = {}
+    if lldp_neighbors:
+        return lldp_neighbors
+
+    cdp_output = session.run("show cdp neighbors detail", timeout=timeout)
+    return _parse_cisco_cdp_neighbors_detail(cdp_output)
 
 
 def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
@@ -422,6 +542,17 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
         except SshError:
             logger.warning(
                 "SSH VLAN collection command failed for switch %s; continuing without VLAN table.",
+                switch.name,
+                exc_info=True,
+            )
+        try:
+            neighbors_by_port = _collect_neighbors(session, switch, timeout=timeout)
+            for port in ports:
+                canonical = _canonical_port_name(port.name)
+                port.neighbors = sorted(neighbors_by_port.get(canonical, set()))
+        except SshError:
+            logger.warning(
+                "SSH neighbor collection command failed for switch %s; continuing without neighbors.",
                 switch.name,
                 exc_info=True,
             )
