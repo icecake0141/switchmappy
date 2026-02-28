@@ -28,6 +28,12 @@ Optional dependencies:
 pip install -e .[snmp,search]
 ```
 
+Development validation dependencies:
+
+```bash
+pip install -e .[dev]
+```
+
 ## Configuration
 
 Create `site.yml` in the repository root (or pass `--config`).
@@ -63,6 +69,14 @@ switchmap scan-switch
 switchmap get-arp --source csv --csv maclist.csv
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
+```
+
+## Validation (local, same as CI)
+
+```bash
+python -m ruff check .
+python -m pytest -q
+python -m pre_commit run --all-files
 ```
 
 ### ARP CSV format

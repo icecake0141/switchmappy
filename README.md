@@ -44,6 +44,12 @@ Optional dependencies:
 pip install -e .[snmp,search]
 ```
 
+For development checks:
+
+```bash
+pip install -e .[dev]
+```
+
 ## Configuration
 
 Create `site.yml` in the repository root (or pass `--config` on the CLI).
@@ -81,6 +87,14 @@ switchmap scan-switch
 switchmap get-arp --source csv --csv maclist.csv
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
+```
+
+## Validation (local, same as CI)
+
+```bash
+python -m ruff check .
+python -m pytest -q
+python -m pre_commit run --all-files
 ```
 
 By default, `scan-switch` keeps idle-since entries for ports missing from the latest
@@ -127,6 +141,12 @@ pip install -e .
 pip install -e .[snmp,search]
 ```
 
+開発時の検証用依存関係:
+
+```bash
+pip install -e .[dev]
+```
+
 ## 設定
 
 リポジトリ直下に`site.yml`を作成します（または`--config`で指定）。
@@ -163,6 +183,14 @@ switchmap scan-switch
 switchmap get-arp --source csv --csv maclist.csv
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
+```
+
+## 検証コマンド（ローカル/CI共通）
+
+```bash
+python -m ruff check .
+python -m pytest -q
+python -m pre_commit run --all-files
 ```
 
 `scan-switch`は最新のスキャンに存在しないポートの履歴を保持します。
