@@ -336,6 +336,7 @@ def build_html(
         idlesince_store=IdleSinceStore(site.idlesince_directory),
         maclist_store=MacListStore(site.maclist_file),
         build_date=build_date,
+        unused_after_days=site.unused_after_days,
     )
 
 
