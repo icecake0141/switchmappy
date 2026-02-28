@@ -67,6 +67,7 @@ routers:
 ```bash
 switchmap scan-switch
 switchmap get-arp --source csv --csv maclist.csv
+switchmap get-arp --source snmp
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```
@@ -88,6 +89,11 @@ Optional hostname values may follow. Invalid or incomplete rows are skipped with
 aa:bb:cc:dd:ee:ff,192.0.2.10,example-host
 11:22:33:44:55:66,192.0.2.20
 ```
+
+### ARP SNMP source
+
+`switchmap get-arp --source snmp` reads ARP tables from routers defined under
+`routers:` in `site.yml` via SNMP v2c.
 
 ## Cron example
 

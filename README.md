@@ -85,6 +85,7 @@ For more detail, see `docs/usage.md`.
 ```bash
 switchmap scan-switch
 switchmap get-arp --source csv --csv maclist.csv
+switchmap get-arp --source snmp
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```
@@ -181,6 +182,7 @@ routers:
 ```bash
 switchmap scan-switch
 switchmap get-arp --source csv --csv maclist.csv
+switchmap get-arp --source snmp
 switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```

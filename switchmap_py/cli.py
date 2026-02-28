@@ -22,6 +22,7 @@ import yaml
 
 from switchmap_py.config import SiteConfig, default_config_path
 from switchmap_py.importers.arp_csv import load_arp_csv
+from switchmap_py.importers.arp_snmp import load_arp_snmp
 from switchmap_py.render.build import build_site
 from switchmap_py.search.app import SearchServer
 from switchmap_py.snmp.collectors import collect_port_snapshots, collect_switch_state
@@ -119,8 +120,10 @@ def get_arp(
         if not csv_path:
             raise typer.BadParameter("--csv is required when source=csv")
         entries = load_arp_csv(csv_path)
+    elif source == "snmp":
+        entries = load_arp_snmp(site.routers, site.snmp_timeout, site.snmp_retries)
     else:
-        raise typer.BadParameter("Only csv source is supported in this implementation")
+        raise typer.BadParameter("source must be one of: csv, snmp")
     store.save(entries)
 
 
