@@ -12,7 +12,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -33,6 +35,28 @@ from switchmap_py.storage.maclist_store import MacListStore
 app = typer.Typer(help="Switchmap Python CLI")
 
 
+class JsonLogFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        for key in (
+            "command",
+            "switch",
+            "router",
+            "oid",
+            "error_type",
+            "elapsed_seconds",
+        ):
+            value = getattr(record, key, None)
+            if value is not None:
+                payload[key] = value
+        return json.dumps(payload, ensure_ascii=False)
+
+
 def _load_config(path: Optional[Path]) -> SiteConfig:
     config_path = path or default_config_path()
     try:
@@ -46,7 +70,12 @@ def _load_config(path: Optional[Path]) -> SiteConfig:
 
 
 def _configure_logging(
-    *, debug: bool, info: bool, warn: bool, logfile: Optional[Path]
+    *,
+    debug: bool,
+    info: bool,
+    warn: bool,
+    logfile: Optional[Path],
+    log_format: str,
 ) -> None:
     if debug:
         level = logging.DEBUG
@@ -56,12 +85,20 @@ def _configure_logging(
         level = logging.WARNING
     else:
         level = logging.INFO
-    handlers: list[logging.Handler] = []
+    handler: logging.Handler
     if logfile:
-        handlers.append(logging.FileHandler(logfile))
+        handler = logging.FileHandler(logfile)
     else:
-        handlers.append(logging.StreamHandler())
-    logging.basicConfig(level=level, handlers=handlers)
+        handler = logging.StreamHandler()
+    if log_format == "json":
+        handler.setFormatter(JsonLogFormatter())
+    else:
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(level)
+    root.addHandler(handler)
 
 
 @app.command("scan-switch")
@@ -72,6 +109,7 @@ def scan_switch(
     info: bool = typer.Option(False, "--info"),
     warn: bool = typer.Option(False, "--warn"),
     logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    log_format: str = typer.Option("text", "--log-format"),
     prune_missing: bool = typer.Option(
         False,
         "--prune-missing",
@@ -83,7 +121,9 @@ def scan_switch(
     This command fails fast on any error (including SNMP errors) to ensure
     scan failures are immediately visible to the operator.
     """
-    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile)
+    _configure_logging(
+        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
+    )
     site = _load_config(config)
     store = IdleSinceStore(site.idlesince_directory)
     for sw in site.switches:
@@ -111,9 +151,13 @@ def get_arp(
     info: bool = typer.Option(False, "--info"),
     warn: bool = typer.Option(False, "--warn"),
     logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Update MAC list from ARP data."""
-    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile)
+    _configure_logging(
+        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
+    )
+    logger = logging.getLogger(__name__)
     site = _load_config(config)
     store = MacListStore(site.maclist_file)
     if source == "csv":
@@ -125,7 +169,15 @@ def get_arp(
             raise typer.BadParameter(
                 "No routers configured in site.yml; add routers or use --source csv"
             )
+        started = time.monotonic()
         entries = load_arp_snmp(site.routers, site.snmp_timeout, site.snmp_retries)
+        logger.info(
+            "Collected ARP entries via SNMP",
+            extra={
+                "command": "get-arp",
+                "elapsed_seconds": round(time.monotonic() - started, 3),
+            },
+        )
     else:
         raise typer.BadParameter("source must be one of: csv, snmp")
     store.save(entries)
@@ -139,6 +191,7 @@ def build_html(
     info: bool = typer.Option(False, "--info"),
     warn: bool = typer.Option(False, "--warn"),
     logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Build static HTML output.
 
@@ -147,7 +200,9 @@ def build_html(
     failed, allowing the build to continue with remaining switches. Any other
     exception type will cause the command to fail fast.
     """
-    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile)
+    _configure_logging(
+        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
+    )
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     build_date = datetime.fromisoformat(date) if date else datetime.now()
@@ -155,14 +210,32 @@ def build_html(
     failed_switches = []
     failed_switch_reasons: dict[str, str] = {}
     for sw in site.switches:
+        started = time.monotonic()
         try:
             switches.append(
                 collect_switch_state(sw, site.snmp_timeout, site.snmp_retries)
             )
+            logger.info(
+                "Collected switch state",
+                extra={
+                    "command": "build-html",
+                    "switch": sw.name,
+                    "elapsed_seconds": round(time.monotonic() - started, 3),
+                },
+            )
         except SnmpError as exc:
             # Only catch expected SNMP operational errors. Log and continue
             # with other switches. Programming errors will propagate.
-            logger.exception("Failed to collect switch state for %s", sw.name)
+            logger.exception(
+                "Failed to collect switch state for %s",
+                sw.name,
+                extra={
+                    "command": "build-html",
+                    "switch": sw.name,
+                    "error_type": type(exc).__name__,
+                    "elapsed_seconds": round(time.monotonic() - started, 3),
+                },
+            )
             failed_switches.append(sw.name)
             failed_switch_reasons[sw.name] = str(exc)
     build_site(
@@ -187,9 +260,12 @@ def serve_search(
     info: bool = typer.Option(False, "--info"),
     warn: bool = typer.Option(False, "--warn"),
     logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Serve search UI from built HTML output."""
-    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile)
+    _configure_logging(
+        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
+    )
     site = _load_config(config)
     server = SearchServer(site.destination_directory, host, port)
     server.serve()

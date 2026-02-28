@@ -119,6 +119,11 @@ def load_arp_snmp(
             logger.warning(
                 "Failed to collect ARP entries from router %s",
                 router.name,
+                extra={
+                    "command": "get-arp",
+                    "router": router.name,
+                    "error_type": "SnmpError",
+                },
                 exc_info=True,
             )
             continue

@@ -72,6 +72,8 @@ switchmap build-html
 switchmap serve-search --host 0.0.0.0 --port 8000
 ```
 
+All CLI commands support `--log-format text|json` (default: `text`).
+
 ## Validation (local, same as CI)
 
 ```bash
