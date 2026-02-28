@@ -4,7 +4,11 @@ destination_directory: output
 idlesince_directory: idlesince
 maclist_file: maclist.json
 unused_after_days: 30
+# SNMP timeout in seconds for each request.
+# Increase for high-latency links.
 snmp_timeout: 2
+# Number of retries for failed SNMP requests.
+# Keep low (0-2) to avoid long execution times.
 snmp_retries: 1
 
 switches:
@@ -13,6 +17,7 @@ switches:
     vendor: cisco
     snmp_version: 2c
     community: public
+    # Trunk ports are marked in reports; list interface names as reported by IF-MIB.
     trunk_ports: ["Gi1/0/48"]
   - name: access-sw1
     management_ip: 192.0.2.20
