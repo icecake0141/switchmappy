@@ -124,6 +124,13 @@ def _status_oid(source_base: str, status_base: str, source_oid: str) -> str:
     return f"{status_base}.{'.'.join(suffix)}" if suffix else status_base
 
 
+def _vlan_sort_key(vlan_id: str) -> tuple[int, str]:
+    try:
+        return (0, f"{int(vlan_id):08d}")
+    except ValueError:
+        return (1, vlan_id)
+
+
 def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, set[str]]]:
     bridge_port_to_ifindex = _bridge_port_map(session)
     if not bridge_port_to_ifindex:
@@ -253,7 +260,7 @@ def collect_switch_state(
     for ifindex, vlan_ids in vlan_ids_by_ifindex.items():
         port = ports_by_ifindex.get(ifindex)
         if port and vlan_ids:
-            port.vlan = ",".join(sorted(vlan_ids, key=int))
+            port.vlan = ",".join(sorted(vlan_ids, key=_vlan_sort_key))
 
     vlans: list[Vlan] = []
     try:
@@ -268,12 +275,22 @@ def collect_switch_state(
         for vlan_id in vlan_ids:
             vlan_to_ports.setdefault(vlan_id, set()).add(port.name)
 
+    known_vlan_ids: set[str] = set()
     for oid, vlan_name in vlan_names.items():
         vlan_id = oid.split(".")[-1]
+        known_vlan_ids.add(vlan_id)
         vlans.append(
             Vlan(
                 vlan_id=vlan_id,
                 name=vlan_name,
+                ports=sorted(vlan_to_ports.get(vlan_id, set())),
+            )
+        )
+    for vlan_id in sorted(set(vlan_to_ports) - known_vlan_ids, key=_vlan_sort_key):
+        vlans.append(
+            Vlan(
+                vlan_id=vlan_id,
+                name=f"VLAN {vlan_id}",
                 ports=sorted(vlan_to_ports.get(vlan_id, set())),
             )
         )
