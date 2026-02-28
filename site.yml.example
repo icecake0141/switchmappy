@@ -1,9 +1,12 @@
+# Example configuration for switchmappy.
+# Copy this file to site.yml and adjust values for your environment.
 destination_directory: output
 idlesince_directory: idlesince
 maclist_file: maclist.json
 unused_after_days: 30
 snmp_timeout: 2
 snmp_retries: 1
+
 switches:
   - name: core-sw1
     management_ip: 192.0.2.10
@@ -11,6 +14,13 @@ switches:
     snmp_version: 2c
     community: public
     trunk_ports: ["Gi1/0/48"]
+  - name: access-sw1
+    management_ip: 192.0.2.20
+    vendor: generic
+    snmp_version: 2c
+    community: public
+    trunk_ports: ["Gi1/0/24"]
+
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
