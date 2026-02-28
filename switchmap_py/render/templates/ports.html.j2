@@ -1,3 +1,16 @@
+<!--
+Copyright 2026 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -19,15 +32,30 @@
           <th>Port</th>
           <th>Description</th>
           <th>Oper</th>
+          <th>Trunk</th>
+          <th>Idle Since</th>
+          <th>Unused (>= {{ unused_after_days }}d)</th>
           <th>ARP</th>
         </tr>
       </thead>
       <tbody>
+      {% set idle_states = idle_states_by_switch.get(switch.name, {}) %}
+      {% set unused_ports = unused_ports_by_switch.get(switch.name, []) %}
       {% for port in switch.ports %}
         <tr>
           <td>{{ port.name }}</td>
           <td>{{ port.descr }}</td>
           <td>{{ port.oper_status }}</td>
+          <td>{% if port.is_trunk %}yes{% else %}-{% endif %}</td>
+          <td>
+            {% set idle = idle_states.get(port.name) %}
+            {% if idle and idle.idle_since %}
+              {{ idle.idle_since.isoformat() }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{% if port.name in unused_ports %}yes{% else %}-{% endif %}</td>
           <td>
             {% for mac in port.macs %}
               {% for entry in mac_entries_by_mac.get(mac.lower(), []) %}

@@ -1,3 +1,16 @@
+<!--
+Copyright 2026 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -20,8 +33,10 @@
         <th>Oper</th>
         <th>Speed</th>
         <th>VLAN</th>
+        <th>Trunk</th>
         <th>ARP</th>
         <th>Idle Since</th>
+        <th>Unused (>= {{ unused_after_days }}d)</th>
       </tr>
     </thead>
     <tbody>
@@ -33,6 +48,7 @@
         <td>{{ port.oper_status }}</td>
         <td>{{ port.speed or '' }}</td>
         <td>{{ port.vlan or '' }}</td>
+        <td>{% if port.is_trunk %}yes{% else %}-{% endif %}</td>
         <td>
           {% for mac in port.macs %}
             {% for entry in mac_entries_by_mac.get(mac.lower(), []) %}
@@ -48,6 +64,7 @@
             -
           {% endif %}
         </td>
+        <td>{% if port.name in unused_ports %}yes{% else %}-{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

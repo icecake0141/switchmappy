@@ -35,9 +35,7 @@ def test_bridge_port_map_logs_warning_on_exception(caplog):
         result = collectors._bridge_port_map(session)
 
     assert result == {}
-    assert any(
-        mibs.DOT1D_BASE_PORT_IFINDEX in record.message for record in caplog.records
-    )
+    assert any(mibs.DOT1D_BASE_PORT_IFINDEX in record.message for record in caplog.records)
 
 
 def test_collect_macs_logs_warning_on_exception(caplog):

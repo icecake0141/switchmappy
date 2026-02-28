@@ -88,6 +88,86 @@ def test_site_config_rejects_missing_community_for_v2c_router(tmp_path):
         SiteConfig.load(config_path)
 
 
+def test_site_config_rejects_missing_community_for_v1_switch(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: core-1
+            management_ip: 10.0.0.1
+            snmp_version: 1
+        """
+    )
+
+    with pytest.raises(ValueError, match="requires 'community'"):
+        SiteConfig.load(config_path)
+
+
+def test_site_config_accepts_snmpv3_authpriv(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: core-v3
+            management_ip: 10.0.0.10
+            snmp_version: 3
+            username: snmpv3-user
+            security_level: authPriv
+            auth_protocol: SHA256
+            auth_password: auth-pass
+            priv_protocol: AES256
+            priv_password: priv-pass
+        routers:
+          - name: edge-v3
+            management_ip: 10.0.0.254
+            snmp_version: 3
+            username: router-user
+            security_level: noAuthNoPriv
+        """
+    )
+
+    config = SiteConfig.load(config_path)
+    assert config.switches[0].snmp_version == "3"
+    assert config.switches[0].username == "snmpv3-user"
+    assert config.switches[0].security_level == "authPriv"
+    assert config.routers[0].snmp_version == "3"
+    assert config.routers[0].security_level == "noAuthNoPriv"
+
+
+def test_site_config_rejects_snmpv3_missing_username(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        switches:
+          - name: core-v3
+            management_ip: 10.0.0.10
+            snmp_version: 3
+            security_level: noAuthNoPriv
+        """
+    )
+
+    with pytest.raises(ValueError, match="requires 'username'"):
+        SiteConfig.load(config_path)
+
+
+def test_site_config_rejects_snmpv3_authpriv_missing_priv_password(tmp_path):
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(
+        """
+        routers:
+          - name: edge-v3
+            management_ip: 10.0.0.254
+            snmp_version: 3
+            username: edge-user
+            security_level: authPriv
+            auth_password: auth-pass
+        """
+    )
+
+    with pytest.raises(ValueError, match="requires 'priv_password'"):
+        SiteConfig.load(config_path)
+
+
 def test_site_config_rejects_duplicate_switch_names(tmp_path):
     config_path = tmp_path / "site.yml"
     config_path.write_text(

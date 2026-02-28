@@ -26,9 +26,7 @@ def test_idle_transition(tmp_path):
     assert updated.idle_since == ts
     assert updated.last_active is None
 
-    updated_active = store.update_port(
-        updated, port=state.port, is_active=True, observed_at=ts
-    )
+    updated_active = store.update_port(updated, port=state.port, is_active=True, observed_at=ts)
     assert updated_active.idle_since is None
     assert updated_active.last_active == ts
 
@@ -51,9 +49,7 @@ def test_save_load_roundtrip(tmp_path):
 
     data = {
         "Gi1/0/3": PortIdleState(port="Gi1/0/3", idle_since=idle_ts, last_active=None),
-        "Gi1/0/4": PortIdleState(
-            port="Gi1/0/4", idle_since=None, last_active=active_ts
-        ),
+        "Gi1/0/4": PortIdleState(port="Gi1/0/4", idle_since=None, last_active=active_ts),
     }
 
     store.save("switch-1", data)
@@ -81,9 +77,7 @@ def test_load_with_invalid_timestamps_logs_warning(tmp_path, caplog):
 
     assert loaded["Gi1/0/5"].idle_since is None
     assert loaded["Gi1/0/5"].last_active is None
-    assert loaded["Gi1/0/6"].idle_since == datetime(
-        2024, 1, 4, 5, 6, 7, tzinfo=timezone.utc
-    )
+    assert loaded["Gi1/0/6"].idle_since == datetime(2024, 1, 4, 5, 6, 7, tzinfo=timezone.utc)
     assert loaded["Gi1/0/6"].last_active is None
     assert "Invalid idle_since timestamp" in caplog.text
     assert "Invalid last_active timestamp" in caplog.text
@@ -133,9 +127,7 @@ def test_load_non_dict_payload_skips_port_and_logs_warning(tmp_path, caplog):
     # Only the valid port should be loaded
     assert "Gi1/0/7" not in loaded
     assert "Gi1/0/8" in loaded
-    assert loaded["Gi1/0/8"].idle_since == datetime(
-        2024, 1, 5, 6, 7, 8, tzinfo=timezone.utc
-    )
+    assert loaded["Gi1/0/8"].idle_since == datetime(2024, 1, 5, 6, 7, 8, tzinfo=timezone.utc)
     assert "Gi1/0/9" not in loaded
     assert "Invalid payload for port Gi1/0/7" in caplog.text
     assert "expected dict, got str" in caplog.text
@@ -188,13 +180,9 @@ def test_load_mixed_valid_invalid_data_loads_valid_only(tmp_path, caplog):
 
     # Valid ports should be loaded
     assert "Gi1/0/10" in loaded
-    assert loaded["Gi1/0/10"].idle_since == datetime(
-        2024, 1, 6, 7, 8, 9, tzinfo=timezone.utc
-    )
+    assert loaded["Gi1/0/10"].idle_since == datetime(2024, 1, 6, 7, 8, 9, tzinfo=timezone.utc)
     assert "Gi1/0/12" in loaded
-    assert loaded["Gi1/0/12"].last_active == datetime(
-        2024, 1, 7, 8, 9, 10, tzinfo=timezone.utc
-    )
+    assert loaded["Gi1/0/12"].last_active == datetime(2024, 1, 7, 8, 9, 10, tzinfo=timezone.utc)
     # Invalid non-dict port should be skipped
     assert "Gi1/0/11" not in loaded
     # Port with bad timestamp should still be loaded with None values

@@ -15,7 +15,7 @@ switches:
   - name: core-sw1
     management_ip: 192.0.2.10
     vendor: cisco
-    snmp_version: 2c
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
     # Trunk ports are marked in reports; list interface names as reported by IF-MIB.
     trunk_ports: ["Gi1/0/48"]
@@ -29,5 +29,17 @@ switches:
 routers:
   - name: edge-router
     management_ip: 192.0.2.1
-    snmp_version: 2c
+    snmp_version: 2c  # 1 | 2c | 3
     community: public
+
+# SNMPv3 example:
+# switches:
+#   - name: core-sw1-v3
+#     management_ip: 192.0.2.30
+#     snmp_version: 3
+#     username: snmpv3-user
+#     security_level: authPriv   # noAuthNoPriv | authNoPriv | authPriv
+#     auth_protocol: SHA256      # MD5 | SHA | SHA224 | SHA256 | SHA384 | SHA512
+#     auth_password: your-auth-pass
+#     priv_protocol: AES256      # DES | 3DES | AES | AES128 | AES192 | AES256
+#     priv_password: your-priv-pass

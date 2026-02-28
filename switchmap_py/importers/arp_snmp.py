@@ -88,15 +88,19 @@ def _build_session(router: RouterConfig, timeout: int, retries: int) -> SnmpSess
             hostname=router.management_ip,
             version=router.snmp_version,
             community=router.community,
+            username=router.username,
+            security_level=router.security_level,
+            auth_protocol=router.auth_protocol,
+            auth_password=router.auth_password,
+            priv_protocol=router.priv_protocol,
+            priv_password=router.priv_password,
             timeout=timeout,
             retries=retries,
         )
     )
 
 
-def load_arp_snmp(
-    routers: Iterable[RouterConfig], timeout: int, retries: int
-) -> list[MacEntry]:
+def load_arp_snmp(routers: Iterable[RouterConfig], timeout: int, retries: int) -> list[MacEntry]:
     seen: set[tuple[str, str, str | None]] = set()
     entries: list[MacEntry] = []
     for router in routers:
@@ -154,9 +158,7 @@ def load_arp_snmp(
             if key in seen:
                 continue
             seen.add(key)
-            entries.append(
-                MacEntry(mac=mac, ip=ip, hostname=None, switch=router.name, port=None)
-            )
+            entries.append(MacEntry(mac=mac, ip=ip, hostname=None, switch=router.name, port=None))
         logger.info(
             "Collected ARP entries from router",
             extra={

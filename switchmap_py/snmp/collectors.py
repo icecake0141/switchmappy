@@ -49,6 +49,12 @@ def build_session(switch: SwitchConfig, timeout: int, retries: int) -> SnmpSessi
             hostname=switch.management_ip,
             version=switch.snmp_version,
             community=switch.community,
+            username=switch.username,
+            security_level=switch.security_level,
+            auth_protocol=switch.auth_protocol,
+            auth_password=switch.auth_password,
+            priv_protocol=switch.priv_protocol,
+            priv_password=switch.priv_password,
             timeout=timeout,
             retries=retries,
         )
@@ -75,9 +81,9 @@ def _select_port_name(if_name: str, if_descr: str, ifindex: int | None) -> str:
 def _parse_mac_from_oid(oid: str, prefix: str, *, vlan_aware: bool) -> tuple[str, str | None] | None:
     prefix_parts = prefix.split(".")
     oid_parts = oid.split(".")
-    if oid_parts[:len(prefix_parts)] != prefix_parts:
+    if oid_parts[: len(prefix_parts)] != prefix_parts:
         return None
-    suffix = oid_parts[len(prefix_parts):]
+    suffix = oid_parts[len(prefix_parts) :]
     if vlan_aware:
         if len(suffix) < 7:
             return None
@@ -120,7 +126,7 @@ def _bridge_port_map(session: SnmpSession) -> dict[str, int]:
 def _status_oid(source_base: str, status_base: str, source_oid: str) -> str:
     base_parts = source_base.split(".")
     source_parts = source_oid.split(".")
-    suffix = source_parts[len(base_parts):]
+    suffix = source_parts[len(base_parts) :]
     return f"{status_base}.{'.'.join(suffix)}" if suffix else status_base
 
 
@@ -159,9 +165,7 @@ def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, 
             )
             vlan_fdb_status = {}
         for oid, bridge_port in vlan_fdb_ports.items():
-            status_oid = _status_oid(
-                mibs.QBRIDGE_VLAN_FDB_PORT, mibs.QBRIDGE_VLAN_FDB_STATUS, oid
-            )
+            status_oid = _status_oid(mibs.QBRIDGE_VLAN_FDB_PORT, mibs.QBRIDGE_VLAN_FDB_STATUS, oid)
             if _is_invalid_fdb_status(vlan_fdb_status.get(status_oid)):
                 continue
             parsed = _parse_mac_from_oid(oid, mibs.QBRIDGE_VLAN_FDB_PORT, vlan_aware=True)
@@ -210,9 +214,7 @@ def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, 
     return macs_by_ifindex, vlan_ids_by_ifindex
 
 
-def collect_switch_state(
-    switch: SwitchConfig, timeout: int, retries: int
-) -> Switch:
+def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Switch:
     session = build_session(switch, timeout, retries)
     names = session.get_table(mibs.IF_NAME)
     descrs = session.get_table(mibs.IF_DESCR)
@@ -231,9 +233,7 @@ def collect_switch_state(
             (descr or "").strip(),
             ifindex,
         )
-        admin_status = _normalize_status(
-            admin.get(f"{mibs.IF_ADMIN_STATUS}.{index}", "")
-        )
+        admin_status = _normalize_status(admin.get(f"{mibs.IF_ADMIN_STATUS}.{index}", ""))
         oper_status = _normalize_status(oper.get(f"{mibs.IF_OPER_STATUS}.{index}", ""))
         speed = speeds.get(f"{mibs.IF_SPEED}.{index}")
         port = Port(
@@ -306,9 +306,7 @@ def collect_switch_state(
     )
 
 
-def collect_port_snapshots(
-    switch: SwitchConfig, timeout: int, retries: int
-) -> list[PortSnapshot]:
+def collect_port_snapshots(switch: SwitchConfig, timeout: int, retries: int) -> list[PortSnapshot]:
     state = collect_switch_state(switch, timeout, retries)
     snapshots: list[PortSnapshot] = []
     for port in state.ports:

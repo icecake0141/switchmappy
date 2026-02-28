@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import shutil
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -72,6 +72,30 @@ def _build_mac_lookup(maclist: list[MacEntry]) -> dict[str, list[MacEntry]]:
     return lookup
 
 
+def _to_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _build_unused_ports(
+    *,
+    idle_states_by_switch: dict[str, dict[str, object]],
+    build_date: datetime,
+    unused_after_days: int,
+) -> dict[str, set[str]]:
+    cutoff = _to_utc(build_date) - timedelta(days=unused_after_days)
+    unused_ports_by_switch: dict[str, set[str]] = {}
+    for switch_name, idle_states in idle_states_by_switch.items():
+        unused_ports: set[str] = set()
+        for port_name, idle_state in idle_states.items():
+            idle_since = getattr(idle_state, "idle_since", None)
+            if isinstance(idle_since, datetime) and _to_utc(idle_since) <= cutoff:
+                unused_ports.add(port_name)
+        unused_ports_by_switch[switch_name] = unused_ports
+    return unused_ports_by_switch
+
+
 def build_site(
     *,
     switches: list[Switch],
@@ -83,6 +107,7 @@ def build_site(
     idlesince_store: IdleSinceStore,
     maclist_store: MacListStore,
     build_date: datetime,
+    unused_after_days: int = 30,
 ) -> None:
     failed_switch_reasons = failed_switch_reasons or {}
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -98,6 +123,12 @@ def build_site(
 
     maclist = maclist_store.load()
     mac_entries_by_mac = _build_mac_lookup(maclist)
+    idle_states_by_switch = {switch.name: idlesince_store.load(switch.name) for switch in switches}
+    unused_ports_by_switch = _build_unused_ports(
+        idle_states_by_switch=idle_states_by_switch,
+        build_date=build_date,
+        unused_after_days=unused_after_days,
+    )
 
     index_html = index_template.render(
         switches=switches,
@@ -108,10 +139,12 @@ def build_site(
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
     for switch in switches:
-        idle_states = idlesince_store.load(switch.name)
+        idle_states = idle_states_by_switch.get(switch.name, {})
         switch_html = switch_template.render(
             switch=switch,
             idle_states=idle_states,
+            unused_ports=unused_ports_by_switch.get(switch.name, set()),
+            unused_after_days=unused_after_days,
             mac_entries_by_mac=mac_entries_by_mac,
             build_date=build_date,
         )
@@ -119,6 +152,9 @@ def build_site(
 
     port_html = port_template.render(
         switches=switches,
+        idle_states_by_switch=idle_states_by_switch,
+        unused_ports_by_switch=unused_ports_by_switch,
+        unused_after_days=unused_after_days,
         mac_entries_by_mac=mac_entries_by_mac,
         build_date=build_date,
     )

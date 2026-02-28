@@ -12,7 +12,7 @@ Required for every created or modified source file
 
 2. LLM attribution
    - Add a short statement in each generated/modified file indicating it was produced or modified with the assistance of an LLM.
-   - Example (file header):  
+   - Example (file header):
      `This file was created or modified with the assistance of an AI (Large Language Model). Please review for correctness and security.`
 
 Recommended file header template (adjust comment style per language)

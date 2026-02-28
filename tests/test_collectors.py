@@ -78,12 +78,8 @@ def test_collect_switch_state_assigns_vlan_to_ports(monkeypatch):
         mibs.IF_OPER_STATUS: {f"{mibs.IF_OPER_STATUS}.1": "1"},
         mibs.IF_SPEED: {f"{mibs.IF_SPEED}.1": "1000"},
         mibs.DOT1D_BASE_PORT_IFINDEX: {f"{mibs.DOT1D_BASE_PORT_IFINDEX}.1": "1"},
-        mibs.QBRIDGE_VLAN_FDB_PORT: {
-            f"{mibs.QBRIDGE_VLAN_FDB_PORT}.10.0.17.34.51.68.85": "1"
-        },
-        mibs.QBRIDGE_VLAN_FDB_STATUS: {
-            f"{mibs.QBRIDGE_VLAN_FDB_STATUS}.10.0.17.34.51.68.85": "3"
-        },
+        mibs.QBRIDGE_VLAN_FDB_PORT: {f"{mibs.QBRIDGE_VLAN_FDB_PORT}.10.0.17.34.51.68.85": "1"},
+        mibs.QBRIDGE_VLAN_FDB_STATUS: {f"{mibs.QBRIDGE_VLAN_FDB_STATUS}.10.0.17.34.51.68.85": "3"},
         mibs.QBRIDGE_VLAN_NAME: {f"{mibs.QBRIDGE_VLAN_NAME}.10": "Users"},
     }
 
@@ -114,12 +110,8 @@ def test_collect_switch_state_builds_vlan_from_fdb_without_name_table(monkeypatc
         mibs.IF_OPER_STATUS: {f"{mibs.IF_OPER_STATUS}.1": "1"},
         mibs.IF_SPEED: {f"{mibs.IF_SPEED}.1": "1000"},
         mibs.DOT1D_BASE_PORT_IFINDEX: {f"{mibs.DOT1D_BASE_PORT_IFINDEX}.1": "1"},
-        mibs.QBRIDGE_VLAN_FDB_PORT: {
-            f"{mibs.QBRIDGE_VLAN_FDB_PORT}.20.0.17.34.51.68.85": "1"
-        },
-        mibs.QBRIDGE_VLAN_FDB_STATUS: {
-            f"{mibs.QBRIDGE_VLAN_FDB_STATUS}.20.0.17.34.51.68.85": "3"
-        },
+        mibs.QBRIDGE_VLAN_FDB_PORT: {f"{mibs.QBRIDGE_VLAN_FDB_PORT}.20.0.17.34.51.68.85": "1"},
+        mibs.QBRIDGE_VLAN_FDB_STATUS: {f"{mibs.QBRIDGE_VLAN_FDB_STATUS}.20.0.17.34.51.68.85": "3"},
         mibs.QBRIDGE_VLAN_NAME: {},
     }
 

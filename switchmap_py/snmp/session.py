@@ -27,6 +27,12 @@ class SnmpConfig:
     community: str | None
     timeout: int
     retries: int
+    username: str | None = None
+    security_level: str = "noAuthNoPriv"
+    auth_protocol: str | None = None
+    auth_password: str | None = None
+    priv_protocol: str | None = None
+    priv_password: str | None = None
 
 
 class SnmpSession:
@@ -42,20 +48,87 @@ class SnmpSession:
                 ObjectType,
                 SnmpEngine,
                 UdpTransportTarget,
+                UsmUserData,
                 nextCmd,
+                usm3DESEDEPrivProtocol,
+                usmAesCfb128Protocol,
+                usmAesCfb192Protocol,
+                usmAesCfb256Protocol,
+                usmDESPrivProtocol,
+                usmHMAC128SHA224AuthProtocol,
+                usmHMAC192SHA256AuthProtocol,
+                usmHMAC256SHA384AuthProtocol,
+                usmHMAC384SHA512AuthProtocol,
+                usmHMACMD5AuthProtocol,
+                usmHMACSHAAuthProtocol,
             )
         except ModuleNotFoundError as exc:
             raise SnmpError("pysnmp is required for SNMP operations") from exc
 
-        if self.config.version != "2c":
-            raise SnmpError("Only SNMP v2c is currently supported")
-        if not self.config.community:
-            raise SnmpError("SNMP community not configured")
+        auth_protocols = {
+            "MD5": usmHMACMD5AuthProtocol,
+            "SHA": usmHMACSHAAuthProtocol,
+            "SHA224": usmHMAC128SHA224AuthProtocol,
+            "SHA256": usmHMAC192SHA256AuthProtocol,
+            "SHA384": usmHMAC256SHA384AuthProtocol,
+            "SHA512": usmHMAC384SHA512AuthProtocol,
+        }
+        priv_protocols = {
+            "DES": usmDESPrivProtocol,
+            "3DES": usm3DESEDEPrivProtocol,
+            "AES": usmAesCfb128Protocol,
+            "AES128": usmAesCfb128Protocol,
+            "AES192": usmAesCfb192Protocol,
+            "AES256": usmAesCfb256Protocol,
+        }
+
+        auth_data: object
+        version = self.config.version
+        if version in {"1", "2c"}:
+            if not self.config.community:
+                raise SnmpError("SNMP community not configured")
+            auth_data = CommunityData(
+                self.config.community,
+                mpModel=0 if version == "1" else 1,
+            )
+        elif version == "3":
+            if not self.config.username:
+                raise SnmpError("SNMPv3 username not configured")
+            level = self.config.security_level
+            if level == "noAuthNoPriv":
+                auth_data = UsmUserData(self.config.username)
+            elif level == "authNoPriv":
+                if not self.config.auth_password:
+                    raise SnmpError("SNMPv3 auth_password not configured")
+                auth_name = self.config.auth_protocol or "SHA"
+                auth_data = UsmUserData(
+                    self.config.username,
+                    authKey=self.config.auth_password,
+                    authProtocol=auth_protocols.get(auth_name, usmHMACSHAAuthProtocol),
+                )
+            elif level == "authPriv":
+                if not self.config.auth_password:
+                    raise SnmpError("SNMPv3 auth_password not configured")
+                if not self.config.priv_password:
+                    raise SnmpError("SNMPv3 priv_password not configured")
+                auth_name = self.config.auth_protocol or "SHA"
+                priv_name = self.config.priv_protocol or "AES"
+                auth_data = UsmUserData(
+                    self.config.username,
+                    authKey=self.config.auth_password,
+                    privKey=self.config.priv_password,
+                    authProtocol=auth_protocols.get(auth_name, usmHMACSHAAuthProtocol),
+                    privProtocol=priv_protocols.get(priv_name, usmAesCfb128Protocol),
+                )
+            else:
+                raise SnmpError(f"Unsupported SNMPv3 security level: {level}")
+        else:
+            raise SnmpError(f"Unsupported SNMP version: {version}")
 
         results: dict[str, str] = {}
         for error_indication, error_status, error_index, var_binds in nextCmd(
             SnmpEngine(),
-            CommunityData(self.config.community),
+            auth_data,
             UdpTransportTarget(
                 (self.config.hostname, 161),
                 timeout=self.config.timeout,
@@ -68,9 +141,7 @@ class SnmpSession:
             if error_indication:
                 raise SnmpError(str(error_indication))
             if error_status:
-                raise SnmpError(
-                    f"SNMP error {error_status.prettyPrint()} at {error_index}"
-                )
+                raise SnmpError(f"SNMP error {error_status.prettyPrint()} at {error_index}")
             for name, val in var_binds:
                 results[str(name)] = str(val)
         return results

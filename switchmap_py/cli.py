@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -34,11 +34,25 @@ from switchmap_py.storage.maclist_store import MacListStore
 
 app = typer.Typer(help="Switchmap Python CLI")
 
+_SWITCHMAP_HANDLER_ATTR = "_switchmap_handler"
+
+
+class CliUsageError(ValueError):
+    pass
+
+
+def _is_bool(value: object) -> bool:
+    return isinstance(value, bool)
+
+
+def _is_str(value: object) -> bool:
+    return isinstance(value, str)
+
 
 class JsonLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -86,9 +100,7 @@ def _event_extra(
         "status": status,
         "target": target,
         "error_code": error_code,
-        "elapsed_ms": int((elapsed_seconds or 0.0) * 1000)
-        if elapsed_seconds is not None
-        else None,
+        "elapsed_ms": int((elapsed_seconds or 0.0) * 1000) if elapsed_seconds is not None else None,
     }
     if target:
         payload["switch"] = target
@@ -100,11 +112,9 @@ def _load_config(path: Optional[Path]) -> SiteConfig:
     try:
         return SiteConfig.load(config_path)
     except FileNotFoundError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+        raise CliUsageError(str(exc)) from exc
     except (ValueError, yaml.YAMLError) as exc:
-        raise typer.BadParameter(
-            f"Failed to load config '{config_path}': {exc}"
-        ) from exc
+        raise CliUsageError(f"Failed to load config '{config_path}': {exc}") from exc
 
 
 def _configure_logging(
@@ -132,9 +142,10 @@ def _configure_logging(
         handler.setFormatter(JsonLogFormatter())
     else:
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    setattr(handler, _SWITCHMAP_HANDLER_ATTR, True)
 
     root = logging.getLogger()
-    root.handlers.clear()
+    root.handlers = [existing for existing in root.handlers if not getattr(existing, _SWITCHMAP_HANDLER_ATTR, False)]
     root.setLevel(level)
     root.addHandler(handler)
 
@@ -159,9 +170,16 @@ def scan_switch(
     This command fails fast on any error (including SNMP errors) to ensure
     scan failures are immediately visible to the operator.
     """
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    switch = switch if _is_str(switch) else None
+    config = config if isinstance(config, Path) else None
+    logfile = logfile if isinstance(logfile, Path) else None
+    log_format = log_format if _is_str(log_format) else "text"
+    debug = debug if _is_bool(debug) else False
+    info = info if _is_bool(info) else False
+    warn = warn if _is_bool(warn) else False
+    prune_missing = prune_missing if _is_bool(prune_missing) else False
+
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     store = IdleSinceStore(site.idlesince_directory)
@@ -222,15 +240,13 @@ def get_arp(
     log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Update MAC list from ARP data."""
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     store = MacListStore(site.maclist_file)
     if source == "csv":
         if not csv_path:
-            raise typer.BadParameter("--csv is required when source=csv")
+            raise CliUsageError("--csv is required when source=csv")
         started = time.monotonic()
         entries = load_arp_csv(csv_path)
         logger.info(
@@ -244,9 +260,7 @@ def get_arp(
         )
     elif source == "snmp":
         if not site.routers:
-            raise typer.BadParameter(
-                "No routers configured in site.yml; add routers or use --source csv"
-            )
+            raise CliUsageError("No routers configured in site.yml; add routers or use --source csv")
         started = time.monotonic()
         entries = load_arp_snmp(site.routers, site.snmp_timeout, site.snmp_retries)
         logger.info(
@@ -259,7 +273,7 @@ def get_arp(
             ),
         )
     else:
-        raise typer.BadParameter("source must be one of: csv, snmp")
+        raise CliUsageError("source must be one of: csv, snmp")
     store.save(entries)
 
 
@@ -280,9 +294,7 @@ def build_html(
     failed, allowing the build to continue with remaining switches. Any other
     exception type will cause the command to fail fast.
     """
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     build_date = datetime.fromisoformat(date) if date else datetime.now()
@@ -292,9 +304,7 @@ def build_html(
     for sw in site.switches:
         started = time.monotonic()
         try:
-            switches.append(
-                collect_switch_state(sw, site.snmp_timeout, site.snmp_retries)
-            )
+            switches.append(collect_switch_state(sw, site.snmp_timeout, site.snmp_retries))
             logger.info(
                 "Collected switch state",
                 extra=_event_extra(
@@ -336,6 +346,7 @@ def build_html(
         idlesince_store=IdleSinceStore(site.idlesince_directory),
         maclist_store=MacListStore(site.maclist_file),
         build_date=build_date,
+        unused_after_days=site.unused_after_days,
     )
 
 
@@ -351,9 +362,7 @@ def serve_search(
     log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Serve search UI from built HTML output."""
-    _configure_logging(
-        debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
-    )
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     site = _load_config(config)
     server = SearchServer(site.destination_directory, host, port)
     server.serve()
