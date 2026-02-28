@@ -124,12 +124,13 @@ def _status_oid(source_base: str, status_base: str, source_oid: str) -> str:
     return f"{status_base}.{'.'.join(suffix)}" if suffix else status_base
 
 
-def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
+def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, set[str]]]:
     bridge_port_to_ifindex = _bridge_port_map(session)
     if not bridge_port_to_ifindex:
-        return {}
+        return {}, {}
 
     macs_by_ifindex: dict[int, set[str]] = {}
+    vlan_ids_by_ifindex: dict[int, set[str]] = {}
     try:
         vlan_fdb_ports = session.get_table(mibs.QBRIDGE_VLAN_FDB_PORT)
     except SnmpError:
@@ -159,12 +160,14 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
             parsed = _parse_mac_from_oid(oid, mibs.QBRIDGE_VLAN_FDB_PORT, vlan_aware=True)
             if not parsed:
                 continue
-            mac, _ = parsed
+            mac, vlan_id = parsed
             ifindex = bridge_port_to_ifindex.get(bridge_port)
             if ifindex is None:
                 continue
             macs_by_ifindex.setdefault(ifindex, set()).add(mac)
-        return macs_by_ifindex
+            if vlan_id:
+                vlan_ids_by_ifindex.setdefault(ifindex, set()).add(vlan_id)
+        return macs_by_ifindex, vlan_ids_by_ifindex
 
     try:
         fdb_ports = session.get_table(mibs.DOT1D_TP_FDB_PORT)
@@ -174,7 +177,7 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
             mibs.DOT1D_TP_FDB_PORT,
             exc_info=True,
         )
-        return {}
+        return {}, {}
     try:
         fdb_status = session.get_table(mibs.DOT1D_TP_FDB_STATUS)
     except SnmpError:
@@ -197,7 +200,7 @@ def _collect_macs(session: SnmpSession) -> dict[int, set[str]]:
         if ifindex is None:
             continue
         macs_by_ifindex.setdefault(ifindex, set()).add(mac)
-    return macs_by_ifindex
+    return macs_by_ifindex, vlan_ids_by_ifindex
 
 
 def collect_switch_state(
@@ -242,20 +245,38 @@ def collect_switch_state(
         if ifindex is not None:
             ports_by_ifindex[ifindex] = port
 
-    macs_by_ifindex = _collect_macs(session)
+    macs_by_ifindex, vlan_ids_by_ifindex = _collect_macs(session)
     for ifindex, macs in macs_by_ifindex.items():
         port = ports_by_ifindex.get(ifindex)
         if port:
             port.macs = sorted(macs)
+    for ifindex, vlan_ids in vlan_ids_by_ifindex.items():
+        port = ports_by_ifindex.get(ifindex)
+        if port and vlan_ids:
+            port.vlan = ",".join(sorted(vlan_ids, key=int))
 
     vlans: list[Vlan] = []
     try:
         vlan_names = session.get_table(mibs.QBRIDGE_VLAN_NAME)
     except SnmpError:
         vlan_names = {}
+    vlan_to_ports: dict[str, set[str]] = {}
+    for ifindex, vlan_ids in vlan_ids_by_ifindex.items():
+        port = ports_by_ifindex.get(ifindex)
+        if not port:
+            continue
+        for vlan_id in vlan_ids:
+            vlan_to_ports.setdefault(vlan_id, set()).add(port.name)
+
     for oid, vlan_name in vlan_names.items():
         vlan_id = oid.split(".")[-1]
-        vlans.append(Vlan(vlan_id=vlan_id, name=vlan_name, ports=[]))
+        vlans.append(
+            Vlan(
+                vlan_id=vlan_id,
+                name=vlan_name,
+                ports=sorted(vlan_to_ports.get(vlan_id, set())),
+            )
+        )
 
     return Switch(
         name=switch.name,

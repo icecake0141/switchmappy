@@ -1,0 +1,50 @@
+<!--
+Copyright 2026 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>VLANs - SwitchMap</title>
+  <link rel="stylesheet" href="/switchmap.css" />
+</head>
+<body>
+  <header>
+    <h1>VLANs</h1>
+    <p>Generated at {{ build_date.isoformat() }}</p>
+  </header>
+  {% for switch in switches %}
+  <section>
+    <h2>{{ switch.name }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>VLAN ID</th>
+          <th>Name</th>
+          <th>Ports</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for vlan in switch.vlans %}
+        <tr>
+          <td>{{ vlan.vlan_id }}</td>
+          <td>{{ vlan.name }}</td>
+          <td>{{ vlan.ports | join(", ") }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+</body>
+</html>

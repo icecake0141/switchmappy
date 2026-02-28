@@ -56,6 +56,7 @@ def build_site(
     index_template = env.get_template("index.html.j2")
     switch_template = env.get_template("switch.html.j2")
     port_template = env.get_template("ports.html.j2")
+    vlan_template = env.get_template("vlans.html.j2")
     search_template = env.get_template("search.html.j2")
 
     maclist = maclist_store.load()
@@ -78,6 +79,9 @@ def build_site(
         switches=switches, maclist=maclist, build_date=build_date
     )
     (output_dir / "ports" / "index.html").write_text(port_html, encoding="utf-8")
+
+    vlan_html = vlan_template.render(switches=switches, build_date=build_date)
+    (output_dir / "vlans" / "index.html").write_text(vlan_html, encoding="utf-8")
 
     search_html = search_template.render(build_date=build_date)
     (output_dir / "search" / "index.html").write_text(search_html, encoding="utf-8")

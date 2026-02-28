@@ -57,9 +57,45 @@ def test_collect_switch_state_falls_back_to_descr_or_ifindex(monkeypatch):
         "build_session",
         lambda *_args, **_kwargs: StubSession(tables),
     )
-    monkeypatch.setattr(collectors, "_collect_macs", lambda _session: {})
+    monkeypatch.setattr(collectors, "_collect_macs", lambda _session: ({}, {}))
 
     state = collectors.collect_switch_state(switch, timeout=1, retries=0)
     assert state.ports[0].name == "Gi1/0/1"
     assert state.ports[0].is_trunk is True
     assert state.ports[1].name == "2"
+
+
+def test_collect_switch_state_assigns_vlan_to_ports(monkeypatch):
+    switch = SwitchConfig(
+        name="sw1",
+        management_ip="192.0.2.1",
+        community="public",
+    )
+    tables = {
+        mibs.IF_NAME: {f"{mibs.IF_NAME}.1": "Gi1/0/1"},
+        mibs.IF_DESCR: {f"{mibs.IF_DESCR}.1": "Gi1/0/1"},
+        mibs.IF_ADMIN_STATUS: {f"{mibs.IF_ADMIN_STATUS}.1": "1"},
+        mibs.IF_OPER_STATUS: {f"{mibs.IF_OPER_STATUS}.1": "1"},
+        mibs.IF_SPEED: {f"{mibs.IF_SPEED}.1": "1000"},
+        mibs.DOT1D_BASE_PORT_IFINDEX: {f"{mibs.DOT1D_BASE_PORT_IFINDEX}.1": "1"},
+        mibs.QBRIDGE_VLAN_FDB_PORT: {
+            f"{mibs.QBRIDGE_VLAN_FDB_PORT}.10.0.17.34.51.68.85": "1"
+        },
+        mibs.QBRIDGE_VLAN_FDB_STATUS: {
+            f"{mibs.QBRIDGE_VLAN_FDB_STATUS}.10.0.17.34.51.68.85": "3"
+        },
+        mibs.QBRIDGE_VLAN_NAME: {f"{mibs.QBRIDGE_VLAN_NAME}.10": "Users"},
+    }
+
+    monkeypatch.setattr(
+        collectors,
+        "build_session",
+        lambda *_args, **_kwargs: StubSession(tables),
+    )
+
+    state = collectors.collect_switch_state(switch, timeout=1, retries=0)
+    assert len(state.ports) == 1
+    assert state.ports[0].vlan == "10"
+    assert len(state.vlans) == 1
+    assert state.vlans[0].vlan_id == "10"
+    assert state.vlans[0].ports == ["Gi1/0/1"]

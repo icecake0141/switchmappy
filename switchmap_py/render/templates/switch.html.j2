@@ -19,6 +19,7 @@
         <th>Admin</th>
         <th>Oper</th>
         <th>Speed</th>
+        <th>VLAN</th>
         <th>Idle Since</th>
       </tr>
     </thead>
@@ -30,6 +31,7 @@
         <td>{{ port.admin_status }}</td>
         <td>{{ port.oper_status }}</td>
         <td>{{ port.speed or '' }}</td>
+        <td>{{ port.vlan or '' }}</td>
         <td>
           {% set idle = idle_states.get(port.name) %}
           {% if idle and idle.idle_since %}
