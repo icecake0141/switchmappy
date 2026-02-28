@@ -94,7 +94,8 @@ aa:bb:cc:dd:ee:ff,192.0.2.10,example-host
 
 `switchmap get-arp --source snmp` reads ARP tables from routers defined under
 `routers:` in `site.yml` via SNMP v2c. If `routers` is empty, the command exits
-with a configuration error.
+with a configuration error. The implementation first reads legacy
+`ipNetToMedia` and falls back to `ipNetToPhysical` when needed.
 
 ## Cron example
 

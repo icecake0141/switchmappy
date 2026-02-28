@@ -138,3 +138,27 @@ def test_load_arp_snmp_deduplicates_entries(monkeypatch):
     assert len(entries) == 1
     assert entries[0].mac == "00:11:22:33:44:55"
     assert entries[0].ip == "192.0.2.10"
+
+
+def test_load_arp_snmp_falls_back_to_ip_net_to_physical(monkeypatch):
+    routers = [
+        RouterConfig(name="r1", management_ip="192.0.2.1", community="public"),
+    ]
+    fake_session = FakeSession(
+        {
+            mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS: {},
+            mibs.IP_NET_TO_MEDIA_NET_ADDRESS: {},
+            mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS: {
+                f"{mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS}.1.1.192.0.2.30": "00:11:22:33:44:88",
+            },
+            mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS: {
+                f"{mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS}.1.1.192.0.2.30": "192.0.2.30",
+            },
+        }
+    )
+    monkeypatch.setattr(arp_snmp, "_build_session", lambda *_args, **_kwargs: fake_session)
+
+    entries = arp_snmp.load_arp_snmp(routers, timeout=2, retries=1)
+    assert len(entries) == 1
+    assert entries[0].mac == "00:11:22:33:44:88"
+    assert entries[0].ip == "192.0.2.30"

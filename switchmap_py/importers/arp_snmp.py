@@ -72,6 +72,13 @@ def load_arp_snmp(
             session = _build_session(router, timeout, retries)
             mac_by_oid = session.get_table(mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS)
             ip_by_oid = session.get_table(mibs.IP_NET_TO_MEDIA_NET_ADDRESS)
+            phys_oid_base = mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS
+            ip_oid_base = mibs.IP_NET_TO_MEDIA_NET_ADDRESS
+            if not mac_by_oid:
+                mac_by_oid = session.get_table(mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS)
+                ip_by_oid = session.get_table(mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS)
+                phys_oid_base = mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS
+                ip_oid_base = mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS
         except SnmpError:
             logger.warning(
                 "Failed to collect ARP entries from router %s",
@@ -81,8 +88,8 @@ def load_arp_snmp(
             continue
 
         for oid, raw_mac in mac_by_oid.items():
-            suffix = oid.removeprefix(f"{mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS}.")
-            ip_oid = f"{mibs.IP_NET_TO_MEDIA_NET_ADDRESS}.{suffix}"
+            suffix = oid.removeprefix(f"{phys_oid_base}.")
+            ip_oid = f"{ip_oid_base}.{suffix}"
             ip = ip_by_oid.get(ip_oid)
             if not ip or not _is_valid_ip(ip):
                 continue
