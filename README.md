@@ -109,9 +109,11 @@ scan. Use `--prune-missing` to drop entries for ports that no longer appear.
 - `destination_directory`: generated HTML and search index output.
 - `idlesince_directory`: per-switch idle port tracking data.
 - `maclist_file`: normalized MAC/IP/hostname data used in reports.
+- `unused_after_days`: ports idle for this many days or more are marked `Unused` on switch/ports pages.
 - Failed switch collections and failure reasons are listed on the generated report index page.
 - `destination_directory/vlans/index.html`: VLAN-centric view with VLAN filter and links to switch detail pages.
 - `switches/*.html` / `ports/index.html`: ARP correlation (`IP (hostname)`) inferred from MAC matches in `maclist_file`.
+- `switches/*.html` / `ports/index.html`: trunk ports listed in `trunk_ports` are marked in report tables.
 
 Example ARP correlation output on a switch port row:
 

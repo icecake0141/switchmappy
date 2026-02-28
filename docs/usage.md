@@ -85,8 +85,8 @@ python -m pre_commit run --all-files
 ## Generated Pages
 
 - `index.html`: switch list and failed switch summary
-- `switches/<switch>.html`: per-port state, VLAN, idle-since, and ARP correlation (`IP (hostname)`)
-- `ports/index.html`: cross-switch port summary with ARP correlation
+- `switches/<switch>.html`: per-port state, VLAN, trunk marker, idle-since, `Unused (>= unused_after_days)`, and ARP correlation (`IP (hostname)`)
+- `ports/index.html`: cross-switch port summary with trunk marker, idle-since, `Unused (>= unused_after_days)`, and ARP correlation
 - `vlans/index.html`: VLAN summary with client-side VLAN filter and links to switch detail anchors
 - `search/index.html`: searchable UI for MAC/IP/host/switch/port data
 
