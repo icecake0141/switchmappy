@@ -80,6 +80,14 @@ python -m pytest -q
 python -m pre_commit run --all-files
 ```
 
+## Generated Pages
+
+- `index.html`: switch list and failed switch summary
+- `switches/<switch>.html`: per-port state, VLAN, idle-since, and ARP correlation (`IP (hostname)`)
+- `ports/index.html`: cross-switch port summary with ARP correlation
+- `vlans/index.html`: VLAN summary with client-side VLAN filter and links to switch detail anchors
+- `search/index.html`: searchable UI for MAC/IP/host/switch/port data
+
 ### ARP CSV format
 
 The `get-arp` command expects one entry per line with at least MAC and IP columns.

@@ -109,6 +109,15 @@ scan. Use `--prune-missing` to drop entries for ports that no longer appear.
 - `idlesince_directory`: per-switch idle port tracking data.
 - `maclist_file`: normalized MAC/IP/hostname data used in reports.
 - Failed switch collections are listed on the generated report index page.
+- `destination_directory/vlans/index.html`: VLAN-centric view with VLAN filter and links to switch detail pages.
+- `switches/*.html` / `ports/index.html`: ARP correlation (`IP (hostname)`) inferred from MAC matches in `maclist_file`.
+
+Example ARP correlation output on a switch port row:
+
+```text
+192.0.2.100 (host-a)
+192.0.2.101 (host-b)
+```
 
 ---
 
@@ -208,3 +217,12 @@ python -m pre_commit run --all-files
 - `idlesince_directory`: スイッチ別のアイドルポート追跡データ。
 - `maclist_file`: レポートで使用するMAC/IP/ホスト名の正規化データ。
 - 収集に失敗したスイッチ名はレポートのトップページに一覧表示されます。
+- `destination_directory/vlans/index.html`: VLAN一覧ページ（VLANフィルタとスイッチ詳細へのリンク付き）。
+- `switches/*.html` / `ports/index.html`: MAC一致に基づくARP相関（`IP (hostname)`）を表示。
+
+スイッチポート行でのARP相関表示例:
+
+```text
+192.0.2.100 (host-a)
+192.0.2.101 (host-b)
+```
