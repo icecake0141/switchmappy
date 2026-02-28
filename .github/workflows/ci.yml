@@ -58,7 +58,7 @@ jobs:
       - name: Run search server E2E tests
         run: python -m pytest -q tests/test_search_server_e2e.py
       - name: Cache pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ./.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
