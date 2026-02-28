@@ -22,7 +22,7 @@ Review required for correctness, security, and licensing.
   <header>
     <h1>Search</h1>
   </header>
-  <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, IP, MAC, host" />
+  <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, neighbor, IP, MAC, host" />
   <div>
     <label for="typeFilter">Type:</label>
     <select id="typeFilter">
@@ -38,10 +38,19 @@ Review required for correctness, security, and licensing.
     </select>
     <label for="vlanFilter">VLAN:</label>
     <input id="vlanFilter" type="text" placeholder="e.g. 10" />
+    <label for="neighborFilter">Neighbor:</label>
+    <input id="neighborFilter" type="text" placeholder="e.g. dist-sw1" />
+    <label for="inErrFilter">In Err >=</label>
+    <input id="inErrFilter" type="number" min="0" step="1" placeholder="0" />
+    <label for="outErrFilter">Out Err >=</label>
+    <input id="outErrFilter" type="number" min="0" step="1" placeholder="0" />
     <label for="sortBy">Sort:</label>
     <select id="sortBy">
       <option value="switch-port">Switch/Port</option>
       <option value="vlan">VLAN</option>
+      <option value="neighbor">Neighbor</option>
+      <option value="in-errors">In Err</option>
+      <option value="out-errors">Out Err</option>
       <option value="type">Type</option>
     </select>
     <button id="resetFilters" type="button">Reset</button>
@@ -56,6 +65,9 @@ Review required for correctness, security, and licensing.
         <th>Port</th>
         <th>Status</th>
         <th>VLAN</th>
+        <th>Neighbor</th>
+        <th>In Err</th>
+        <th>Out Err</th>
         <th>MAC</th>
         <th>IP</th>
         <th>Hostname</th>
@@ -76,6 +88,9 @@ Review required for correctness, security, and licensing.
         entry.port,
         entry.status,
         entry.vlan,
+        entry.neighbor,
+        entry.input_errors,
+        entry.output_errors,
         entry.mac,
         entry.ip,
         entry.hostname,
@@ -91,6 +106,11 @@ Review required for correctness, security, and licensing.
       const type = document.getElementById('typeFilter').value;
       const status = document.getElementById('statusFilter').value;
       const vlan = document.getElementById('vlanFilter').value.toLowerCase().trim();
+      const neighbor = document.getElementById('neighborFilter').value.toLowerCase().trim();
+      const inErr = document.getElementById('inErrFilter').value.trim();
+      const outErr = document.getElementById('outErrFilter').value.trim();
+      const minInErr = inErr ? Number.parseInt(inErr, 10) : null;
+      const minOutErr = outErr ? Number.parseInt(outErr, 10) : null;
       return entries.filter((entry) => {
         if (type && entry.type !== type) {
           return false;
@@ -99,6 +119,15 @@ Review required for correctness, security, and licensing.
           return false;
         }
         if (vlan && !(entry.vlan || '').toLowerCase().includes(vlan)) {
+          return false;
+        }
+        if (neighbor && !(entry.neighbor || '').toLowerCase().includes(neighbor)) {
+          return false;
+        }
+        if (minInErr !== null && Number.isFinite(minInErr) && Number(entry.input_errors || 0) < minInErr) {
+          return false;
+        }
+        if (minOutErr !== null && Number.isFinite(minOutErr) && Number(entry.output_errors || 0) < minOutErr) {
           return false;
         }
         return !query || match(entry, query);
@@ -110,6 +139,12 @@ Review required for correctness, security, and licensing.
       const sorted = [...entries];
       if (sortBy === 'vlan') {
         sorted.sort((a, b) => (a.vlan || '').localeCompare(b.vlan || ''));
+      } else if (sortBy === 'neighbor') {
+        sorted.sort((a, b) => (a.neighbor || '').localeCompare(b.neighbor || ''));
+      } else if (sortBy === 'in-errors') {
+        sorted.sort((a, b) => Number(b.input_errors || 0) - Number(a.input_errors || 0));
+      } else if (sortBy === 'out-errors') {
+        sorted.sort((a, b) => Number(b.output_errors || 0) - Number(a.output_errors || 0));
       } else if (sortBy === 'type') {
         sorted.sort((a, b) => (a.type || '').localeCompare(b.type || ''));
       } else {
@@ -129,6 +164,9 @@ Review required for correctness, security, and licensing.
         port: entry.port ?? '',
         status: '',
         vlan: '',
+        neighbor: '',
+        input_errors: '',
+        output_errors: '',
         mac: entry.mac ?? '',
         ip: entry.ip ?? '',
         hostname: entry.hostname ?? '',
@@ -148,6 +186,9 @@ Review required for correctness, security, and licensing.
             port: port.name ?? '',
             status: port.oper_status ?? '',
             vlan: port.vlan ?? '',
+            neighbor: (port.neighbors || []).join(', '),
+            input_errors: port.input_errors ?? 0,
+            output_errors: port.output_errors ?? 0,
             mac: (port.macs || []).join(', '),
             ip: '',
             hostname: '',
@@ -177,6 +218,9 @@ Review required for correctness, security, and licensing.
           entry.port ?? '',
           entry.status ?? '',
           entry.vlan ?? '',
+          entry.neighbor ?? '',
+          entry.input_errors ?? '',
+          entry.output_errors ?? '',
           entry.mac ?? '',
           entry.ip ?? '',
           entry.hostname ?? '',
@@ -202,6 +246,9 @@ Review required for correctness, security, and licensing.
       document.getElementById('typeFilter').value = params.get('type') || '';
       document.getElementById('statusFilter').value = params.get('status') || '';
       document.getElementById('vlanFilter').value = params.get('vlan') || '';
+      document.getElementById('neighborFilter').value = params.get('neighbor') || '';
+      document.getElementById('inErrFilter').value = params.get('inErr') || '';
+      document.getElementById('outErrFilter').value = params.get('outErr') || '';
       document.getElementById('sortBy').value = params.get('sort') || 'switch-port';
     }
 
@@ -211,11 +258,17 @@ Review required for correctness, security, and licensing.
       const type = document.getElementById('typeFilter').value;
       const status = document.getElementById('statusFilter').value;
       const vlan = document.getElementById('vlanFilter').value.trim();
+      const neighbor = document.getElementById('neighborFilter').value.trim();
+      const inErr = document.getElementById('inErrFilter').value.trim();
+      const outErr = document.getElementById('outErrFilter').value.trim();
       const sort = document.getElementById('sortBy').value;
       if (query) params.set('q', query);
       if (type) params.set('type', type);
       if (status) params.set('status', status);
       if (vlan) params.set('vlan', vlan);
+      if (neighbor) params.set('neighbor', neighbor);
+      if (inErr) params.set('inErr', inErr);
+      if (outErr) params.set('outErr', outErr);
       if (sort && sort !== 'switch-port') params.set('sort', sort);
       const queryString = params.toString();
       const next = queryString ? `?${queryString}` : window.location.pathname;
@@ -235,6 +288,9 @@ Review required for correctness, security, and licensing.
         document.getElementById('typeFilter').value = '';
         document.getElementById('statusFilter').value = '';
         document.getElementById('vlanFilter').value = '';
+        document.getElementById('neighborFilter').value = '';
+        document.getElementById('inErrFilter').value = '';
+        document.getElementById('outErrFilter').value = '';
         document.getElementById('sortBy').value = 'switch-port';
         refresh();
       };
@@ -243,6 +299,9 @@ Review required for correctness, security, and licensing.
       document.getElementById('typeFilter').addEventListener('change', refresh);
       document.getElementById('statusFilter').addEventListener('change', refresh);
       document.getElementById('vlanFilter').addEventListener('input', refresh);
+      document.getElementById('neighborFilter').addEventListener('input', refresh);
+      document.getElementById('inErrFilter').addEventListener('input', refresh);
+      document.getElementById('outErrFilter').addEventListener('input', refresh);
       document.getElementById('sortBy').addEventListener('change', refresh);
       document.getElementById('resetFilters').addEventListener('click', reset);
     }
