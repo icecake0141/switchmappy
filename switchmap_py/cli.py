@@ -41,6 +41,14 @@ class CliUsageError(ValueError):
     pass
 
 
+def _is_bool(value: object) -> bool:
+    return isinstance(value, bool)
+
+
+def _is_str(value: object) -> bool:
+    return isinstance(value, str)
+
+
 class JsonLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
@@ -170,6 +178,15 @@ def scan_switch(
     This command fails fast on any error (including SNMP errors) to ensure
     scan failures are immediately visible to the operator.
     """
+    switch = switch if _is_str(switch) else None
+    config = config if isinstance(config, Path) else None
+    logfile = logfile if isinstance(logfile, Path) else None
+    log_format = log_format if _is_str(log_format) else "text"
+    debug = debug if _is_bool(debug) else False
+    info = info if _is_bool(info) else False
+    warn = warn if _is_bool(warn) else False
+    prune_missing = prune_missing if _is_bool(prune_missing) else False
+
     _configure_logging(
         debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
     )
