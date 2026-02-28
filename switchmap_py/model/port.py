@@ -27,6 +27,8 @@ class Port:
     vlan: Optional[str]
     macs: list[str] = field(default_factory=list)
     neighbors: list[str] = field(default_factory=list)
+    input_errors: Optional[int] = None
+    output_errors: Optional[int] = None
     idle_since: Optional[datetime] = None
     last_active: Optional[datetime] = None
     is_trunk: bool = False

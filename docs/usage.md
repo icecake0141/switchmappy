@@ -99,6 +99,10 @@ Current SSH collector support is a foundation:
   - Cisco-like / Arista EOS: `show lldp neighbors detail` (fallback: `show cdp neighbors detail`)
   - Juniper devices: `show lldp neighbors`
   - Fortinet FortiSwitch OS: `get switch lldp neighbors-detail`
+- Port error counters:
+  - Cisco-like / Arista EOS: `show interfaces counters errors`
+  - Juniper devices: `show interfaces extensive | match "Physical interface|Input errors|Output errors"`
+  - Fortinet FortiSwitch OS: `diagnose switch physical-ports error-counters`
 - It can be extended incrementally for additional vendor-specific commands.
 
 ## CLI

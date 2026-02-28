@@ -32,6 +32,8 @@ Review required for correctness, security, and licensing.
           <th>Port</th>
           <th>Description</th>
           <th>Oper</th>
+          <th>In Err</th>
+          <th>Out Err</th>
           <th>Trunk</th>
           <th>Idle Since</th>
           <th>Unused (>= {{ unused_after_days }}d)</th>
@@ -46,6 +48,8 @@ Review required for correctness, security, and licensing.
           <td>{{ port.name }}</td>
           <td>{{ port.descr }}</td>
           <td>{{ port.oper_status }}</td>
+          <td>{{ port.input_errors if port.input_errors is not none else '' }}</td>
+          <td>{{ port.output_errors if port.output_errors is not none else '' }}</td>
           <td>{% if port.is_trunk %}yes{% else %}-{% endif %}</td>
           <td>
             {% set idle = idle_states.get(port.name) %}

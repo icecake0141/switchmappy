@@ -36,6 +36,7 @@ _STATUS_TOKENS = {
 _MAC_RE = re.compile(r"^(?:[0-9a-fA-F]{2}[:.-]?){6}$")
 _VLAN_ID_RE = re.compile(r"^\d{1,4}$")
 _PORT_HINT_RE = re.compile(r"^(?:gi|fa|te|eth|et|ge|xe|ae|po|port|internal)\d", re.IGNORECASE)
+_INTEGER_RE = re.compile(r"^\d+$")
 
 
 def _vendor_profile(vendor: str) -> str:
@@ -442,6 +443,90 @@ def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, set[str]]:
     return neighbors_by_port
 
 
+def _parse_cisco_like_error_counters(text: str) -> dict[str, tuple[int, int]]:
+    errors_by_port: dict[str, tuple[int, int]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("port", "interface", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 3:
+            continue
+        port_token = tokens[0]
+        if not _looks_like_port(port_token):
+            continue
+        counters = [int(token) for token in tokens[1:] if _INTEGER_RE.match(token)]
+        if len(counters) >= 4:
+            # Common Cisco/Arista layout: Align-Err FCS-Err Xmit-Err Rcv-Err ...
+            output_errors = counters[2]
+            input_errors = counters[3]
+        elif len(counters) >= 2:
+            output_errors = counters[0]
+            input_errors = counters[1]
+        else:
+            continue
+        errors_by_port[_canonical_port_name(port_token)] = (input_errors, output_errors)
+    return errors_by_port
+
+
+def _parse_juniper_error_counters(text: str) -> dict[str, tuple[int, int]]:
+    errors_by_port: dict[str, tuple[int, int]] = {}
+    current_port: str | None = None
+    input_errors: int | None = None
+    output_errors: int | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith("physical interface:"):
+            if current_port and input_errors is not None and output_errors is not None:
+                errors_by_port[current_port] = (input_errors, output_errors)
+            port_name = line.split(":", 1)[1].split(",", 1)[0].strip()
+            current_port = _canonical_port_name(port_name)
+            input_errors = None
+            output_errors = None
+            continue
+        if lower.startswith("input errors:"):
+            match = re.search(r"input errors:\s*(\d+)", line, flags=re.IGNORECASE)
+            if match:
+                input_errors = int(match.group(1))
+            continue
+        if lower.startswith("output errors:"):
+            match = re.search(r"output errors:\s*(\d+)", line, flags=re.IGNORECASE)
+            if match:
+                output_errors = int(match.group(1))
+            continue
+    if current_port and input_errors is not None and output_errors is not None:
+        errors_by_port[current_port] = (input_errors, output_errors)
+    return errors_by_port
+
+
+def _parse_fortiswitch_error_counters(text: str) -> dict[str, tuple[int, int]]:
+    errors_by_port: dict[str, tuple[int, int]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("port ", "interface ", "name ", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 3:
+            continue
+        port_token = tokens[0]
+        if not re.match(r"^(port|internal)\d+", port_token.lower()):
+            continue
+        counters = [int(token) for token in tokens[1:] if _INTEGER_RE.match(token)]
+        if len(counters) < 2:
+            continue
+        errors_by_port[_canonical_port_name(port_token)] = (counters[0], counters[1])
+    return errors_by_port
+
+
 def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
@@ -493,6 +578,22 @@ def _collect_neighbors(session: SshSession, switch: SwitchConfig, timeout: int) 
 
     cdp_output = session.run("show cdp neighbors detail", timeout=timeout)
     return _parse_cisco_cdp_neighbors_detail(cdp_output)
+
+
+def _collect_error_counters(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, tuple[int, int]]:
+    profile = _vendor_profile(switch.vendor)
+    if profile == "juniper":
+        output = session.run(
+            'show interfaces extensive | match "Physical interface|Input errors|Output errors"',
+            timeout=timeout,
+        )
+        return _parse_juniper_error_counters(output)
+    if profile == "fortiswitch":
+        output = session.run("diagnose switch physical-ports error-counters", timeout=timeout)
+        return _parse_fortiswitch_error_counters(output)
+
+    output = session.run("show interfaces counters errors", timeout=timeout)
+    return _parse_cisco_like_error_counters(output)
 
 
 def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
@@ -553,6 +654,21 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
         except SshError:
             logger.warning(
                 "SSH neighbor collection command failed for switch %s; continuing without neighbors.",
+                switch.name,
+                exc_info=True,
+            )
+        try:
+            errors_by_port = _collect_error_counters(session, switch, timeout=timeout)
+            for port in ports:
+                canonical = _canonical_port_name(port.name)
+                counters = errors_by_port.get(canonical)
+                if not counters:
+                    continue
+                port.input_errors = counters[0]
+                port.output_errors = counters[1]
+        except SshError:
+            logger.warning(
+                "SSH error counter collection command failed for switch %s; continuing without counters.",
                 switch.name,
                 exc_info=True,
             )
