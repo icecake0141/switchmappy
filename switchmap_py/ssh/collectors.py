@@ -33,6 +33,7 @@ _STATUS_TOKENS = {
     "up",
     "down",
 }
+_MAC_RE = re.compile(r"^(?:[0-9a-fA-F]{2}[:.-]?){6}$")
 
 
 def _vendor_profile(vendor: str) -> str:
@@ -76,6 +77,17 @@ def _parse_speed(token: str) -> int | None:
         return int(match.group(1))
     except ValueError:
         return None
+
+
+def _normalize_mac(value: str) -> str | None:
+    token = value.strip().lower().replace("-", "").replace(":", "").replace(".", "")
+    if len(token) != 12 or not all(ch in "0123456789abcdef" for ch in token):
+        return None
+    return ":".join(token[index : index + 2] for index in range(0, 12, 2))
+
+
+def _canonical_port_name(value: str) -> str:
+    return value.strip().lower().split(".")[0]
 
 
 def _parse_cisco_interface_status(text: str, switch: SwitchConfig) -> list[Port]:
@@ -191,6 +203,75 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
     return ports
 
 
+def _parse_cisco_like_mac_table(text: str) -> dict[str, set[str]]:
+    macs_by_port: dict[str, set[str]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("vlan", "----", "legend", "total", "mac address")):
+            continue
+        tokens = _WS_RE.split(line)
+        mac = next((tok for tok in tokens if _MAC_RE.match(tok)), None)
+        if not mac:
+            continue
+        port_token = tokens[-1]
+        for port_name in port_token.split(","):
+            canonical = _canonical_port_name(port_name)
+            if not canonical:
+                continue
+            normalized_mac = _normalize_mac(mac)
+            if not normalized_mac:
+                continue
+            macs_by_port.setdefault(canonical, set()).add(normalized_mac)
+    return macs_by_port
+
+
+def _parse_juniper_mac_table(text: str) -> dict[str, set[str]]:
+    macs_by_port: dict[str, set[str]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("mac", "vlan", "ethernet switching", "name", "---")):
+            continue
+        tokens = _WS_RE.split(line)
+        mac = next((tok for tok in tokens if _MAC_RE.match(tok)), None)
+        if not mac:
+            continue
+        interface = next((tok for tok in tokens if "/" in tok), "")
+        canonical = _canonical_port_name(interface)
+        normalized_mac = _normalize_mac(mac)
+        if canonical and normalized_mac:
+            macs_by_port.setdefault(canonical, set()).add(normalized_mac)
+    return macs_by_port
+
+
+def _parse_fortiswitch_mac_table(text: str) -> dict[str, set[str]]:
+    macs_by_port: dict[str, set[str]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("vlan", "mac", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 3:
+            continue
+        mac = next((tok for tok in tokens if _MAC_RE.match(tok)), None)
+        if not mac:
+            continue
+        port_token = tokens[-1]
+        canonical = _canonical_port_name(port_token)
+        normalized_mac = _normalize_mac(mac)
+        if canonical and normalized_mac:
+            macs_by_port.setdefault(canonical, set()).add(normalized_mac)
+    return macs_by_port
+
+
 def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
@@ -199,6 +280,17 @@ def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout
         command = "get switch interface status"
     else:
         command = "show interfaces status"
+    return session.run(command, timeout=timeout)
+
+
+def _collect_mac_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
+    profile = _vendor_profile(switch.vendor)
+    if profile == "juniper":
+        command = "show ethernet-switching table"
+    elif profile == "fortiswitch":
+        command = "get switch mac-address-table"
+    else:
+        command = "show mac address-table"
     return session.run(command, timeout=timeout)
 
 
@@ -214,6 +306,23 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
             ports = _parse_fortiswitch_interface_status(output, switch)
         else:
             ports = _parse_cisco_interface_status(output, switch)
+        try:
+            mac_output = _collect_mac_output(session, switch, timeout=timeout)
+            if profile == "juniper":
+                macs_by_port = _parse_juniper_mac_table(mac_output)
+            elif profile == "fortiswitch":
+                macs_by_port = _parse_fortiswitch_mac_table(mac_output)
+            else:
+                macs_by_port = _parse_cisco_like_mac_table(mac_output)
+            for port in ports:
+                canonical = _canonical_port_name(port.name)
+                port.macs = sorted(macs_by_port.get(canonical, set()))
+        except SshError:
+            logger.warning(
+                "SSH MAC collection command failed for switch %s; continuing without MAC table.",
+                switch.name,
+                exc_info=True,
+            )
     except SshError:
         logger.warning(
             "SSH collection command failed for switch %s; returning empty switch state.",
@@ -236,8 +345,8 @@ def collect_port_snapshots(switch: SwitchConfig, timeout: int) -> list[PortSnaps
         snapshots.append(
             PortSnapshot(
                 name=port.name,
-                is_active=port.oper_status.lower() == "up",
-                mac_count=0,
+                is_active=port.is_active,
+                mac_count=len(port.macs),
                 oper_status=port.oper_status,
             )
         )
