@@ -154,6 +154,9 @@ def test_load_arp_snmp_falls_back_to_ip_net_to_physical(monkeypatch):
             mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS: {
                 f"{mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS}.1.1.192.0.2.30": "192.0.2.30",
             },
+            mibs.IP_NET_TO_PHYSICAL_STATE: {
+                f"{mibs.IP_NET_TO_PHYSICAL_STATE}.1.1.192.0.2.30": "1",
+            },
         }
     )
     monkeypatch.setattr(arp_snmp, "_build_session", lambda *_args, **_kwargs: fake_session)
@@ -162,3 +165,52 @@ def test_load_arp_snmp_falls_back_to_ip_net_to_physical(monkeypatch):
     assert len(entries) == 1
     assert entries[0].mac == "00:11:22:33:44:88"
     assert entries[0].ip == "192.0.2.30"
+
+
+def test_load_arp_snmp_accepts_only_reachable_from_ip_net_to_physical(monkeypatch):
+    routers = [
+        RouterConfig(name="r1", management_ip="192.0.2.1", community="public"),
+    ]
+    fake_session = FakeSession(
+        {
+            mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS: {},
+            mibs.IP_NET_TO_MEDIA_NET_ADDRESS: {},
+            mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS: {
+                f"{mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS}.1.1.192.0.2.30": "00:11:22:33:44:88",
+                f"{mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS}.1.1.192.0.2.31": "00:11:22:33:44:99",
+            },
+            mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS: {
+                f"{mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS}.1.1.192.0.2.30": "192.0.2.30",
+                f"{mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS}.1.1.192.0.2.31": "192.0.2.31",
+            },
+            mibs.IP_NET_TO_PHYSICAL_STATE: {
+                f"{mibs.IP_NET_TO_PHYSICAL_STATE}.1.1.192.0.2.30": "1",
+                f"{mibs.IP_NET_TO_PHYSICAL_STATE}.1.1.192.0.2.31": "2",
+            },
+        }
+    )
+    monkeypatch.setattr(arp_snmp, "_build_session", lambda *_args, **_kwargs: fake_session)
+
+    entries = arp_snmp.load_arp_snmp(routers, timeout=2, retries=1)
+    assert len(entries) == 1
+    assert entries[0].ip == "192.0.2.30"
+
+
+def test_load_arp_snmp_skips_ipv6_entries(monkeypatch):
+    routers = [
+        RouterConfig(name="r1", management_ip="192.0.2.1", community="public"),
+    ]
+    fake_session = FakeSession(
+        {
+            mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_PHYS_ADDRESS}.1.2001:db8::1": "00:11:22:33:44:55",
+            },
+            mibs.IP_NET_TO_MEDIA_NET_ADDRESS: {
+                f"{mibs.IP_NET_TO_MEDIA_NET_ADDRESS}.1.2001:db8::1": "2001:db8::1",
+            },
+        }
+    )
+    monkeypatch.setattr(arp_snmp, "_build_session", lambda *_args, **_kwargs: fake_session)
+
+    entries = arp_snmp.load_arp_snmp(routers, timeout=2, retries=1)
+    assert entries == []

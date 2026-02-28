@@ -44,10 +44,10 @@ def _normalize_mac(raw: str) -> str | None:
 
 def _is_valid_ip(value: str) -> bool:
     try:
-        ipaddress.ip_address(value)
+        parsed = ipaddress.ip_address(value)
     except ValueError:
         return False
-    return True
+    return parsed.version == 4
 
 
 def _build_session(router: RouterConfig, timeout: int, retries: int) -> SnmpSession:
@@ -77,8 +77,13 @@ def load_arp_snmp(
             if not mac_by_oid:
                 mac_by_oid = session.get_table(mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS)
                 ip_by_oid = session.get_table(mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS)
+                state_by_oid = session.get_table(mibs.IP_NET_TO_PHYSICAL_STATE)
                 phys_oid_base = mibs.IP_NET_TO_PHYSICAL_PHYS_ADDRESS
                 ip_oid_base = mibs.IP_NET_TO_PHYSICAL_NET_ADDRESS
+                state_oid_base = mibs.IP_NET_TO_PHYSICAL_STATE
+            else:
+                state_by_oid = {}
+                state_oid_base = ""
         except SnmpError:
             logger.warning(
                 "Failed to collect ARP entries from router %s",
@@ -89,6 +94,11 @@ def load_arp_snmp(
 
         for oid, raw_mac in mac_by_oid.items():
             suffix = oid.removeprefix(f"{phys_oid_base}.")
+            if state_oid_base:
+                state_oid = f"{state_oid_base}.{suffix}"
+                # RFC 4293 ipNetToPhysicalState: 1=reachable
+                if state_by_oid.get(state_oid) != "1":
+                    continue
             ip_oid = f"{ip_oid_base}.{suffix}"
             ip = ip_by_oid.get(ip_oid)
             if not ip or not _is_valid_ip(ip):
