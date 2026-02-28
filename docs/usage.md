@@ -92,7 +92,9 @@ switches:
 
 Current SSH collector support is a foundation:
 - Cisco-like devices: parses `show interfaces status`
+- Arista EOS: parses `show interfaces status`
 - Juniper devices: parses `show interfaces terse`
+- Fortinet FortiSwitch OS: parses `get switch interface status`
 - It can be extended incrementally for additional vendor-specific commands.
 
 ## CLI

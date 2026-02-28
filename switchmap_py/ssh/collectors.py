@@ -35,6 +35,17 @@ _STATUS_TOKENS = {
 }
 
 
+def _vendor_profile(vendor: str) -> str:
+    value = vendor.lower()
+    if "juniper" in value:
+        return "juniper"
+    if "fortinet" in value or "fortiswitch" in value:
+        return "fortiswitch"
+    if "arista" in value:
+        return "arista"
+    return "cisco_like"
+
+
 def build_session(switch: SwitchConfig, timeout: int) -> SshSession:
     return SshSession(
         SshConfig(
@@ -145,10 +156,47 @@ def _parse_juniper_interfaces_terse(text: str, switch: SwitchConfig) -> list[Por
     return ports
 
 
+def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list[Port]:
+    ports: list[Port] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("port ", "name ", "interface ", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 2:
+            continue
+        name = tokens[0]
+        if not re.match(r"^(port|internal)\d+", name.lower()):
+            continue
+        raw_status = tokens[1]
+        oper_status = _normalize_oper_status(raw_status)
+        admin_status = "down" if oper_status == "down" else "up"
+        speed = _parse_speed(tokens[2]) if len(tokens) > 2 else None
+        descr = " ".join(tokens[3:]) if len(tokens) > 3 else ""
+        ports.append(
+            Port(
+                name=name,
+                descr=descr,
+                admin_status=admin_status,
+                oper_status=oper_status,
+                speed=speed,
+                vlan=None,
+                macs=[],
+                is_trunk=name in switch.trunk_ports,
+            )
+        )
+    return ports
+
+
 def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
-    vendor = switch.vendor.lower()
-    if "juniper" in vendor:
+    profile = _vendor_profile(switch.vendor)
+    if profile == "juniper":
         command = "show interfaces terse"
+    elif profile == "fortiswitch":
+        command = "get switch interface status"
     else:
         command = "show interfaces status"
     return session.run(command, timeout=timeout)
@@ -159,8 +207,11 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
     ports: list[Port] = []
     try:
         output = _collect_interface_output(session, switch, timeout=timeout)
-        if "juniper" in switch.vendor.lower():
+        profile = _vendor_profile(switch.vendor)
+        if profile == "juniper":
             ports = _parse_juniper_interfaces_terse(output, switch)
+        elif profile == "fortiswitch":
+            ports = _parse_fortiswitch_interface_status(output, switch)
         else:
             ports = _parse_cisco_interface_status(output, switch)
     except SshError:

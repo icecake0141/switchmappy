@@ -108,7 +108,9 @@ switches:
 
 Current SSH parser coverage is intentionally minimal:
 - Cisco-like devices: `show interfaces status`
+- Arista EOS: `show interfaces status`
 - Juniper devices: `show interfaces terse`
+- Fortinet FortiSwitch OS: `get switch interface status`
 
 For more detail, see `docs/usage.md`.
 

@@ -120,3 +120,54 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
     assert [port.name for port in state.ports] == ["ge-0/0/1", "ge-0/0/2"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[1].oper_status == "down"
+
+
+def test_collect_switch_state_uses_arista_command(monkeypatch):
+    switch = SwitchConfig(
+        name="sw-arista",
+        management_ip="192.0.2.70",
+        vendor="arista",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+    )
+    output = "\n".join(
+        [
+            "Port Name Status Vlan Duplex Speed Type",
+            "Et1 Uplink connected 10 full 10000 10Gbase-SR",
+        ]
+    )
+    session = StubSession(output)
+    monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
+
+    state = collectors.collect_switch_state(switch, timeout=3)
+    assert session.commands == ["show interfaces status"]
+    assert [port.name for port in state.ports] == ["Et1"]
+    assert state.ports[0].oper_status == "up"
+
+
+def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
+    switch = SwitchConfig(
+        name="sw-forti",
+        management_ip="192.0.2.80",
+        vendor="Fortinet FortiSwitch OS",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+    )
+    output = "\n".join(
+        [
+            "Port Status Speed Description",
+            "port1 up 1000 Uplink-Core",
+            "port2 down 100 User-Edge",
+        ]
+    )
+    session = StubSession(output)
+    monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
+
+    state = collectors.collect_switch_state(switch, timeout=3)
+    assert session.commands == ["get switch interface status"]
+    assert [port.name for port in state.ports] == ["port1", "port2"]
+    assert state.ports[0].oper_status == "up"
+    assert state.ports[0].speed == 1000
+    assert state.ports[1].oper_status == "down"
