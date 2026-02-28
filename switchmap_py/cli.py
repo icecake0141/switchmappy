@@ -124,12 +124,27 @@ def scan_switch(
     _configure_logging(
         debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format
     )
+    logger = logging.getLogger(__name__)
     site = _load_config(config)
     store = IdleSinceStore(site.idlesince_directory)
     for sw in site.switches:
         if switch and sw.name != switch:
             continue
-        snapshots = collect_port_snapshots(sw, site.snmp_timeout, site.snmp_retries)
+        started = time.monotonic()
+        try:
+            snapshots = collect_port_snapshots(sw, site.snmp_timeout, site.snmp_retries)
+        except SnmpError as exc:
+            logger.exception(
+                "Failed to scan switch %s",
+                sw.name,
+                extra={
+                    "command": "scan-switch",
+                    "switch": sw.name,
+                    "error_type": type(exc).__name__,
+                    "elapsed_seconds": round(time.monotonic() - started, 3),
+                },
+            )
+            raise
         current = store.load(sw.name)
         updated = {} if prune_missing else dict(current)
         for snapshot in snapshots:
@@ -140,6 +155,14 @@ def scan_switch(
                 is_active=snapshot.is_active,
             )
         store.save(sw.name, updated)
+        logger.info(
+            "Updated idle-since state for switch",
+            extra={
+                "command": "scan-switch",
+                "switch": sw.name,
+                "elapsed_seconds": round(time.monotonic() - started, 3),
+            },
+        )
 
 
 @app.command("get-arp")
@@ -163,7 +186,15 @@ def get_arp(
     if source == "csv":
         if not csv_path:
             raise typer.BadParameter("--csv is required when source=csv")
+        started = time.monotonic()
         entries = load_arp_csv(csv_path)
+        logger.info(
+            "Loaded ARP entries from CSV",
+            extra={
+                "command": "get-arp",
+                "elapsed_seconds": round(time.monotonic() - started, 3),
+            },
+        )
     elif source == "snmp":
         if not site.routers:
             raise typer.BadParameter(
