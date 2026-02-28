@@ -33,6 +33,7 @@ Review required for correctness, security, and licensing.
         <tr>
           <th>VLAN ID</th>
           <th>Name</th>
+          <th>Source</th>
           <th>Ports</th>
         </tr>
       </thead>
@@ -41,6 +42,7 @@ Review required for correctness, security, and licensing.
         <tr data-vlan-id="{{ vlan.vlan_id }}" data-vlan-name="{{ vlan.name | lower }}">
           <td>{{ vlan.vlan_id }}</td>
           <td>{{ vlan.name }}</td>
+          <td>{{ vlan.source }}</td>
           <td>
             {% for port_name in vlan.ports %}
               <a href="/switches/{{ switch.name }}.html#port-{{ port_name | replace('/', '-') | replace(' ', '-') | replace('.', '-') }}">{{ port_name }}</a>{% if not loop.last %}, {% endif %}

@@ -20,3 +20,4 @@ class Vlan:
     vlan_id: str
     name: str
     ports: list[str] = field(default_factory=list)
+    source: str = "named"

@@ -133,4 +133,5 @@ def test_collect_switch_state_builds_vlan_from_fdb_without_name_table(monkeypatc
     assert len(state.vlans) == 1
     assert state.vlans[0].vlan_id == "20"
     assert state.vlans[0].name == "VLAN 20"
+    assert state.vlans[0].source == "derived"
     assert state.vlans[0].ports == ["Gi1/0/1"]

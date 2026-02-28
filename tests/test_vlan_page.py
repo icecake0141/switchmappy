@@ -35,7 +35,12 @@ def test_build_site_generates_vlans_page(tmp_path):
                 management_ip="192.0.2.1",
                 vendor="test",
                 vlans=[
-                    Vlan(vlan_id="10", name="Users", ports=["Gi1/0/1", "Gi1/0/2"]),
+                    Vlan(
+                        vlan_id="10",
+                        name="Users",
+                        ports=["Gi1/0/1", "Gi1/0/2"],
+                        source="named",
+                    ),
                 ],
             )
         ],
@@ -51,6 +56,7 @@ def test_build_site_generates_vlans_page(tmp_path):
     vlan_page = (output_dir / "vlans" / "index.html").read_text(encoding="utf-8")
     assert "VLANs" in vlan_page
     assert "Users" in vlan_page
+    assert "named" in vlan_page
     assert 'id="vlanFilter"' in vlan_page
     assert 'href="/switches/sw1.html"' in vlan_page
     assert 'href="/switches/sw1.html#port-Gi1-0-1"' in vlan_page

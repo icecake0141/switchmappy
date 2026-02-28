@@ -284,6 +284,7 @@ def collect_switch_state(
                 vlan_id=vlan_id,
                 name=vlan_name,
                 ports=sorted(vlan_to_ports.get(vlan_id, set())),
+                source="named",
             )
         )
     for vlan_id in sorted(set(vlan_to_ports) - known_vlan_ids, key=_vlan_sort_key):
@@ -292,6 +293,7 @@ def collect_switch_state(
                 vlan_id=vlan_id,
                 name=f"VLAN {vlan_id}",
                 ports=sorted(vlan_to_ports.get(vlan_id, set())),
+                source="derived",
             )
         )
 
