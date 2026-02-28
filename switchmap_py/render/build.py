@@ -20,6 +20,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from switchmap_py.model.mac import MacEntry
 from switchmap_py.model.switch import Switch
 from switchmap_py.storage.idlesince_store import IdleSinceStore
 from switchmap_py.storage.maclist_store import MacListStore
@@ -35,6 +36,16 @@ def build_environment(template_dir: Path) -> Environment:
         loader=FileSystemLoader(str(template_dir)),
         autoescape=select_autoescape(["html", "j2"]),
     )
+
+
+def _build_mac_lookup(maclist: list[MacEntry]) -> dict[str, list[MacEntry]]:
+    lookup: dict[str, list[MacEntry]] = {}
+    for entry in maclist:
+        if not entry.mac:
+            continue
+        key = entry.mac.lower()
+        lookup.setdefault(key, []).append(entry)
+    return lookup
 
 
 def build_site(
@@ -60,6 +71,7 @@ def build_site(
     search_template = env.get_template("search.html.j2")
 
     maclist = maclist_store.load()
+    mac_entries_by_mac = _build_mac_lookup(maclist)
 
     index_html = index_template.render(
         switches=switches,
@@ -71,12 +83,17 @@ def build_site(
     for switch in switches:
         idle_states = idlesince_store.load(switch.name)
         switch_html = switch_template.render(
-            switch=switch, idle_states=idle_states, build_date=build_date
+            switch=switch,
+            idle_states=idle_states,
+            mac_entries_by_mac=mac_entries_by_mac,
+            build_date=build_date,
         )
         (output_dir / "switches" / f"{switch.name}.html").write_text(switch_html, encoding="utf-8")
 
     port_html = port_template.render(
-        switches=switches, maclist=maclist, build_date=build_date
+        switches=switches,
+        mac_entries_by_mac=mac_entries_by_mac,
+        build_date=build_date,
     )
     (output_dir / "ports" / "index.html").write_text(port_html, encoding="utf-8")
 

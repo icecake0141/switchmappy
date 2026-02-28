@@ -19,6 +19,7 @@
           <th>Port</th>
           <th>Description</th>
           <th>Oper</th>
+          <th>ARP</th>
         </tr>
       </thead>
       <tbody>
@@ -27,6 +28,13 @@
           <td>{{ port.name }}</td>
           <td>{{ port.descr }}</td>
           <td>{{ port.oper_status }}</td>
+          <td>
+            {% for mac in port.macs %}
+              {% for entry in mac_entries_by_mac.get(mac.lower(), []) %}
+                <div>{{ entry.ip or '' }}{% if entry.hostname %} ({{ entry.hostname }}){% endif %}</div>
+              {% endfor %}
+            {% endfor %}
+          </td>
         </tr>
       {% endfor %}
       </tbody>

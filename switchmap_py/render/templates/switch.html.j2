@@ -20,6 +20,7 @@
         <th>Oper</th>
         <th>Speed</th>
         <th>VLAN</th>
+        <th>ARP</th>
         <th>Idle Since</th>
       </tr>
     </thead>
@@ -32,6 +33,13 @@
         <td>{{ port.oper_status }}</td>
         <td>{{ port.speed or '' }}</td>
         <td>{{ port.vlan or '' }}</td>
+        <td>
+          {% for mac in port.macs %}
+            {% for entry in mac_entries_by_mac.get(mac.lower(), []) %}
+              <div>{{ entry.ip or '' }}{% if entry.hostname %} ({{ entry.hostname }}){% endif %}</div>
+            {% endfor %}
+          {% endfor %}
+        </td>
         <td>
           {% set idle = idle_states.get(port.name) %}
           {% if idle and idle.idle_since %}
