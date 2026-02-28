@@ -42,19 +42,57 @@ class JsonLogFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
+            "event": getattr(record, "event", "log"),
+            "command": getattr(record, "command", ""),
+            "target": getattr(record, "target", ""),
+            "status": getattr(record, "status", ""),
+            "elapsed_ms": getattr(record, "elapsed_ms", None),
+            "error_code": getattr(record, "error_code", None),
         }
-        for key in (
-            "command",
-            "switch",
-            "router",
-            "oid",
-            "error_type",
-            "elapsed_seconds",
-        ):
+        for key in ("switch", "router", "oid", "error_type"):
             value = getattr(record, key, None)
             if value is not None:
                 payload[key] = value
         return json.dumps(payload, ensure_ascii=False)
+
+
+def _classify_error(exc: BaseException) -> str:
+    message = str(exc).lower()
+    if isinstance(exc, SnmpError):
+        if "timeout" in message:
+            return "SNMP_TIMEOUT"
+        if "community" in message or "authorization" in message or "auth" in message:
+            return "SNMP_AUTH"
+        if "oid" in message or "no such" in message:
+            return "SNMP_OID"
+        return "SNMP_ERROR"
+    if isinstance(exc, (ValueError, yaml.YAMLError)):
+        return "CONFIG_ERROR"
+    return "UNEXPECTED_ERROR"
+
+
+def _event_extra(
+    *,
+    event: str,
+    command: str,
+    status: str,
+    target: str = "",
+    elapsed_seconds: float | None = None,
+    error_code: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "event": event,
+        "command": command,
+        "status": status,
+        "target": target,
+        "error_code": error_code,
+        "elapsed_ms": int((elapsed_seconds or 0.0) * 1000)
+        if elapsed_seconds is not None
+        else None,
+    }
+    if target:
+        payload["switch"] = target
+    return payload
 
 
 def _load_config(path: Optional[Path]) -> SiteConfig:
@@ -138,10 +176,15 @@ def scan_switch(
                 "Failed to scan switch %s",
                 sw.name,
                 extra={
-                    "command": "scan-switch",
-                    "switch": sw.name,
+                    **_event_extra(
+                        event="scan_switch",
+                        command="scan-switch",
+                        status="error",
+                        target=sw.name,
+                        elapsed_seconds=time.monotonic() - started,
+                        error_code=_classify_error(exc),
+                    ),
                     "error_type": type(exc).__name__,
-                    "elapsed_seconds": round(time.monotonic() - started, 3),
                 },
             )
             raise
@@ -157,11 +200,13 @@ def scan_switch(
         store.save(sw.name, updated)
         logger.info(
             "Updated idle-since state for switch",
-            extra={
-                "command": "scan-switch",
-                "switch": sw.name,
-                "elapsed_seconds": round(time.monotonic() - started, 3),
-            },
+            extra=_event_extra(
+                event="scan_switch",
+                command="scan-switch",
+                status="success",
+                target=sw.name,
+                elapsed_seconds=time.monotonic() - started,
+            ),
         )
 
 
@@ -190,10 +235,12 @@ def get_arp(
         entries = load_arp_csv(csv_path)
         logger.info(
             "Loaded ARP entries from CSV",
-            extra={
-                "command": "get-arp",
-                "elapsed_seconds": round(time.monotonic() - started, 3),
-            },
+            extra=_event_extra(
+                event="get_arp",
+                command="get-arp",
+                status="success",
+                elapsed_seconds=time.monotonic() - started,
+            ),
         )
     elif source == "snmp":
         if not site.routers:
@@ -204,10 +251,12 @@ def get_arp(
         entries = load_arp_snmp(site.routers, site.snmp_timeout, site.snmp_retries)
         logger.info(
             "Collected ARP entries via SNMP",
-            extra={
-                "command": "get-arp",
-                "elapsed_seconds": round(time.monotonic() - started, 3),
-            },
+            extra=_event_extra(
+                event="get_arp",
+                command="get-arp",
+                status="success",
+                elapsed_seconds=time.monotonic() - started,
+            ),
         )
     else:
         raise typer.BadParameter("source must be one of: csv, snmp")
@@ -248,11 +297,13 @@ def build_html(
             )
             logger.info(
                 "Collected switch state",
-                extra={
-                    "command": "build-html",
-                    "switch": sw.name,
-                    "elapsed_seconds": round(time.monotonic() - started, 3),
-                },
+                extra=_event_extra(
+                    event="build_html_collect",
+                    command="build-html",
+                    status="success",
+                    target=sw.name,
+                    elapsed_seconds=time.monotonic() - started,
+                ),
             )
         except SnmpError as exc:
             # Only catch expected SNMP operational errors. Log and continue
@@ -261,10 +312,15 @@ def build_html(
                 "Failed to collect switch state for %s",
                 sw.name,
                 extra={
-                    "command": "build-html",
-                    "switch": sw.name,
+                    **_event_extra(
+                        event="build_html_collect",
+                        command="build-html",
+                        status="error",
+                        target=sw.name,
+                        elapsed_seconds=time.monotonic() - started,
+                        error_code=_classify_error(exc),
+                    ),
                     "error_type": type(exc).__name__,
-                    "elapsed_seconds": round(time.monotonic() - started, 3),
                 },
             )
             failed_switches.append(sw.name)
