@@ -308,6 +308,7 @@ def build_html(
         except SnmpError as exc:
             # Only catch expected SNMP operational errors. Log and continue
             # with other switches. Programming errors will propagate.
+            code = _classify_error(exc)
             logger.exception(
                 "Failed to collect switch state for %s",
                 sw.name,
@@ -318,13 +319,13 @@ def build_html(
                         status="error",
                         target=sw.name,
                         elapsed_seconds=time.monotonic() - started,
-                        error_code=_classify_error(exc),
+                        error_code=code,
                     ),
                     "error_type": type(exc).__name__,
                 },
             )
             failed_switches.append(sw.name)
-            failed_switch_reasons[sw.name] = str(exc)
+            failed_switch_reasons[sw.name] = f"[{code}] {exc}"
     build_site(
         switches=switches,
         failed_switches=failed_switches,
