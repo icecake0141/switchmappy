@@ -76,6 +76,7 @@ def build_site(
     *,
     switches: list[Switch],
     failed_switches: list[str],
+    failed_switch_reasons: dict[str, str] | None = None,
     output_dir: Path,
     template_dir: Path,
     static_dir: Path,
@@ -83,6 +84,7 @@ def build_site(
     maclist_store: MacListStore,
     build_date: datetime,
 ) -> None:
+    failed_switch_reasons = failed_switch_reasons or {}
     output_dir.mkdir(parents=True, exist_ok=True)
     for subdir in ["ports", "vlans", "switches", "search"]:
         (output_dir / subdir).mkdir(parents=True, exist_ok=True)
@@ -100,6 +102,7 @@ def build_site(
     index_html = index_template.render(
         switches=switches,
         failed_switches=failed_switches,
+        failed_switch_reasons=failed_switch_reasons,
         build_date=build_date,
     )
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")

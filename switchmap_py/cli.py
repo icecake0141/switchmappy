@@ -153,19 +153,22 @@ def build_html(
     build_date = datetime.fromisoformat(date) if date else datetime.now()
     switches = []
     failed_switches = []
+    failed_switch_reasons: dict[str, str] = {}
     for sw in site.switches:
         try:
             switches.append(
                 collect_switch_state(sw, site.snmp_timeout, site.snmp_retries)
             )
-        except SnmpError:
+        except SnmpError as exc:
             # Only catch expected SNMP operational errors. Log and continue
             # with other switches. Programming errors will propagate.
             logger.exception("Failed to collect switch state for %s", sw.name)
             failed_switches.append(sw.name)
+            failed_switch_reasons[sw.name] = str(exc)
     build_site(
         switches=switches,
         failed_switches=failed_switches,
+        failed_switch_reasons=failed_switch_reasons,
         output_dir=site.destination_directory,
         template_dir=Path(__file__).parent / "render" / "templates",
         static_dir=Path(__file__).parent / "render" / "static",

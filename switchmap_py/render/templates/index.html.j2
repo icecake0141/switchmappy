@@ -44,7 +44,12 @@ Review required for correctness, security, and licensing.
     <p>Some switches failed to collect data during this build:</p>
     <ul>
       {% for switch_name in failed_switches %}
-      <li>{{ switch_name }}</li>
+      <li>
+        <strong>{{ switch_name }}</strong>
+        {% if failed_switch_reasons.get(switch_name) %}
+        - {{ failed_switch_reasons.get(switch_name) }}
+        {% endif %}
+      </li>
       {% endfor %}
     </ul>
   </section>

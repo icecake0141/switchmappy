@@ -67,6 +67,7 @@ def test_build_html_logs_failed_switches_and_passes_successful(
     assert result.exit_code == 0
     assert [sw.name for sw in captured["switches"]] == ["sw-ok"]
     assert captured["failed_switches"] == ["sw-bad"]
+    assert captured["failed_switch_reasons"] == {"sw-bad": "SNMP failure"}
     assert "sw-bad" in caplog.text
 
 
