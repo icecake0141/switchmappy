@@ -130,6 +130,9 @@ Review required for correctness, security, and licensing.
         mac: entry.mac ?? '',
         ip: entry.ip ?? '',
         hostname: entry.hostname ?? '',
+        target_url: (entry.switch && entry.port)
+          ? `/switches/${entry.switch}.html#port-${entry.port.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
+          : '',
       }));
     }
 
@@ -146,6 +149,9 @@ Review required for correctness, security, and licensing.
             mac: (port.macs || []).join(', '),
             ip: '',
             hostname: '',
+            target_url: (sw.name && port.name)
+              ? `/switches/${sw.name}.html#port-${port.name.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
+              : '',
           });
         }
       }
@@ -177,15 +183,49 @@ Review required for correctness, security, and licensing.
           cell.textContent = value;
           row.appendChild(cell);
         }
+        if (entry.target_url) {
+          row.style.cursor = 'pointer';
+          row.addEventListener('click', () => {
+            window.location.href = entry.target_url;
+          });
+        }
         tbody.appendChild(row);
       }
+    }
+
+    function readFiltersFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      document.getElementById('query').value = params.get('q') || '';
+      document.getElementById('typeFilter').value = params.get('type') || '';
+      document.getElementById('statusFilter').value = params.get('status') || '';
+      document.getElementById('vlanFilter').value = params.get('vlan') || '';
+      document.getElementById('sortBy').value = params.get('sort') || 'switch-port';
+    }
+
+    function writeFiltersToUrl() {
+      const params = new URLSearchParams();
+      const query = document.getElementById('query').value.trim();
+      const type = document.getElementById('typeFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const vlan = document.getElementById('vlanFilter').value.trim();
+      const sort = document.getElementById('sortBy').value;
+      if (query) params.set('q', query);
+      if (type) params.set('type', type);
+      if (status) params.set('status', status);
+      if (vlan) params.set('vlan', vlan);
+      if (sort && sort !== 'switch-port') params.set('sort', sort);
+      const queryString = params.toString();
+      const next = queryString ? `?${queryString}` : window.location.pathname;
+      window.history.replaceState({}, '', next);
     }
 
     async function init() {
       const index = await loadIndex();
       const entries = buildEntries(index);
+      readFiltersFromUrl();
       const refresh = () => {
         render(sortEntries(applyFilters(entries)));
+        writeFiltersToUrl();
       };
       refresh();
       document.getElementById('query').addEventListener('input', refresh);

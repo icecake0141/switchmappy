@@ -527,3 +527,7 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert 'id="resultCount"' in search_html
     assert "applyFilters(entries)" in search_html
     assert "sortEntries(entries)" in search_html
+    assert "readFiltersFromUrl()" in search_html
+    assert "writeFiltersToUrl()" in search_html
+    assert "window.history.replaceState" in search_html
+    assert "window.location.href = entry.target_url" in search_html
