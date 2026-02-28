@@ -49,5 +49,9 @@ jobs:
         run: python -m ruff check .
       - name: Run tests
         run: python -m pytest -q
+      - name: Install search dependencies
+        run: python -m pip install -e .[search]
+      - name: Run search server E2E tests
+        run: python -m pytest -q tests/test_search_server_e2e.py
       - name: Run pre-commit hooks
         run: python -m pre_commit run --all-files

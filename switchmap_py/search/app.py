@@ -23,9 +23,8 @@ class SearchServer:
         self.host = host
         self.port = port
 
-    def serve(self) -> None:
+    def build_app(self):
         try:
-            import uvicorn  # type: ignore[import-not-found]
             from fastapi import FastAPI  # type: ignore[import-not-found]
             from fastapi.responses import RedirectResponse  # type: ignore[import-not-found]
             from fastapi.staticfiles import StaticFiles  # type: ignore[import-not-found]
@@ -46,5 +45,16 @@ class SearchServer:
             StaticFiles(directory=str(self.output_dir), html=True),
             name="switchmap-static-site",
         )
+        return app
+
+    def serve(self) -> None:
+        try:
+            import uvicorn  # type: ignore[import-not-found]
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Search server requires optional dependencies. "
+                "Install with: pip install -e .[search]"
+            ) from exc
+        app = self.build_app()
         logger.info("Serving search UI at http://%s:%s/search/", self.host, self.port)
         uvicorn.run(app, host=self.host, port=self.port)
