@@ -57,12 +57,13 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
         by_command={
             "show interfaces status": status_output,
             "show mac address-table": mac_output,
+            "show vlan brief": "10 default active Gi1/0/1",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces status", "show mac address-table"]
+    assert session.commands == ["show interfaces status", "show mac address-table", "show vlan brief"]
     assert len(state.ports) == 2
     assert state.ports[0].name == "Gi1/0/1"
     assert state.ports[0].descr == "Uplink-Core"
@@ -87,6 +88,7 @@ def test_collect_port_snapshots_marks_up_ports_active(monkeypatch):
         by_command={
             "show interfaces status": "Gi1/0/1 Uplink connected 10 full 1000 copper",
             "show mac address-table": "10 00:11:22:33:44:55 dynamic Gi1/0/1",
+            "show vlan brief": "10 default active Gi1/0/1",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -134,13 +136,15 @@ def test_collect_switch_state_keeps_ports_when_mac_command_fails(monkeypatch):
             self.commands.append(command)
             if command == "show interfaces status":
                 return "Gi1/0/1 Uplink connected 10 full 1000 copper"
+            if command == "show vlan brief":
+                return "10 default active Gi1/0/1"
             raise SshError("mac command failed")
 
     session = PartialErrorSession()
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces status", "show mac address-table"]
+    assert session.commands == ["show interfaces status", "show mac address-table", "show vlan brief"]
     assert [port.name for port in state.ports] == ["Gi1/0/1"]
     assert state.ports[0].macs == []
 
@@ -167,15 +171,17 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
         by_command={
             "show interfaces terse": status_output,
             "show ethernet-switching table": mac_output,
+            "show vlans": "default 10 ge-0/0/1.0",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces terse", "show ethernet-switching table"]
+    assert session.commands == ["show interfaces terse", "show ethernet-switching table", "show vlans"]
     assert [port.name for port in state.ports] == ["ge-0/0/1", "ge-0/0/2"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].macs == ["00:11:22:33:44:66"]
+    assert state.ports[0].vlan == "10"
     assert state.ports[1].oper_status == "down"
 
 
@@ -198,12 +204,13 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
         by_command={
             "show interfaces status": status_output,
             "show mac address-table": "10 0011.2233.4466 dynamic Et1",
+            "show vlan brief": "10 default active Et1",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["show interfaces status", "show mac address-table"]
+    assert session.commands == ["show interfaces status", "show mac address-table", "show vlan brief"]
     assert [port.name for port in state.ports] == ["Et1"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].macs == ["00:11:22:33:44:66"]
@@ -229,14 +236,17 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
         by_command={
             "get switch interface status": status_output,
             "get switch mac-address-table": "10 00:11:22:33:44:77 dynamic port1",
+            "show switch vlan": "default 10 port1,port2",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
-    assert session.commands == ["get switch interface status", "get switch mac-address-table"]
+    assert session.commands == ["get switch interface status", "get switch mac-address-table", "show switch vlan"]
     assert [port.name for port in state.ports] == ["port1", "port2"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].speed == 1000
     assert state.ports[0].macs == ["00:11:22:33:44:77"]
+    assert state.ports[0].vlan == "10"
     assert state.ports[1].oper_status == "down"
+    assert state.ports[1].vlan == "10"

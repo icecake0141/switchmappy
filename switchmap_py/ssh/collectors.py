@@ -34,6 +34,7 @@ _STATUS_TOKENS = {
     "down",
 }
 _MAC_RE = re.compile(r"^(?:[0-9a-fA-F]{2}[:.-]?){6}$")
+_VLAN_ID_RE = re.compile(r"^\d{1,4}$")
 
 
 def _vendor_profile(vendor: str) -> str:
@@ -272,6 +273,75 @@ def _parse_fortiswitch_mac_table(text: str) -> dict[str, set[str]]:
     return macs_by_port
 
 
+def _parse_cisco_vlan_brief(text: str) -> dict[str, str]:
+    vlan_by_port: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("vlan", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 4:
+            continue
+        vlan_id = tokens[0]
+        if not _VLAN_ID_RE.match(vlan_id):
+            continue
+        ports_token = tokens[-1]
+        for port_name in ports_token.split(","):
+            canonical = _canonical_port_name(port_name)
+            if canonical:
+                vlan_by_port[canonical] = vlan_id
+    return vlan_by_port
+
+
+def _parse_juniper_vlans(text: str) -> dict[str, str]:
+    vlan_by_port: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("name", "---")):
+            continue
+        tokens = _WS_RE.split(line)
+        vlan_id = next((tok for tok in tokens if _VLAN_ID_RE.match(tok)), None)
+        if not vlan_id:
+            continue
+        for token in tokens:
+            if "/" not in token:
+                continue
+            for candidate in token.split(","):
+                canonical = _canonical_port_name(candidate)
+                if canonical:
+                    vlan_by_port[canonical] = vlan_id
+    return vlan_by_port
+
+
+def _parse_fortiswitch_vlans(text: str) -> dict[str, str]:
+    vlan_by_port: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("vlan", "----", "id ")):
+            continue
+        tokens = _WS_RE.split(line)
+        vlan_id = next((tok for tok in tokens if _VLAN_ID_RE.match(tok)), None)
+        if not vlan_id:
+            continue
+        for token in tokens:
+            for candidate in token.split(","):
+                if not re.match(r"^(port|internal)\d+", candidate.lower()):
+                    continue
+                canonical = _canonical_port_name(candidate)
+                if canonical:
+                    vlan_by_port[canonical] = vlan_id
+    return vlan_by_port
+
+
 def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
     profile = _vendor_profile(switch.vendor)
     if profile == "juniper":
@@ -291,6 +361,17 @@ def _collect_mac_output(session: SshSession, switch: SwitchConfig, timeout: int)
         command = "get switch mac-address-table"
     else:
         command = "show mac address-table"
+    return session.run(command, timeout=timeout)
+
+
+def _collect_vlan_output(session: SshSession, switch: SwitchConfig, timeout: int) -> str:
+    profile = _vendor_profile(switch.vendor)
+    if profile == "juniper":
+        command = "show vlans"
+    elif profile == "fortiswitch":
+        command = "show switch vlan"
+    else:
+        command = "show vlan brief"
     return session.run(command, timeout=timeout)
 
 
@@ -320,6 +401,27 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
         except SshError:
             logger.warning(
                 "SSH MAC collection command failed for switch %s; continuing without MAC table.",
+                switch.name,
+                exc_info=True,
+            )
+        try:
+            vlan_output = _collect_vlan_output(session, switch, timeout=timeout)
+            if profile == "juniper":
+                vlan_by_port = _parse_juniper_vlans(vlan_output)
+            elif profile == "fortiswitch":
+                vlan_by_port = _parse_fortiswitch_vlans(vlan_output)
+            else:
+                vlan_by_port = _parse_cisco_vlan_brief(vlan_output)
+            for port in ports:
+                if port.vlan:
+                    continue
+                canonical = _canonical_port_name(port.name)
+                mapped_vlan = vlan_by_port.get(canonical)
+                if mapped_vlan:
+                    port.vlan = mapped_vlan
+        except SshError:
+            logger.warning(
+                "SSH VLAN collection command failed for switch %s; continuing without VLAN table.",
                 switch.name,
                 exc_info=True,
             )
