@@ -12,16 +12,18 @@ This file was created or modified with the assistance of an AI (Large Language M
 Review required for correctness, security, and licensing.
 -->
 
-# Usage (Legacy Entry)
+# Documentation Index
 
-- Japanese translation: [usage.ja.md](usage.ja.md)
+- Japanese translation: [README.ja.md](README.ja.md)
 
-This page is kept for compatibility.
+## Sections
 
-Use the sectioned documentation instead:
-
-- [Documentation Index](README.md)
 - [Specification](specification.md)
 - [Configuration](configuration.md)
 - [Commands](commands.md)
 - [Testing](testing.md)
+- [Migration Notes](migration_notes.md)
+
+## Scope
+
+This documentation set is split by topic to keep each page short and maintainable.

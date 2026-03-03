@@ -12,16 +12,18 @@ This file was created or modified with the assistance of an AI (Large Language M
 Review required for correctness, security, and licensing.
 -->
 
-# Usage (Legacy Entry)
+# ドキュメント一覧
 
-- Japanese translation: [usage.ja.md](usage.ja.md)
+- English version: [README.md](README.md)
 
-This page is kept for compatibility.
+## セクション
 
-Use the sectioned documentation instead:
+- [仕様](specification.ja.md)
+- [設定](configuration.ja.md)
+- [コマンド](commands.ja.md)
+- [テスト](testing.ja.md)
+- [移行メモ](migration_notes.ja.md)
 
-- [Documentation Index](README.md)
-- [Specification](specification.md)
-- [Configuration](configuration.md)
-- [Commands](commands.md)
-- [Testing](testing.md)
+## 方針
+
+各ページを短く保つため、トピック単位でファイルを分割しています。
