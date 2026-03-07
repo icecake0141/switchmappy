@@ -24,6 +24,9 @@ on:
       - "*.md"
       - "site.yml.example"
 
+permissions:
+  contents: read
+
 # Cancel any in-progress run for the same workflow + PR/branch to avoid
 # paying for stale runs when new commits are pushed rapidly.
 concurrency:
