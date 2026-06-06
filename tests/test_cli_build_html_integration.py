@@ -123,6 +123,6 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
     assert "sw-bad" in index_html
     assert "192.0.2.100 (host-a)" in switch_html
     assert "Users" in vlan_html
-    assert "Trunk" in switch_html
+    assert "configured_trunk" in switch_html
     assert "Unused (>= 30d)" in switch_html
     assert "Unused (>= 30d)" in ports_html

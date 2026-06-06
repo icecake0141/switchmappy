@@ -60,7 +60,8 @@ Review required for correctness, security, and licensing.
         <th>Out Err</th>
         <th>PoE</th>
         <th>PoE W</th>
-        <th>Trunk</th>
+        <th>Role</th>
+        <th>Role Evidence</th>
         <th>ARP</th>
         <th>Vendor</th>
         <th>Idle Since</th>
@@ -123,7 +124,12 @@ Review required for correctness, security, and licensing.
         <td>{{ port.output_errors if port.output_errors is not none else '' }}</td>
         <td>{{ port.poe_status or '' }}</td>
         <td>{{ port.poe_power_w if port.poe_power_w is not none else '' }}</td>
-        <td>{% if port.is_trunk %}yes{% else %}-{% endif %}</td>
+        <td>{{ port.role }}{% if port.role_confidence %} ({{ port.role_confidence }}){% endif %}</td>
+        <td>
+          {% for evidence in port.role_evidence %}
+            <div>{{ evidence }}</div>
+          {% endfor %}
+        </td>
         <td>
           {% for mac in port.macs %}
             {% for entry in mac_entries_by_mac.get(mac.lower(), []) %}

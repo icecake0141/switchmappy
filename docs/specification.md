@@ -34,6 +34,13 @@ Review required for correctness, security, and licensing.
 - `idlesince_directory`: idle-since history by switch and port.
 - `maclist_file`: normalized MAC/IP/hostname mapping used for ARP correlation.
 
+## Port Role Display
+
+- `configured_trunk`: port is explicitly listed in `trunk_ports`.
+- `network_neighbor`: port has an LLDP/CDP neighbor and is shown as a network-adjacent port.
+- `unknown`: no explicit trunk configuration or neighbor evidence is present.
+- MAC count, endpoint count, and multi-VLAN observations are not used for role assignment.
+
 ## Error Handling Policy
 
 - `scan-switch` fails fast when a target switch collection fails.

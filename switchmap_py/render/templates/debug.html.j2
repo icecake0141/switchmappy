@@ -247,6 +247,8 @@ Review required for correctness, security, and licensing.
             <th>MACs</th>
             <th>Endpoints</th>
             <th>Neighbors</th>
+            <th>Role</th>
+            <th>Confidence</th>
           </tr>
         </thead>
         <tbody>
@@ -260,6 +262,8 @@ Review required for correctness, security, and licensing.
             <td>{{ row.mac_count }}</td>
             <td>{{ row.correlated_endpoint_count }}</td>
             <td>{{ row.neighbor_count }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.role_confidence }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -285,7 +289,9 @@ Review required for correctness, security, and licensing.
             <th>MACs</th>
             <th>Endpoints</th>
             <th>Neighbors</th>
-            <th>Trunk</th>
+            <th>Role</th>
+            <th>Confidence</th>
+            <th>Evidence</th>
             <th>Unused</th>
             <th>In Err</th>
             <th>Out Err</th>
@@ -306,7 +312,9 @@ Review required for correctness, security, and licensing.
             <td>{{ row.mac_count }}</td>
             <td>{{ row.correlated_endpoint_count }}</td>
             <td>{{ row.neighbor_count }}</td>
-            <td>{{ row.is_trunk }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.role_confidence }}</td>
+            <td>{{ row.role_evidence }}</td>
             <td>{{ row.is_unused }}</td>
             <td>{{ row.input_errors or '' }}</td>
             <td>{{ row.output_errors or '' }}</td>

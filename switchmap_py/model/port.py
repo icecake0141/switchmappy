@@ -35,6 +35,9 @@ class Port:
     output_errors: Optional[int] = None
     poe_status: Optional[str] = None
     poe_power_w: Optional[float] = None
+    role: str = "unknown"
+    role_confidence: str = "low"
+    role_evidence: list[str] = field(default_factory=list)
     idle_since: Optional[datetime] = None
     last_active: Optional[datetime] = None
     is_trunk: bool = False

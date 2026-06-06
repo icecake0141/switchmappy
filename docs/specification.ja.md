@@ -34,6 +34,13 @@ Review required for correctness, security, and licensing.
 - `idlesince_directory`: スイッチ・ポート単位の idle-since 履歴。
 - `maclist_file`: ARP 相関表示に使う MAC/IP/ホスト名対応データ。
 
+## ポート role 表示
+
+- `configured_trunk`: `trunk_ports` に明示されたポート。
+- `network_neighbor`: LLDP/CDP neighbor があり、ネットワーク機器隣接として表示されるポート。
+- `unknown`: 明示 trunk 設定や neighbor 根拠がないポート。
+- MAC 数、endpoint 数、複数 VLAN 観測は role 判定に使いません。
+
 ## エラーハンドリング方針
 
 - `scan-switch` は対象スイッチで失敗すると即時終了。

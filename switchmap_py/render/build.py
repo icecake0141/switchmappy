@@ -112,7 +112,10 @@ def _build_endpoint_correlations(
     return correlations
 
 
-def _build_endpoint_warnings(endpoint_correlations: list[MacEntry]) -> dict[tuple[str, str], str]:
+def _build_endpoint_warnings(
+    endpoint_correlations: list[MacEntry],
+    port_roles_by_location: dict[tuple[str, str], str],
+) -> dict[tuple[str, str], str]:
     locations_by_mac: dict[str, set[tuple[str, str]]] = {}
     for entry in endpoint_correlations:
         if not entry.switch or not entry.port:
@@ -123,8 +126,41 @@ def _build_endpoint_warnings(endpoint_correlations: list[MacEntry]) -> dict[tupl
     for entry in endpoint_correlations:
         locations = locations_by_mac.get(entry.mac.lower(), set())
         if len(locations) > 1:
-            warnings[(entry.mac.lower(), entry.ip or "")] = "duplicate MAC"
+            roles = {port_roles_by_location.get(location, "unknown") for location in locations}
+            if "configured_trunk" in roles:
+                warning = "duplicate MAC via configured trunk port"
+            elif "network_neighbor" in roles:
+                warning = "duplicate MAC via network-neighbor port"
+            else:
+                warning = "duplicate MAC"
+            warnings[(entry.mac.lower(), entry.ip or "")] = warning
     return warnings
+
+
+def _annotate_port_roles(switches: list[Switch]) -> None:
+    for switch in switches:
+        for port in switch.ports:
+            evidence = []
+            for neighbor in port.neighbors:
+                if neighbor.device:
+                    detail = neighbor.display_name
+                    evidence.append(f"neighbor: {detail}")
+            if port.is_trunk:
+                port.role = "configured_trunk"
+                port.role_confidence = "configured"
+                port.role_evidence = ["configured trunk port", *evidence]
+            elif evidence:
+                port.role = "network_neighbor"
+                port.role_confidence = "medium"
+                port.role_evidence = evidence
+            else:
+                port.role = "unknown"
+                port.role_confidence = "low"
+                port.role_evidence = []
+
+
+def _port_role_by_location(switches: list[Switch]) -> dict[tuple[str, str], str]:
+    return {(switch.name, port.name): port.role for switch in switches for port in switch.ports}
 
 
 def _build_report_summary(
@@ -241,6 +277,9 @@ def _build_debug_payload(
                 "correlated_endpoint_count": correlated_count,
                 "neighbor_count": neighbor_count,
                 "is_trunk": port.is_trunk,
+                "role": port.role,
+                "role_confidence": port.role_confidence,
+                "role_evidence": ", ".join(port.role_evidence),
                 "is_unused": is_unused,
                 "input_errors": port.input_errors,
                 "output_errors": port.output_errors,
@@ -341,6 +380,16 @@ def _port_rows(payload: dict[str, object]) -> list[dict[str, object]]:
                 continue
             rows.append({"switch": switch.get("name", ""), "port": port.get("name", ""), **port})
     return rows
+
+
+def _switch_payload(switch: Switch) -> dict[str, object]:
+    payload = asdict(switch)
+    for port_payload, port in zip(payload["ports"], switch.ports):
+        if isinstance(port_payload, dict):
+            port_payload["role"] = port.role
+            port_payload["role_confidence"] = port.role_confidence
+            port_payload["role_evidence"] = port.role_evidence
+    return payload
 
 
 def _load_previous_history_snapshot(history_dir: Path | None, stamp: str) -> dict[str, object] | None:
@@ -462,10 +511,12 @@ def build_site(
     search_template = env.get_template("search.html.j2")
 
     maclist = maclist_store.load()
+    _annotate_port_roles(switches)
     oui_vendors = load_oui_vendors(oui_file)
     mac_entries_by_mac = _build_mac_lookup(maclist)
     endpoint_correlations = _build_endpoint_correlations(switches, mac_entries_by_mac)
-    endpoint_warnings = _build_endpoint_warnings(endpoint_correlations)
+    port_roles_by_location = _port_role_by_location(switches)
+    endpoint_warnings = _build_endpoint_warnings(endpoint_correlations, port_roles_by_location)
     idle_states_by_switch = {switch.name: idlesince_store.load(switch.name) for switch in switches}
     unused_ports_by_switch = _build_unused_ports(
         idle_states_by_switch=idle_states_by_switch,
@@ -527,6 +578,7 @@ def build_site(
             **asdict(entry),
             "vendor": vendor_for_mac(entry.mac, oui_vendors),
             "warning": endpoint_warnings.get((entry.mac.lower(), entry.ip or ""), ""),
+            "port_role": port_roles_by_location.get((entry.switch or "", entry.port or ""), "unknown"),
         }
         for entry in endpoint_correlations
     ]
@@ -571,7 +623,7 @@ def build_site(
     # The ensure_ascii=False preserves UTF-8 characters in output (instead of \uXXXX escapes).
     search_payload = {
         "generated_at": build_date.isoformat(),
-        "switches": [asdict(switch) for switch in switches],
+        "switches": [_switch_payload(switch) for switch in switches],
         "maclist": [asdict(entry) for entry in maclist],
         "endpoint_correlations": endpoint_rows,
         "failed_switches": failed_switches,

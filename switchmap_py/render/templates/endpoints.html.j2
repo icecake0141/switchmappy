@@ -23,7 +23,7 @@ Review required for correctness, security, and licensing.
     <h1>Endpoints</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
-  <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, warning" />
+  <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, role, warning" />
   <table>
     <thead>
       <tr>
@@ -33,12 +33,13 @@ Review required for correctness, security, and licensing.
         <th>Vendor</th>
         <th>Switch</th>
         <th>Port</th>
+        <th>Port Role</th>
         <th>Warning</th>
       </tr>
     </thead>
     <tbody>
       {% for endpoint in endpoints %}
-      <tr data-filter="{{ [endpoint.hostname, endpoint.ip, endpoint.mac, endpoint.vendor, endpoint.switch, endpoint.port, endpoint.warning] | join(' ') | lower }}">
+      <tr data-filter="{{ [endpoint.hostname, endpoint.ip, endpoint.mac, endpoint.vendor, endpoint.switch, endpoint.port, endpoint.port_role, endpoint.warning] | join(' ') | lower }}">
         <td>{{ endpoint.hostname or '' }}</td>
         <td>{{ endpoint.ip or '' }}</td>
         <td>{{ endpoint.mac }}</td>
@@ -55,6 +56,7 @@ Review required for correctness, security, and licensing.
             {{ endpoint.port or '' }}
           {% endif %}
         </td>
+        <td>{{ endpoint.port_role or '' }}</td>
         <td>{% if endpoint.warning %}<span class="badge badge-warning">{{ endpoint.warning }}</span>{% endif %}</td>
       </tr>
       {% endfor %}

@@ -68,6 +68,7 @@ Review required for correctness, security, and licensing.
         <th>VLAN</th>
         <th>Duplex</th>
         <th>Neighbor</th>
+        <th>Port Role</th>
         <th>In Err</th>
         <th>Out Err</th>
         <th>MAC</th>
@@ -94,6 +95,7 @@ Review required for correctness, security, and licensing.
         entry.vlan,
         entry.duplex,
         entry.neighbor,
+        entry.port_role,
         entry.input_errors,
         entry.output_errors,
         entry.mac,
@@ -173,6 +175,7 @@ Review required for correctness, security, and licensing.
         vlan: '',
         duplex: '',
         neighbor: '',
+        port_role: '',
         input_errors: '',
         output_errors: '',
         mac: entry.mac ?? '',
@@ -195,6 +198,7 @@ Review required for correctness, security, and licensing.
         vlan: '',
         duplex: '',
         neighbor: '',
+        port_role: entry.port_role ?? '',
         input_errors: '',
         output_errors: '',
         mac: entry.mac ?? '',
@@ -223,6 +227,7 @@ Review required for correctness, security, and licensing.
               const details = [n.protocol ? String(n.protocol).toUpperCase() : '', n.port || ''].filter(Boolean);
               return `${n.device || ''}${details.length ? ` (${details.join(', ')})` : ''}`;
             }).filter(Boolean).join(', '),
+            port_role: port.role ?? '',
             input_errors: port.input_errors ?? 0,
             output_errors: port.output_errors ?? 0,
             mac: (port.macs || []).join(', '),
@@ -258,6 +263,7 @@ Review required for correctness, security, and licensing.
           entry.vlan ?? '',
           entry.duplex ?? '',
           entry.neighbor ?? '',
+          entry.port_role ?? '',
           entry.input_errors ?? '',
           entry.output_errors ?? '',
           entry.mac ?? '',
