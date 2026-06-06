@@ -559,9 +559,14 @@ def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
                 [
                     "config switch interface",
                     '    edit "port1"',
+                    '        set description "Core FortiLink uplink"',
+                    "        set mode trunk",
                     "        set allowed-vlans 1 10",
+                    "        set native-vlan 1",
+                    "        set auto-discovery-fortilink enable",
                     "    next",
                     '    edit "internal"',
+                    '        set alias "Server access edge"',
                     "        set allowed-vlans 1",
                     "    next",
                     "end",
@@ -591,10 +596,11 @@ def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
     assert [port.name for port in state.ports] == ["port1", "port2", "internal"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].speed == 100
-    assert state.ports[0].descr == ""
+    assert state.ports[0].descr == "Core FortiLink uplink"
     assert state.ports[0].vlan == "1"
     assert state.ports[0].switchport_mode == "trunk"
     assert state.ports[0].access_vlan == "1"
+    assert state.ports[0].native_vlan == "1"
     assert state.ports[0].allowed_vlans == "1,10"
     assert state.ports[0].macs == ["52:54:00:00:10:10"]
     assert state.ports[0].is_trunk is True
@@ -602,6 +608,7 @@ def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
     assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[1].oper_status == "down"
     assert state.ports[2].macs == ["36:f0:e1:7f:00:01"]
+    assert state.ports[2].descr == "Server access edge"
     assert state.platform == "FortiSwitch-108D-VM"
     assert state.os_version == "FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)"
     assert state.serial_number == "S108DVIUL-MKIA2D"

@@ -102,6 +102,8 @@ class SwitchportInfo:
     voice_vlan: str = ""
     native_vlan: str = ""
     allowed_vlans: str = ""
+    description: str = ""
+    fortilink: bool = False
 
 
 def _normalize_oper_status(status: str) -> str:
@@ -795,6 +797,14 @@ def _parse_fortiswitch_switch_interface(text: str) -> dict[str, SwitchportInfo]:
             if "," in info.allowed_vlans:
                 info.mode = "trunk"
             continue
+        if re.match(r"set\s+allowed-vlans-all\s+enable\b", line, flags=re.IGNORECASE):
+            info.allowed_vlans = "all"
+            info.mode = "trunk"
+            continue
+        mode_match = re.match(r"set\s+mode\s+(\S+)", line, flags=re.IGNORECASE)
+        if mode_match:
+            info.mode = _parse_switchport_mode_line(mode_match.group(1))
+            continue
         native_match = re.match(r"set\s+native-vlan\s+(\d+)", line, flags=re.IGNORECASE)
         if native_match:
             info.native_vlan = native_match.group(1)
@@ -804,6 +814,16 @@ def _parse_fortiswitch_switch_interface(text: str) -> dict[str, SwitchportInfo]:
             info.access_vlan = access_match.group(1)
             if not info.mode:
                 info.mode = "access"
+            continue
+        description_match = re.match(r"set\s+(?:description|alias)\s+(.+)", line, flags=re.IGNORECASE)
+        if description_match:
+            info.description = description_match.group(1).strip().strip('"')
+            continue
+        fortilink_match = re.match(r"set\s+auto-discovery-fortilink\s+(\S+)", line, flags=re.IGNORECASE)
+        if fortilink_match and fortilink_match.group(1).lower() == "enable":
+            info.fortilink = True
+            if not info.mode:
+                info.mode = "trunk"
     return details
 
 
@@ -1153,6 +1173,9 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
                 port.voice_vlan = details.voice_vlan or port.voice_vlan
                 port.native_vlan = details.native_vlan or port.native_vlan
                 port.allowed_vlans = details.allowed_vlans or port.allowed_vlans
+                port.descr = details.description or port.descr
+                if details.fortilink:
+                    port.is_trunk = True
         except SshError as exc:
             if _is_unsupported_optional_command(exc):
                 logger.debug(
