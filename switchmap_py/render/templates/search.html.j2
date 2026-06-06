@@ -15,7 +15,7 @@ Review required for correctness, security, and licensing.
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Search - SwitchMap</title>
+  <title>Search - SwitchMappy</title>
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
@@ -27,6 +27,7 @@ Review required for correctness, security, and licensing.
     <label for="typeFilter">Type:</label>
     <select id="typeFilter">
       <option value="">All</option>
+      <option value="endpoint">Endpoint</option>
       <option value="port">Port</option>
       <option value="mac">MAC</option>
     </select>
@@ -65,12 +66,15 @@ Review required for correctness, security, and licensing.
         <th>Port</th>
         <th>Status</th>
         <th>VLAN</th>
+        <th>Duplex</th>
         <th>Neighbor</th>
         <th>In Err</th>
         <th>Out Err</th>
         <th>MAC</th>
+        <th>Vendor</th>
         <th>IP</th>
         <th>Hostname</th>
+        <th>Warning</th>
       </tr>
     </thead>
     <tbody id="results"></tbody>
@@ -88,12 +92,15 @@ Review required for correctness, security, and licensing.
         entry.port,
         entry.status,
         entry.vlan,
+        entry.duplex,
         entry.neighbor,
         entry.input_errors,
         entry.output_errors,
         entry.mac,
+        entry.vendor,
         entry.ip,
         entry.hostname,
+        entry.warning,
       ]
         .filter(Boolean)
         .join(' ')
@@ -164,12 +171,37 @@ Review required for correctness, security, and licensing.
         port: entry.port ?? '',
         status: '',
         vlan: '',
+        duplex: '',
         neighbor: '',
         input_errors: '',
         output_errors: '',
         mac: entry.mac ?? '',
+        vendor: '',
         ip: entry.ip ?? '',
         hostname: entry.hostname ?? '',
+        warning: '',
+        target_url: (entry.switch && entry.port)
+          ? `/switches/${entry.switch}.html#port-${entry.port.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
+          : '',
+      }));
+    }
+
+    function endpointEntries(index) {
+      return (index.endpoint_correlations || []).map((entry) => ({
+        type: 'endpoint',
+        switch: entry.switch ?? '',
+        port: entry.port ?? '',
+        status: '',
+        vlan: '',
+        duplex: '',
+        neighbor: '',
+        input_errors: '',
+        output_errors: '',
+        mac: entry.mac ?? '',
+        vendor: entry.vendor ?? '',
+        ip: entry.ip ?? '',
+        hostname: entry.hostname ?? '',
+        warning: entry.warning ?? '',
         target_url: (entry.switch && entry.port)
           ? `/switches/${entry.switch}.html#port-${entry.port.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
           : '',
@@ -186,12 +218,18 @@ Review required for correctness, security, and licensing.
             port: port.name ?? '',
             status: port.oper_status ?? '',
             vlan: port.vlan ?? '',
-            neighbor: (port.neighbors || []).map((n) => n.device || '').filter(Boolean).join(', '),
+            duplex: port.duplex ?? '',
+            neighbor: (port.neighbors || []).map((n) => {
+              const details = [n.protocol ? String(n.protocol).toUpperCase() : '', n.port || ''].filter(Boolean);
+              return `${n.device || ''}${details.length ? ` (${details.join(', ')})` : ''}`;
+            }).filter(Boolean).join(', '),
             input_errors: port.input_errors ?? 0,
             output_errors: port.output_errors ?? 0,
             mac: (port.macs || []).join(', '),
+            vendor: '',
             ip: '',
             hostname: '',
+            warning: '',
             target_url: (sw.name && port.name)
               ? `/switches/${sw.name}.html#port-${port.name.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
               : '',
@@ -202,7 +240,7 @@ Review required for correctness, security, and licensing.
     }
 
     function buildEntries(index) {
-      return macEntries(index).concat(switchPortEntries(index));
+      return endpointEntries(index).concat(macEntries(index), switchPortEntries(index));
     }
 
     function render(entries) {
@@ -218,12 +256,15 @@ Review required for correctness, security, and licensing.
           entry.port ?? '',
           entry.status ?? '',
           entry.vlan ?? '',
+          entry.duplex ?? '',
           entry.neighbor ?? '',
           entry.input_errors ?? '',
           entry.output_errors ?? '',
           entry.mac ?? '',
+          entry.vendor ?? '',
           entry.ip ?? '',
           entry.hostname ?? '',
+          entry.warning ?? '',
         ];
         for (const value of values) {
           const cell = document.createElement('td');

@@ -53,6 +53,7 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
                 f"destination_directory: {output_dir}",
                 f"idlesince_directory: {tmp_path / 'idlesince'}",
                 f"maclist_file: {maclist_path}",
+                f"history_directory: {tmp_path / 'history'}",
                 "unused_after_days: 30",
                 "switches:",
                 "  - name: sw-ok",

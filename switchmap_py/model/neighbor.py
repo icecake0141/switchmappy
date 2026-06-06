@@ -21,3 +21,14 @@ class Neighbor:
     device: str
     protocol: str
     port: Optional[str] = None
+
+    @property
+    def display_name(self) -> str:
+        protocol = self.protocol.upper() if self.protocol else ""
+        details = []
+        if protocol:
+            details.append(protocol)
+        if self.port:
+            details.append(self.port)
+        suffix = f" ({', '.join(details)})" if details else ""
+        return f"{self.device}{suffix}"

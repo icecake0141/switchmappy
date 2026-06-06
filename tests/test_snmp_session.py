@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import sys
+from collections import deque
 from types import ModuleType
 
 import pytest
@@ -22,7 +23,7 @@ from switchmap_py.snmp.session import SnmpConfig, SnmpError, SnmpSession
 
 def _install_fake_hlapi(monkeypatch):
     record: dict[str, object] = {}
-    hlapi = ModuleType("pysnmp.hlapi")
+    hlapi = ModuleType("pysnmp.hlapi.v3arch.asyncio")
 
     class CommunityData:
         def __init__(self, community, mpModel=1):
@@ -68,8 +69,19 @@ def _install_fake_hlapi(monkeypatch):
             self.timeout = timeout
             self.retries = retries
 
-    def nextCmd(*_args, **_kwargs):
-        yield (None, None, 0, [("1.3.6.1.2.1.1.1.0", "ok")])
+        @classmethod
+        async def create(cls, target, timeout, retries):
+            return cls(target, timeout, retries)
+
+    responses = deque(
+        [
+            (None, None, 0, [("1.3.6.1.2.1.1.1.0", "ok")]),
+            (None, None, 0, [("1.3.6.1.2.1.2.1.0", "done")]),
+        ]
+    )
+
+    async def next_cmd(*_args, **_kwargs):
+        return responses.popleft()
 
     hlapi.CommunityData = CommunityData
     hlapi.UsmUserData = UsmUserData
@@ -78,7 +90,7 @@ def _install_fake_hlapi(monkeypatch):
     hlapi.ObjectType = ObjectType
     hlapi.SnmpEngine = SnmpEngine
     hlapi.UdpTransportTarget = UdpTransportTarget
-    hlapi.nextCmd = nextCmd
+    hlapi.next_cmd = next_cmd
     hlapi.usmHMACMD5AuthProtocol = "AUTH_MD5"
     hlapi.usmHMACSHAAuthProtocol = "AUTH_SHA"
     hlapi.usmHMAC128SHA224AuthProtocol = "AUTH_SHA224"
@@ -92,9 +104,15 @@ def _install_fake_hlapi(monkeypatch):
     hlapi.usmAesCfb256Protocol = "PRIV_AES256"
 
     pysnmp_pkg = ModuleType("pysnmp")
-    pysnmp_pkg.hlapi = hlapi
+    pysnmp_hlapi_pkg = ModuleType("pysnmp.hlapi")
+    pysnmp_v3arch_pkg = ModuleType("pysnmp.hlapi.v3arch")
+    pysnmp_v3arch_pkg.asyncio = hlapi
+    pysnmp_hlapi_pkg.v3arch = pysnmp_v3arch_pkg
+    pysnmp_pkg.hlapi = pysnmp_hlapi_pkg
     monkeypatch.setitem(sys.modules, "pysnmp", pysnmp_pkg)
-    monkeypatch.setitem(sys.modules, "pysnmp.hlapi", hlapi)
+    monkeypatch.setitem(sys.modules, "pysnmp.hlapi", pysnmp_hlapi_pkg)
+    monkeypatch.setitem(sys.modules, "pysnmp.hlapi.v3arch", pysnmp_v3arch_pkg)
+    monkeypatch.setitem(sys.modules, "pysnmp.hlapi.v3arch.asyncio", hlapi)
     return record
 
 

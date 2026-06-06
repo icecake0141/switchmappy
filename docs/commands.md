@@ -39,8 +39,18 @@ All commands support:
 - Options:
   - `--source csv|snmp` (default: `csv`)
   - `--csv <path>` required when `--source csv`
+  - `--resolve-hostnames`: add reverse-DNS hostnames where resolution succeeds
 - Behavior:
   - `snmp` source requires `routers` config.
+
+## `import-hostnames`
+
+- Purpose: merge IPAM, DHCP lease, or inventory hostnames into the MAC list.
+- Options:
+  - `--csv <path>` accepts `mac,ip,hostname` or `ip,hostname` rows
+  - `--overwrite | --no-overwrite` controls replacement of existing hostnames
+- Behavior:
+  - matches by MAC first, then by IP address.
 
 ## `build-html`
 
@@ -50,6 +60,7 @@ All commands support:
 - Behavior:
   - continues when a switch SNMP/SSH collection fails,
   - records failed switch reasons in output index.
+  - writes a JSON history snapshot to `history_directory`.
 
 ## `serve-search`
 

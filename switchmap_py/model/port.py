@@ -27,6 +27,8 @@ class Port:
     oper_status: str
     speed: Optional[int]
     vlan: Optional[str]
+    duplex: Optional[str] = None
+    last_change: Optional[str] = None
     macs: list[str] = field(default_factory=list)
     neighbors: list[Neighbor] = field(default_factory=list)
     input_errors: Optional[int] = None
@@ -42,5 +44,25 @@ class Port:
         return self.oper_status.lower() == "up" and bool(self.macs)
 
     @property
+    def is_admin_disabled(self) -> bool:
+        return self.admin_status.lower() in {"down", "disabled", "administratively down"}
+
+    @property
+    def is_link_up(self) -> bool:
+        return self.oper_status.lower() in {"up", "connected"}
+
+    @property
+    def has_description(self) -> bool:
+        return bool(self.descr.strip())
+
+    @property
+    def needs_description(self) -> bool:
+        return self.is_link_up and not self.has_description
+
+    @property
     def neighbor_names(self) -> list[str]:
         return [neighbor.device for neighbor in self.neighbors if neighbor.device]
+
+    @property
+    def neighbor_summaries(self) -> list[str]:
+        return [neighbor.display_name for neighbor in self.neighbors if neighbor.device]

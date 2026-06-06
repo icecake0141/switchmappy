@@ -15,31 +15,69 @@ Review required for correctness, security, and licensing.
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>SwitchMap</title>
+  <title>SwitchMappy</title>
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
-  <header>
-    <h1>SwitchMap</h1>
-    <p>Generated at {{ build_date.isoformat() }}</p>
+  <header class="page-header">
+    <div>
+      <h1>SwitchMappy</h1>
+      <p>Generated at {{ build_date.isoformat() }}</p>
+    </div>
+    <div class="summary-strip" aria-label="Build summary">
+      <div class="summary-item">
+        <span class="summary-value">{{ report_summary.switches }}</span>
+        <span class="summary-label">switches</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ report_summary.ports }}</span>
+        <span class="summary-label">ports</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ report_summary.active_ports }}</span>
+        <span class="summary-label">active</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ report_summary.endpoints }}</span>
+        <span class="summary-label">endpoints</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ report_summary.missing_descriptions }}</span>
+        <span class="summary-label">missing desc</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ report_summary.unused_ports }}</span>
+        <span class="summary-label">unused</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ report_summary.failed }}</span>
+        <span class="summary-label">failed</span>
+      </div>
+    </div>
   </header>
-  <nav>
+  <nav class="quick-links" aria-label="Report sections">
     <ul>
       <li><a href="/ports/index.html">Ports</a></li>
+      <li><a href="/endpoints/index.html">Endpoints</a></li>
       <li><a href="/vlans/index.html">VLANs</a></li>
       <li><a href="/search/index.html">Search</a></li>
     </ul>
   </nav>
-  <section>
+  <section class="panel">
     <h2>Switches</h2>
-    <ul>
+    <ul class="switch-list">
       {% for switch in switches %}
-      <li><a href="/switches/{{ switch.name }}.html">{{ switch.name }}</a></li>
+      <li>
+        <a href="/switches/{{ switch.name }}.html">
+          <span>{{ switch.name }}</span>
+          <span class="muted">{{ switch.management_ip }}</span>
+        </a>
+      </li>
       {% endfor %}
     </ul>
   </section>
   {% if failed_switches %}
-  <section>
+  <section class="panel panel-warning">
     <h2>Failed switches</h2>
     <p>Some switches failed to collect data during this build:</p>
     <ul>

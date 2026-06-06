@@ -96,7 +96,26 @@ def _normalize_mac(value: str) -> str | None:
 
 
 def _canonical_port_name(value: str) -> str:
-    return value.strip().lower().split(".")[0]
+    normalized = value.strip().lower().split(".")[0]
+    aliases = {
+        "gigabitethernet": "gi",
+        "fastethernet": "fa",
+        "tengigabitethernet": "te",
+        "twentyfivegige": "twe",
+        "fortygigabitethernet": "fo",
+        "hundredgige": "hu",
+        "ethernet": "et",
+        "port-channel": "po",
+    }
+    for long_name, short_name in aliases.items():
+        if normalized.startswith(long_name):
+            return f"{short_name}{normalized[len(long_name) :]}"
+    return normalized
+
+
+def _is_trunk_port(name: str, switch: SwitchConfig) -> bool:
+    canonical_trunks = {_canonical_port_name(port) for port in switch.trunk_ports}
+    return _canonical_port_name(name) in canonical_trunks
 
 
 def _parse_cisco_interface_status(text: str, switch: SwitchConfig) -> list[Port]:
@@ -127,6 +146,9 @@ def _parse_cisco_interface_status(text: str, switch: SwitchConfig) -> list[Port]
         if status_index + 1 < len(tokens):
             vlan = tokens[status_index + 1]
         speed = None
+        duplex = None
+        if status_index + 2 < len(tokens):
+            duplex = tokens[status_index + 2]
         if status_index + 3 < len(tokens):
             speed = _parse_speed(tokens[status_index + 3])
         ports.append(
@@ -137,8 +159,9 @@ def _parse_cisco_interface_status(text: str, switch: SwitchConfig) -> list[Port]
                 oper_status=oper_status,
                 speed=speed,
                 vlan=vlan,
+                duplex=duplex,
                 macs=[],
-                is_trunk=name in switch.trunk_ports,
+                is_trunk=_is_trunk_port(name, switch),
             )
         )
     return ports
@@ -171,7 +194,7 @@ def _parse_juniper_interfaces_terse(text: str, switch: SwitchConfig) -> list[Por
                 speed=None,
                 vlan=None,
                 macs=[],
-                is_trunk=name in switch.trunk_ports,
+                is_trunk=_is_trunk_port(name, switch),
             )
         )
     return ports
@@ -206,7 +229,7 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
                 speed=speed,
                 vlan=None,
                 macs=[],
-                is_trunk=name in switch.trunk_ports,
+                is_trunk=_is_trunk_port(name, switch),
             )
         )
     return ports
@@ -378,12 +401,28 @@ def _run_command(session: SshSession, command: str, timeout: int, retries: int =
     last_error: SshError | None = None
     for _ in range(tries):
         try:
-            return session.run(command, timeout=effective_timeout)
+            output = session.run(command, timeout=effective_timeout)
+            if _is_rejected_command_output(output):
+                raise SshError(output.strip())
+            return output
         except SshError as exc:
             last_error = exc
     if last_error:
         raise last_error
     raise SshError(f"failed to run command: {command}")
+
+
+def _is_rejected_command_output(output: str) -> bool:
+    lowered = output.lower()
+    return (
+        "% invalid input detected" in lowered
+        or "% invalid command" in lowered
+        or "line has invalid autocommand" in lowered
+    )
+
+
+def _is_unsupported_optional_command(exc: SshError) -> bool:
+    return _is_rejected_command_output(str(exc))
 
 
 def _add_neighbor(
@@ -477,23 +516,25 @@ def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
     current_local: str | None = None
     current_neighbor: str | None = None
     current_remote_port: str | None = None
+
+    def flush_current() -> None:
+        nonlocal current_local, current_neighbor, current_remote_port
+        if current_local and current_neighbor:
+            _add_neighbor(neighbors_by_port, current_local, current_neighbor, "cdp", remote_port=current_remote_port)
+        current_local = None
+        current_neighbor = None
+        current_remote_port = None
+
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
-            if current_local and current_neighbor:
-                _add_neighbor(
-                    neighbors_by_port,
-                    current_local,
-                    current_neighbor,
-                    "cdp",
-                    remote_port=current_remote_port,
-                )
-            current_local = None
-            current_neighbor = None
-            current_remote_port = None
             continue
         lower = line.lower()
+        if line.startswith("-------------------------"):
+            flush_current()
+            continue
         if lower.startswith("device id:"):
+            flush_current()
             current_neighbor = line.split(":", 1)[1].strip()
             continue
         if lower.startswith("interface:"):
@@ -504,8 +545,7 @@ def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
                 tail = rhs.split("Port ID", 1)[1]
                 current_remote_port = tail.split(":", 1)[1].strip() if ":" in tail else None
             continue
-    if current_local and current_neighbor:
-        _add_neighbor(neighbors_by_port, current_local, current_neighbor, "cdp", remote_port=current_remote_port)
+    flush_current()
     return neighbors_by_port
 
 
@@ -852,12 +892,18 @@ def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
                     continue
                 port.poe_status = poe_state[0]
                 port.poe_power_w = poe_state[1]
-        except SshError:
-            logger.warning(
-                "SSH PoE collection command failed for switch %s; continuing without PoE data.",
-                switch.name,
-                exc_info=True,
-            )
+        except SshError as exc:
+            if _is_unsupported_optional_command(exc):
+                logger.debug(
+                    "SSH PoE collection command is unsupported on switch %s; continuing without PoE data.",
+                    switch.name,
+                )
+            else:
+                logger.warning(
+                    "SSH PoE collection command failed for switch %s; continuing without PoE data.",
+                    switch.name,
+                    exc_info=True,
+                )
     except SshError:
         logger.warning(
             "SSH collection command failed for switch %s; returning empty switch state.",

@@ -88,16 +88,72 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].is_trunk is True
     assert state.ports[0].vlan == "10"
+    assert state.ports[0].duplex == "a-full"
     assert state.ports[0].speed == 1000
     assert state.ports[0].macs == ["00:11:22:33:44:55"]
     assert _neighbor_devices(state.ports[0]) == ["dist-sw1"]
     assert _neighbor_protocols(state.ports[0]) == ["lldp"]
+    assert state.ports[0].neighbor_summaries == ["dist-sw1 (LLDP)"]
     assert state.ports[0].input_errors == 7
     assert state.ports[0].output_errors == 5
     assert state.ports[0].poe_status == "on"
     assert state.ports[0].poe_power_w == 15.4
     assert state.ports[1].macs == []
     assert state.ports[1].oper_status == "down"
+
+
+def test_parse_cisco_cdp_detail_keeps_entries_with_blank_lines():
+    output = """
+-------------------------
+Device ID: switchmappy-sw2.switchmappy.local
+Entry address(es):
+  IP address: 192.168.128.236
+Platform: Linux Unix,  Capabilities: Router Switch IGMP
+Interface: Ethernet0/1,  Port ID (outgoing port): Ethernet0/1
+Holdtime : 168 sec
+
+Version :
+Cisco IOS Software [IOSXE]
+
+advertisement version: 2
+Management address(es):
+  IP address: 192.168.128.236
+
+-------------------------
+Device ID: switchmappy-sw2.switchmappy.local
+Entry address(es):
+  IP address: 192.168.128.236
+Platform: Linux Unix,  Capabilities: Router Switch IGMP
+Interface: Ethernet0/0,  Port ID (outgoing port): Ethernet0/0
+Holdtime : 149 sec
+"""
+
+    neighbors = collectors._parse_cisco_cdp_neighbors_detail(output)
+
+    assert [neighbor.device for neighbor in neighbors["et0/1"]] == ["switchmappy-sw2.switchmappy.local"]
+    assert neighbors["et0/1"][0].port == "Ethernet0/1"
+    assert [neighbor.device for neighbor in neighbors["et0/0"]] == ["switchmappy-sw2.switchmappy.local"]
+
+
+def test_canonical_port_name_matches_cisco_short_and_long_forms():
+    assert collectors._canonical_port_name("Ethernet0/1") == "et0/1"
+    assert collectors._canonical_port_name("Et0/1") == "et0/1"
+    assert collectors._canonical_port_name("GigabitEthernet1/0/1") == "gi1/0/1"
+    assert collectors._canonical_port_name("Gi1/0/1") == "gi1/0/1"
+
+
+def test_run_command_rejects_cisco_invalid_output():
+    class InvalidSession:
+        def run(self, _command: str, timeout: int) -> str:
+            assert timeout == 3
+            return 'Line has invalid autocommand "show power inline"'
+
+    try:
+        collectors._run_command(InvalidSession(), "show power inline", timeout=3)
+    except SshError as exc:
+        assert "invalid autocommand" in str(exc)
+    else:
+        raise AssertionError("Expected SshError")
 
 
 def test_collect_port_snapshots_marks_up_ports_active(monkeypatch):

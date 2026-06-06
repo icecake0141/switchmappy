@@ -15,7 +15,7 @@ Review required for correctness, security, and licensing.
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Ports - SwitchMap</title>
+  <title>Ports - SwitchMappy</title>
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
@@ -49,8 +49,11 @@ Review required for correctness, security, and licensing.
       <thead>
         <tr>
           <th>Port</th>
+          <th>State</th>
           <th>Description</th>
           <th>Oper</th>
+          <th>Duplex</th>
+          <th>Last Change</th>
           <th>Neighbor</th>
           <th>In Err</th>
           <th>Out Err</th>
@@ -60,23 +63,59 @@ Review required for correctness, security, and licensing.
           <th>Idle Since</th>
           <th>Unused (>= {{ unused_after_days }}d)</th>
           <th>ARP</th>
+          <th>Vendor</th>
         </tr>
       </thead>
       <tbody>
       {% set idle_states = idle_states_by_switch.get(switch.name, {}) %}
       {% set unused_ports = unused_ports_by_switch.get(switch.name, []) %}
       {% for port in switch.ports %}
+        {% set is_unused = port.name in unused_ports %}
+        {% if is_unused %}
+          {% set state_label = 'long unused' %}
+          {% set state_class = 'state-long-unused' %}
+        {% elif port.is_admin_disabled %}
+          {% set state_label = 'disabled' %}
+          {% set state_class = 'state-disabled' %}
+        {% elif port.is_active %}
+          {% set state_label = 'active' %}
+          {% set state_class = 'state-active' %}
+        {% elif port.is_link_up %}
+          {% set state_label = 'link up, no MAC' %}
+          {% set state_class = 'state-link-up' %}
+        {% else %}
+          {% set state_label = 'inactive' %}
+          {% set state_class = 'state-inactive' %}
+        {% endif %}
         <tr
+          class="{{ state_class }}{% if port.needs_description %} missing-description{% endif %}"
           data-status="{{ port.oper_status | lower }}"
+          data-state="{{ state_label }}"
           data-neighbor="{{ port.neighbor_names | join(',') | lower }}"
           data-poe="{{ (port.poe_status or '') | lower }}"
           data-in-err="{{ port.input_errors if port.input_errors is not none else 0 }}"
           data-out-err="{{ port.output_errors if port.output_errors is not none else 0 }}"
         >
           <td>{{ port.name }}</td>
-          <td>{{ port.descr }}</td>
+          <td><span class="badge {{ state_class }}">{{ state_label }}</span></td>
+          <td>
+            {% if port.descr %}
+              {{ port.descr }}
+            {% else %}
+              <span class="muted">-</span>
+            {% endif %}
+            {% if port.needs_description %}
+              <span class="badge badge-warning">missing description</span>
+            {% endif %}
+          </td>
           <td>{{ port.oper_status }}</td>
-          <td>{{ port.neighbor_names | join(', ') }}</td>
+          <td>{{ port.duplex or '' }}</td>
+          <td>{{ port.last_change or '' }}</td>
+          <td>
+            {% for neighbor in port.neighbors %}
+              <div>{{ neighbor.display_name }}</div>
+            {% endfor %}
+          </td>
           <td>{{ port.input_errors if port.input_errors is not none else '' }}</td>
           <td>{{ port.output_errors if port.output_errors is not none else '' }}</td>
           <td>{{ port.poe_status or '' }}</td>
@@ -90,12 +129,20 @@ Review required for correctness, security, and licensing.
               -
             {% endif %}
           </td>
-          <td>{% if port.name in unused_ports %}yes{% else %}-{% endif %}</td>
+          <td>{% if is_unused %}yes{% else %}-{% endif %}</td>
           <td>
             {% for mac in port.macs %}
               {% for entry in mac_entries_by_mac.get(mac.lower(), []) %}
                 <div>{{ entry.ip or '' }}{% if entry.hostname %} ({{ entry.hostname }}){% endif %}</div>
               {% endfor %}
+            {% endfor %}
+          </td>
+          <td>
+            {% for mac in port.macs %}
+              {% set vendor = mac_vendor_lookup.get(mac.lower(), '') %}
+              {% if vendor %}
+                <div>{{ vendor }}</div>
+              {% endif %}
             {% endfor %}
           </td>
         </tr>
