@@ -827,6 +827,38 @@ def _parse_fortiswitch_switch_interface(text: str) -> dict[str, SwitchportInfo]:
     return details
 
 
+def _parse_juniper_ethernet_switching_interfaces(text: str) -> dict[str, SwitchportInfo]:
+    details: dict[str, SwitchportInfo] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("interface", "---")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 2 or "/" not in tokens[0]:
+            continue
+        port_name = _canonical_port_name(tokens[0])
+        info = details.setdefault(port_name, SwitchportInfo())
+        mode_token = next((token for token in tokens[1:] if token.lower() in {"access", "trunk"}), "")
+        if mode_token:
+            info.mode = mode_token.lower()
+        vlan_tokens = [
+            token.strip("[]")
+            for token in tokens[1:]
+            if token.strip("[]").lower().replace(",", "").replace("-", "").isalnum()
+        ]
+        if info.mode == "access":
+            vlan = next((token for token in vlan_tokens if token.isdigit()), "")
+            info.access_vlan = vlan
+        elif info.mode == "trunk":
+            allowed = [token for token in vlan_tokens if token.isdigit()]
+            if allowed:
+                info.allowed_vlans = ",".join(allowed)
+    return details
+
+
 def _parse_cisco_like_error_counters(text: str) -> dict[str, tuple[int, int]]:
     errors_by_port: dict[str, tuple[int, int]] = {}
     for raw_line in text.splitlines():
@@ -1090,6 +1122,9 @@ def _collect_switchport_details(session: SshSession, switch: SwitchConfig, timeo
     if profile == "fortiswitch":
         output = _run_command(session, "show switch interface", timeout=timeout)
         return _parse_fortiswitch_switch_interface(output)
+    if profile == "juniper":
+        output = _run_command(session, "show ethernet-switching interfaces", timeout=timeout)
+        return _parse_juniper_ethernet_switching_interfaces(output)
     if profile not in {"cisco_like", "arista"}:
         return {}
     output = _run_command(session, "show interfaces switchport", timeout=timeout)

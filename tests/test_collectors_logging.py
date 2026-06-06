@@ -44,5 +44,7 @@ def test_collect_macs_logs_warning_on_exception(caplog):
     with caplog.at_level(logging.WARNING):
         result = collectors._collect_macs(session)
 
-    assert result == ({}, {})
+    assert result[0] == {}
+    assert result[1] == {}
+    assert result[2][0]["label"] == "Q-BRIDGE unavailable"
     assert any(mibs.QBRIDGE_VLAN_FDB_PORT in record.message for record in caplog.records)

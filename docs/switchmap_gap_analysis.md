@@ -37,16 +37,16 @@ used by `SwitchMap.pl`, `ScanSwitch.pl`, `GetArp.pl`, `FindOffice.pl`,
 | MAC/IP/hostname correlation | Implemented | MAC list, ARP data, hostname import, reverse DNS, and OUI display are supported. | Keep SSH endpoint correlation covered by repeatable fixtures and integration tests. |
 | Search UI | Implemented | Static search page backed by `search/index.json`; FastAPI serve command exists. | Office/location workflows need a dedicated view. |
 | SSH switch collection | Implemented | Cisco-like, Juniper, FortiSwitch, and Arista-oriented command profiles exist. | Expand command fixtures for more platform variants. |
-| SNMP switch collection | Partial | IF-MIB, BRIDGE-MIB fallback, VLAN names, LLDP, sysDescr, and sysUpTime are supported. | Add richer device-family OID support and VLAN-aware FDB validation on non-IOL-L2 labs. |
-| VLAN-aware SNMP FDB | Partial | Q-BRIDGE FDB is parsed when devices expose it; VLAN-indexed community collection works when configured as the SNMP community. | Add repeatable fixtures for device families that expose VLAN-aware FDB data. |
+| SNMP switch collection | Partial | IF-MIB, BRIDGE-MIB fallback, VLAN names, LLDP, sysDescr, sysUpTime, ENTITY-MIB inventory fields, interface errors, and basic PoE status/power are supported. | Add device-family-specific OIDs where standard tables are absent or sparse. |
+| VLAN-aware SNMP FDB | Partial | Q-BRIDGE FDB is parsed when devices expose it; VLAN-indexed community collection works when configured as the SNMP community; diagnostics now distinguish Q-BRIDGE empty/unavailable from legacy FDB fallback. | Add live-lab validation on additional Q-BRIDGE-capable targets. |
 | LLDP/CDP neighbors | Implemented | SSH LLDP/CDP and SNMP LLDP neighbors are rendered. | Add more capability fixtures for vendor-specific outputs. |
 | Neighbor capabilities | Partial | CDP capabilities and SNMP LLDP capability bitmaps are retained when available. | Add fixtures for devices that omit or vary capability fields. |
 | Trunk/uplink display | Intentionally different | Roles use explicit `trunk_ports` or LLDP/CDP neighbor evidence. | Do not use MAC count or endpoint count as role evidence. |
 | Operational switchport evidence | Implemented | Cisco-like SSH captures mode, access VLAN, voice VLAN, native VLAN, and allowed VLANs. FortiSwitch SSH captures VLAN membership plus `show switch interface` description, mode, native VLAN, allowed VLANs, and FortiLink hints. | Add Juniper and Arista switchport detail fixtures where equivalent commands are available. |
 | Switch inventory | Partial | SSH `show version` and SNMP `sysDescr`/`sysUpTime` are rendered. | Add structured model/serial/version OIDs per platform. |
-| PoE and error counters | Partial | SSH collectors expose PoE status/power and input/output errors for supported profiles. | Add SNMP PoE/error OIDs and more device fixtures. |
+| PoE and error counters | Partial | SSH collectors expose PoE status/power and input/output errors for supported profiles. SNMP collectors read IF-MIB error counters and basic POWER-ETHERNET-MIB PoE status/power. | Add vendor-specific PoE/error OIDs where standard MIBs are incomplete. |
 | History and diffs | Implemented | History snapshots and diff pages are generated. | Consider retention controls if output grows. |
-| Debug diagnostics | Implemented | Debug page shows correlation traces, unmatched data, anomalies, artifacts, port evidence, and SNMP FDB diagnostics such as Q-BRIDGE unavailable, FDB empty, and VLAN-indexed community hints. | Move SNMP FDB diagnostics from artifact inference into collector-owned diagnostic records if a richer API is needed. |
+| Debug diagnostics | Implemented | Debug page shows correlation traces, unmatched data, anomalies, artifacts, port evidence, and SNMP FDB diagnostics from both collector records and artifact inference. | Add more diagnostic categories if future collectors expose them. |
 | Site configuration | Intentionally different | YAML replaces `ThisSite.pm`. | Publishing/scheduling remains external automation. |
 | Office/location workflows | Not yet | Current search covers host/IP/MAC/switch/port. | Add location/office metadata import and views. |
 | Exact Perl module compatibility | Intentionally different | Python modules split collection, rendering, storage, and search. | No direct Perl API compatibility planned. |
@@ -54,8 +54,7 @@ used by `SwitchMap.pl`, `ScanSwitch.pl`, `GetArp.pl`, `FindOffice.pl`,
 ## Highest-Value Remaining Work
 
 1. Office/location workflow PR: add metadata import, search index fields, and a location-oriented view.
-2. SNMP FDB fixture PR: add repeatable Q-BRIDGE-capable fixtures and VLAN-indexed community examples.
-3. SNMP diagnostics model PR: move FDB diagnostics from artifact inference into collector-owned diagnostic records.
-4. Inventory OID PR: add structured model, serial, and version OIDs for common Cisco platforms.
-5. Counter coverage PR: add SNMP PoE and interface error OID coverage with fixtures.
-6. Switchport fixture PR: add Juniper and Arista switchport detail fixtures for mode/native/allowed VLAN evidence.
+2. SNMP live-lab validation PR: validate Q-BRIDGE and VLAN-indexed community behavior against additional hardware or virtual targets.
+3. Vendor OID PR: add device-family-specific inventory, PoE, and error OIDs where standard MIBs are incomplete.
+4. Search/debug UX PR: expose collector diagnostics in more report surfaces beyond Debug if operators need them.
+5. Switchport fixture PR: expand Juniper and Arista variants beyond the initial mode/native/allowed VLAN evidence fixtures.
