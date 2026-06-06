@@ -73,7 +73,9 @@ Review required for correctness, security, and licensing.
         <th>Port</th>
         <th>Status</th>
         <th>VLAN</th>
+        <th>Speed</th>
         <th>Duplex</th>
+        <th>Media</th>
         <th>Mode</th>
         <th>Access</th>
         <th>Voice</th>
@@ -105,7 +107,9 @@ Review required for correctness, security, and licensing.
         entry.port,
         entry.status,
         entry.vlan,
+        entry.speed,
         entry.duplex,
+        entry.media,
         entry.switchport_mode,
         entry.access_vlan,
         entry.voice_vlan,
@@ -253,7 +257,9 @@ Review required for correctness, security, and licensing.
             port: port.name ?? '',
             status: port.oper_status ?? '',
             vlan: port.vlan ?? '',
+            speed: port.speed ?? '',
             duplex: port.duplex ?? '',
+            media: port.media ?? '',
             switchport_mode: port.switchport_mode ?? '',
             access_vlan: port.access_vlan ?? '',
             voice_vlan: port.voice_vlan ?? '',
@@ -297,7 +303,9 @@ Review required for correctness, security, and licensing.
           entry.port ?? '',
           entry.status ?? '',
           entry.vlan ?? '',
+          entry.speed ?? '',
           entry.duplex ?? '',
+          entry.media ?? '',
           entry.switchport_mode ?? '',
           entry.access_vlan ?? '',
           entry.voice_vlan ?? '',

@@ -38,6 +38,10 @@ def test_collect_switch_state_falls_back_to_descr_or_ifindex(monkeypatch):
             f"{mibs.IF_DESCR}.1": "Gi1/0/1",
             f"{mibs.IF_DESCR}.2": "",
         },
+        mibs.IF_TYPE: {
+            f"{mibs.IF_TYPE}.1": "6",
+            f"{mibs.IF_TYPE}.2": "161",
+        },
         mibs.IF_ADMIN_STATUS: {
             f"{mibs.IF_ADMIN_STATUS}.1": "1",
             f"{mibs.IF_ADMIN_STATUS}.2": "1",
@@ -61,8 +65,10 @@ def test_collect_switch_state_falls_back_to_descr_or_ifindex(monkeypatch):
 
     state = collectors.collect_switch_state(switch, timeout=1, retries=0)
     assert state.ports[0].name == "Gi1/0/1"
+    assert state.ports[0].media == "ethernetCsmacd"
     assert state.ports[0].is_trunk is True
     assert state.ports[1].name == "2"
+    assert state.ports[1].media == "ieee8023adLag"
 
 
 def test_collect_switch_state_assigns_vlan_to_ports(monkeypatch):

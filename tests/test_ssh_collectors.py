@@ -112,6 +112,7 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
     assert state.ports[0].vlan == "10"
     assert state.ports[0].duplex == "a-full"
     assert state.ports[0].speed == 1000
+    assert state.ports[0].media == "10/100/1000-TX"
     assert state.ports[0].switchport_mode == "trunk"
     assert state.ports[0].native_vlan == "1 (default)"
     assert state.ports[0].allowed_vlans == "10,20"
@@ -441,6 +442,7 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
     assert state.ports[0].output_errors == 9
     assert state.ports[0].poe_status == "on"
     assert state.ports[0].poe_power_w == 3.5
+    assert state.ports[0].media == "10Gbase-SR"
     assert state.ports[0].switchport_mode == "trunk"
     assert state.ports[0].native_vlan == "1"
     assert state.ports[0].allowed_vlans == "10"

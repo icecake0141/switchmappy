@@ -46,7 +46,9 @@ Review required for correctness, security, and licensing.
 
 Cisco 系 SSH collection では、利用可能な場合に `show interfaces switchport`
 を使い、operational mode、access VLAN、voice VLAN、native VLAN、allowed VLANs
-を表示します。これらはレポートと検索で確認するための根拠情報であり、明示的な
+を表示します。collector が公開する場合は SFP/QSFP optic label などの
+speed/media type も switch、ports、search、debug view に表示します。
+これらはレポートと検索で確認するための根拠情報であり、明示的な
 `trunk_ports` role assignment を上書きしません。
 
 ## Neighbor Capabilities
