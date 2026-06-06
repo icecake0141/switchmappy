@@ -251,6 +251,24 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
                     "relative_path": "sw1/ssh-command-show_unsupported.txt",
                     "bytes": 12,
                 },
+                {
+                    "switch": "sw1",
+                    "method": "snmp",
+                    "kind": "snmp-table",
+                    "name": "1.3.6.1.2.1.17.7.1.2.2.1.2",
+                    "status": "success",
+                    "relative_path": "sw1/snmp-qbridge.json",
+                    "rows": 0,
+                },
+                {
+                    "switch": "sw1",
+                    "method": "snmp",
+                    "kind": "snmp-table",
+                    "name": "1.3.6.1.2.1.17.4.3.1.2",
+                    "status": "success",
+                    "relative_path": "sw1/snmp-bridge.json",
+                    "rows": 2,
+                },
             ]
         ),
         encoding="utf-8",
@@ -303,11 +321,18 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert debug["correlation_trace"][0]["source"] == "maclist + switch mac table"
     assert debug["artifacts"][0]["name"] == "show interfaces status"
     assert debug["switches"][0]["parser_profile"] == "cisco_like"
-    assert debug["switches"][0]["collection_methods"] == "ssh"
-    assert debug["switches"][0]["artifact_count"] == 2
-    assert debug["switches"][0]["successful_artifacts"] == 1
+    assert debug["switches"][0]["collection_methods"] == "snmp, ssh"
+    assert debug["switches"][0]["artifact_count"] == 4
+    assert debug["switches"][0]["successful_artifacts"] == 3
     assert debug["switches"][0]["error_artifacts"] == 1
     assert debug["switches"][0]["unsupported_artifacts"] == 1
+    assert debug["snmp_fdb_diagnostics"][0]["switch"] == "sw-bad"
+    assert "collection error" in debug["snmp_fdb_diagnostics"][0]["labels"]
+    assert debug["snmp_fdb_diagnostics"][1]["switch"] == "sw1"
+    assert "Q-BRIDGE empty" in debug["snmp_fdb_diagnostics"][1]["labels"]
+    assert "VLAN-indexed community may be required" in debug["snmp_fdb_diagnostics"][1]["labels"]
+    assert "SNMP FDB Diagnostics" in debug_html
+    assert "VLAN-indexed community may be required" in debug_html
     assert "Collector Artifacts" in debug_html
     assert "Unsupported" in debug_html
     assert 'id="debugRole"' in debug_html

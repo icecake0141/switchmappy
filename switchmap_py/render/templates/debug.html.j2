@@ -302,6 +302,30 @@ Review required for correctness, security, and licensing.
   </section>
 
   <section class="panel">
+    <h2>SNMP FDB Diagnostics</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th>Labels</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in debug.snmp_fdb_diagnostics %}
+          <tr data-debug-section="artifact" data-debug-filter="{{ [row.switch, row.labels, row.detail] | join(' ') | lower }}">
+            <td>{{ row.switch }}</td>
+            <td>{{ row.labels }}</td>
+            <td>{{ row.detail }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
     <h2>Port Debug</h2>
     <div class="table-scroll">
       <table>

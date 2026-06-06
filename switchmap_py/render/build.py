@@ -227,6 +227,7 @@ def _build_debug_payload(
     maclist_keys = {entry.mac.lower() for entry in maclist if entry.mac}
     artifacts = _build_artifact_summary(artifacts_dir)
     artifact_diagnostics = _build_artifact_diagnostics(artifacts)
+    snmp_fdb_diagnostics = _build_snmp_fdb_diagnostics(artifacts, failed_switch_reasons)
     unmatched_maclist = [
         {
             **asdict(entry),
@@ -351,6 +352,7 @@ def _build_debug_payload(
         "unmatched_maclist": unmatched_maclist,
         "unmatched_switch_macs": unmatched_switch_macs,
         "anomalies": anomalies,
+        "snmp_fdb_diagnostics": snmp_fdb_diagnostics,
         "artifacts": artifacts,
     }
 
@@ -406,6 +408,86 @@ def _build_artifact_diagnostics(artifacts: list[dict[str, object]]) -> dict[str,
             "commands": sorted(set(record["commands"])),
         }
     return normalized
+
+
+def _build_snmp_fdb_diagnostics(
+    artifacts: list[dict[str, object]], failed_switch_reasons: dict[str, str]
+) -> list[dict[str, object]]:
+    fdb_oids = {
+        "1.3.6.1.2.1.17.7.1.2.2.1.2": "Q-BRIDGE FDB ports",
+        "1.3.6.1.2.1.17.7.1.2.2.1.3": "Q-BRIDGE FDB status",
+        "1.3.6.1.2.1.17.4.3.1.2": "BRIDGE FDB ports",
+        "1.3.6.1.2.1.17.4.3.1.3": "BRIDGE FDB status",
+    }
+    by_switch: dict[str, dict[str, dict[str, object]]] = {}
+    for artifact in artifacts:
+        if artifact.get("method") != "snmp" or artifact.get("kind") != "snmp-table":
+            continue
+        name = str(artifact.get("name") or "")
+        if name not in fdb_oids:
+            continue
+        switch_name = str(artifact.get("switch") or "")
+        if not switch_name:
+            continue
+        by_switch.setdefault(switch_name, {})[name] = artifact
+
+    switch_names = sorted(set(by_switch) | set(failed_switch_reasons))
+    diagnostics = []
+    for switch_name in switch_names:
+        records = by_switch.get(switch_name, {})
+        qbridge_ports = records.get("1.3.6.1.2.1.17.7.1.2.2.1.2")
+        bridge_ports = records.get("1.3.6.1.2.1.17.4.3.1.2")
+        reason = failed_switch_reasons.get(switch_name, "")
+        labels = []
+        detail = []
+
+        if reason:
+            labels.append("collection error")
+            detail.append(reason)
+
+        if qbridge_ports is not None:
+            qbridge_status = str(qbridge_ports.get("status") or "").lower()
+            qbridge_rows = int(qbridge_ports.get("rows") or 0)
+            if qbridge_status == "error":
+                labels.append("Q-BRIDGE unavailable")
+                detail.append("Q-BRIDGE VLAN FDB table collection failed")
+            elif qbridge_rows == 0:
+                labels.append("Q-BRIDGE empty")
+                detail.append("Q-BRIDGE VLAN FDB table returned no rows")
+            else:
+                labels.append("Q-BRIDGE populated")
+                detail.append(f"Q-BRIDGE VLAN FDB rows: {qbridge_rows}")
+
+        if bridge_ports is not None:
+            bridge_status = str(bridge_ports.get("status") or "").lower()
+            bridge_rows = int(bridge_ports.get("rows") or 0)
+            if bridge_status == "error":
+                labels.append("BRIDGE FDB unavailable")
+                detail.append("BRIDGE-MIB FDB table collection failed")
+            elif bridge_rows == 0:
+                labels.append("FDB empty")
+                detail.append("BRIDGE-MIB FDB table returned no rows")
+            else:
+                labels.append("FDB populated")
+                detail.append(f"BRIDGE-MIB FDB rows: {bridge_rows}")
+
+        if qbridge_ports is not None and bridge_ports is not None:
+            qbridge_rows = int(qbridge_ports.get("rows") or 0)
+            bridge_rows = int(bridge_ports.get("rows") or 0)
+            if qbridge_rows == 0 and bridge_rows > 0:
+                labels.append("VLAN-indexed community may be required")
+                detail.append("Legacy FDB has MACs but VLAN-aware Q-BRIDGE data is empty")
+
+        if not labels:
+            continue
+        diagnostics.append(
+            {
+                "switch": switch_name,
+                "labels": ", ".join(dict.fromkeys(labels)),
+                "detail": "; ".join(detail),
+            }
+        )
+    return diagnostics
 
 
 def _build_artifact_summary(artifacts_dir: Path | None) -> list[dict[str, object]]:

@@ -770,6 +770,43 @@ def _parse_cisco_switchport(text: str) -> dict[str, SwitchportInfo]:
     return details
 
 
+def _parse_fortiswitch_switch_interface(text: str) -> dict[str, SwitchportInfo]:
+    details: dict[str, SwitchportInfo] = {}
+    current_port: str | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        edit_match = re.match(r'edit\s+"?([^"]+)"?', line, flags=re.IGNORECASE)
+        if edit_match:
+            current_port = _canonical_port_name(edit_match.group(1))
+            details.setdefault(current_port, SwitchportInfo())
+            continue
+        if lower == "next":
+            current_port = None
+            continue
+        if current_port is None:
+            continue
+        info = details[current_port]
+        allowed_match = re.match(r"set\s+allowed-vlans\s+(.+)", line, flags=re.IGNORECASE)
+        if allowed_match:
+            info.allowed_vlans = allowed_match.group(1).strip().replace(" ", ",")
+            if "," in info.allowed_vlans:
+                info.mode = "trunk"
+            continue
+        native_match = re.match(r"set\s+native-vlan\s+(\d+)", line, flags=re.IGNORECASE)
+        if native_match:
+            info.native_vlan = native_match.group(1)
+            continue
+        access_match = re.match(r"set\s+(?:access-vlan|vlan)\s+(\d+)", line, flags=re.IGNORECASE)
+        if access_match:
+            info.access_vlan = access_match.group(1)
+            if not info.mode:
+                info.mode = "access"
+    return details
+
+
 def _parse_cisco_like_error_counters(text: str) -> dict[str, tuple[int, int]]:
     errors_by_port: dict[str, tuple[int, int]] = {}
     for raw_line in text.splitlines():
@@ -1030,6 +1067,9 @@ def _collect_poe_status(session: SshSession, switch: SwitchConfig, timeout: int)
 
 def _collect_switchport_details(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, SwitchportInfo]:
     profile = _vendor_profile(switch.vendor)
+    if profile == "fortiswitch":
+        output = _run_command(session, "show switch interface", timeout=timeout)
+        return _parse_fortiswitch_switch_interface(output)
     if profile not in {"cisco_like", "arista"}:
         return {}
     output = _run_command(session, "show interfaces switchport", timeout=timeout)
@@ -1108,11 +1148,11 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
                 details = switchport_by_port.get(_canonical_port_name(port.name))
                 if not details:
                     continue
-                port.switchport_mode = details.mode or None
-                port.access_vlan = details.access_vlan or None
-                port.voice_vlan = details.voice_vlan or None
-                port.native_vlan = details.native_vlan or None
-                port.allowed_vlans = details.allowed_vlans or None
+                port.switchport_mode = details.mode or port.switchport_mode
+                port.access_vlan = details.access_vlan or port.access_vlan
+                port.voice_vlan = details.voice_vlan or port.voice_vlan
+                port.native_vlan = details.native_vlan or port.native_vlan
+                port.allowed_vlans = details.allowed_vlans or port.allowed_vlans
         except SshError as exc:
             if _is_unsupported_optional_command(exc):
                 logger.debug(
