@@ -179,6 +179,7 @@ def test_build_site_writes_history_snapshot(tmp_path):
                         speed=1000,
                         vlan="10",
                         duplex="full",
+                        media="SFP-10G-SR",
                     )
                 ],
             )
@@ -197,6 +198,7 @@ def test_build_site_writes_history_snapshot(tmp_path):
     assert snapshot.exists()
     data = json.loads(snapshot.read_text(encoding="utf-8"))
     assert data["switches"][0]["ports"][0]["duplex"] == "full"
+    assert data["switches"][0]["ports"][0]["media"] == "SFP-10G-SR"
 
 
 def test_build_site_renders_debug_page_and_payload(tmp_path):
@@ -288,6 +290,7 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
                         speed=1000,
                         vlan="10",
                         duplex="full",
+                        media="SFP-10G-LR",
                         macs=["00:11:22:33:44:55", "00:11:22:33:44:77"],
                         is_trunk=True,
                     )
@@ -326,6 +329,8 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert debug["switches"][0]["successful_artifacts"] == 3
     assert debug["switches"][0]["error_artifacts"] == 1
     assert debug["switches"][0]["unsupported_artifacts"] == 1
+    assert debug["ports"][0]["media"] == "SFP-10G-LR"
+    assert "SFP-10G-LR" in debug_html
     assert debug["snmp_fdb_diagnostics"][0]["switch"] == "sw-bad"
     assert "collection error" in debug["snmp_fdb_diagnostics"][0]["labels"]
     assert debug["snmp_fdb_diagnostics"][1]["switch"] == "sw1"
@@ -829,6 +834,7 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
                         oper_status="up",
                         speed=1000,
                         vlan="10",
+                        media="QSFP28-LR",
                         macs=["00:11:22:33:44:55"],
                         neighbors=[Neighbor(device="dist-sw1", protocol="cdp", port="Gi1/0/48")],
                     )
@@ -848,6 +854,8 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert "Search by switch, port, status, VLAN, neighbor" in search_html
     assert "<th>Type</th>" in search_html
     assert "<th>Status</th>" in search_html
+    assert "<th>Media</th>" in search_html
+    assert "port.media" in search_html
     assert "<th>VLAN</th>" in search_html
     assert "<th>Neighbor</th>" in search_html
     assert "<th>In Err</th>" in search_html
@@ -879,6 +887,7 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert 'id="poeFilter"' in switch_html
     assert 'id="neighborFilter"' in switch_html
     assert "dist-sw1 (CDP, Gi1/0/48)" in switch_html
+    assert "QSFP28-LR" in switch_html
     assert 'id="inErrFilter"' in switch_html
     assert 'id="outErrFilter"' in switch_html
     assert "No matching ports." in switch_html
@@ -887,6 +896,7 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert 'id="poeFilter"' in ports_html
     assert 'id="neighborFilter"' in ports_html
     assert "dist-sw1 (CDP, Gi1/0/48)" in ports_html
+    assert "QSFP28-LR" in ports_html
     assert 'id="inErrFilter"' in ports_html
     assert 'id="outErrFilter"' in ports_html
     assert "No matching ports." in ports_html

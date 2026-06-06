@@ -28,6 +28,7 @@ class Port:
     speed: Optional[int]
     vlan: Optional[str]
     duplex: Optional[str] = None
+    media: Optional[str] = None
     last_change: Optional[str] = None
     macs: list[str] = field(default_factory=list)
     neighbors: list[Neighbor] = field(default_factory=list)

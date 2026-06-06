@@ -68,6 +68,7 @@ Review required for correctness, security, and licensing.
         <th>Oper</th>
         <th>Speed</th>
         <th>Duplex</th>
+        <th>Media</th>
         <th>Last Change</th>
         <th>VLAN</th>
         <th>Mode</th>
@@ -134,6 +135,7 @@ Review required for correctness, security, and licensing.
         <td>{{ port.oper_status }}</td>
         <td>{{ port.speed or '' }}</td>
         <td>{{ port.duplex or '' }}</td>
+        <td>{{ port.media or '' }}</td>
         <td>{{ port.last_change or '' }}</td>
         <td>{{ port.vlan or '' }}</td>
         <td>{{ port.switchport_mode or '' }}</td>

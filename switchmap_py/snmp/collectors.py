@@ -96,6 +96,15 @@ def _normalize_status(value: str) -> str:
     return {"1": "up", "2": "down"}.get(value, value)
 
 
+def _normalize_if_type(value: str) -> str:
+    return {
+        "6": "ethernetCsmacd",
+        "24": "softwareLoopback",
+        "53": "propVirtual",
+        "161": "ieee8023adLag",
+    }.get(value, value)
+
+
 def _format_mac(parts: list[str]) -> str:
     return ":".join(f"{int(part):02x}" for part in parts)
 
@@ -422,6 +431,7 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
     names = session.get_table(mibs.IF_NAME)
     aliases = session.get_table(mibs.IF_ALIAS)
     descrs = session.get_table(mibs.IF_DESCR)
+    if_types = session.get_table(mibs.IF_TYPE)
     admin = session.get_table(mibs.IF_ADMIN_STATUS)
     oper = session.get_table(mibs.IF_OPER_STATUS)
     last_changes = session.get_table(mibs.IF_LAST_CHANGE)
@@ -457,6 +467,7 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
             speed=int(speed) if speed and speed.isdigit() else None,
             vlan=None,
             last_change=last_changes.get(f"{mibs.IF_LAST_CHANGE}.{index}"),
+            media=_normalize_if_type(if_types.get(f"{mibs.IF_TYPE}.{index}", "")),
             macs=[],
             idle_since=None,
             last_active=None,

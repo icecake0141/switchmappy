@@ -47,7 +47,9 @@ Review required for correctness, security, and licensing.
 
 For Cisco-like SSH collection, `show interfaces switchport` is used when
 available to expose operational mode, access VLAN, voice VLAN, native VLAN, and
-allowed VLANs. These values are evidence fields in reports and search output;
+allowed VLANs. Speed and media/type evidence, such as SFP/QSFP optics labels
+when collectors expose them, are rendered in switch, ports, search, and debug
+views. These values are evidence fields in reports and search output;
 they do not override explicit `trunk_ports` role assignment.
 
 ## Neighbor Capabilities

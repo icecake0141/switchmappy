@@ -188,6 +188,7 @@ def _parse_cisco_interface_status(text: str, switch: SwitchConfig) -> list[Port]
             duplex = tokens[status_index + 2]
         if status_index + 3 < len(tokens):
             speed = _parse_speed(tokens[status_index + 3])
+        media = " ".join(tokens[status_index + 4 :]) if status_index + 4 < len(tokens) else ""
         ports.append(
             Port(
                 name=name,
@@ -197,6 +198,7 @@ def _parse_cisco_interface_status(text: str, switch: SwitchConfig) -> list[Port]
                 speed=speed,
                 vlan=vlan,
                 duplex=duplex,
+                media=media,
                 macs=[],
                 is_trunk=_is_trunk_port(name, switch),
             )
@@ -256,6 +258,7 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
         vlan = None
         speed_token = tokens[2] if len(tokens) > 2 else ""
         descr_start = 3
+        media = ""
         switchport_mode = None
         access_vlan = None
         if len(tokens) >= 6 and re.fullmatch(r"[0-9a-fA-F]{4}", tokens[2]) and _VLAN_ID_RE.match(tokens[3]):
@@ -263,6 +266,7 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
             access_vlan = vlan
             speed_token = tokens[5]
             descr_start = 7
+            media = tokens[7] if len(tokens) > 7 and tokens[7].lower() not in {"none", ","} else ""
             flag_tokens = {token.strip(" ,").upper() for token in tokens[6:] if token.strip(" ,")}
             switchport_mode = "trunk" if flag_tokens & {"QS", "QE", "QI", "TS", "TF", "TL"} else "access"
         oper_status = _normalize_oper_status(raw_status)
@@ -279,6 +283,7 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
                 oper_status=oper_status,
                 speed=speed,
                 vlan=vlan,
+                media=media,
                 macs=[],
                 switchport_mode=switchport_mode,
                 access_vlan=access_vlan,
