@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
+from switchmap_py.artifacts import CollectorArtifactRecorder
 from switchmap_py.config import SwitchConfig
 from switchmap_py.model.neighbor import Neighbor
 from switchmap_py.model.port import Port
@@ -67,6 +69,21 @@ def build_session(switch: SwitchConfig, timeout: int) -> SshSession:
             connect_timeout=timeout,
         )
     )
+
+
+class RecordingSshSession:
+    def __init__(self, session: SshSession, recorder: CollectorArtifactRecorder) -> None:
+        self.session = session
+        self.recorder = recorder
+
+    def run(self, command: str, timeout: int) -> str:
+        try:
+            output = self.session.run(command, timeout=timeout)
+        except SshError as exc:
+            self.recorder.record_text(kind="ssh-command", name=command, content=str(exc), status="error")
+            raise
+        self.recorder.record_text(kind="ssh-command", name=command, content=output)
+        return output
 
 
 def _normalize_oper_status(status: str) -> str:
@@ -807,8 +824,10 @@ def _collect_poe_status(session: SshSession, switch: SwitchConfig, timeout: int)
     return _parse_cisco_like_poe(output)
 
 
-def collect_switch_state(switch: SwitchConfig, timeout: int) -> Switch:
+def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path | None = None) -> Switch:
     session = build_session(switch, timeout=timeout)
+    if artifact_dir is not None:
+        session = RecordingSshSession(session, CollectorArtifactRecorder(artifact_dir, switch.name, "ssh"))
     ports: list[Port] = []
     try:
         output = _collect_interface_output(session, switch, timeout=timeout)

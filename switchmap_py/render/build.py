@@ -183,6 +183,7 @@ def _build_debug_payload(
     failed_switch_reasons: dict[str, str],
     unused_ports_by_switch: dict[str, set[str]],
     build_date: datetime,
+    artifacts_dir: Path | None,
 ) -> dict[str, object]:
     ports = [port for switch in switches for port in switch.ports]
     switch_macs = {mac.lower() for port in ports for mac in port.macs}
@@ -292,6 +293,116 @@ def _build_debug_payload(
         "unmatched_maclist": unmatched_maclist,
         "unmatched_switch_macs": unmatched_switch_macs,
         "anomalies": anomalies,
+        "artifacts": _build_artifact_summary(artifacts_dir),
+    }
+
+
+def _build_artifact_summary(artifacts_dir: Path | None) -> list[dict[str, object]]:
+    if artifacts_dir is None or not artifacts_dir.exists():
+        return []
+    records = []
+    for index_path in sorted(artifacts_dir.glob("*/index.json")):
+        try:
+            loaded = json.loads(index_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(loaded, list):
+            for record in loaded:
+                if not isinstance(record, dict):
+                    continue
+                records.append({key: value for key, value in record.items() if key != "path"})
+    return records
+
+
+def _endpoint_key(row: dict[str, object]) -> tuple[str, str, str, str]:
+    return (
+        str(row.get("mac") or "").lower(),
+        str(row.get("ip") or ""),
+        str(row.get("switch") or ""),
+        str(row.get("port") or ""),
+    )
+
+
+def _endpoint_identity(row: dict[str, object]) -> tuple[str, str]:
+    return (str(row.get("mac") or "").lower(), str(row.get("ip") or ""))
+
+
+def _port_key(row: dict[str, object]) -> tuple[str, str]:
+    return (str(row.get("switch") or ""), str(row.get("port") or ""))
+
+
+def _port_rows(payload: dict[str, object]) -> list[dict[str, object]]:
+    rows = []
+    for switch in payload.get("switches", []):
+        if not isinstance(switch, dict):
+            continue
+        for port in switch.get("ports", []):
+            if not isinstance(port, dict):
+                continue
+            rows.append({"switch": switch.get("name", ""), "port": port.get("name", ""), **port})
+    return rows
+
+
+def _load_previous_history_snapshot(history_dir: Path | None, stamp: str) -> dict[str, object] | None:
+    if history_dir is None or not history_dir.exists():
+        return None
+    candidates = sorted(path for path in history_dir.glob("*.json") if path.stem < stamp)
+    if not candidates:
+        return None
+    try:
+        loaded = json.loads(candidates[-1].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def _build_history_diff(current: dict[str, object], previous: dict[str, object] | None) -> dict[str, object]:
+    if previous is None:
+        return {
+            "previous_generated_at": "",
+            "added_endpoints": [],
+            "removed_endpoints": [],
+            "moved_endpoints": [],
+            "port_changes": [],
+        }
+    current_endpoints = {
+        _endpoint_key(row): row for row in current.get("endpoint_correlations", []) if isinstance(row, dict)
+    }
+    previous_endpoints = {
+        _endpoint_key(row): row for row in previous.get("endpoint_correlations", []) if isinstance(row, dict)
+    }
+    added = [current_endpoints[key] for key in sorted(set(current_endpoints) - set(previous_endpoints))]
+    removed = [previous_endpoints[key] for key in sorted(set(previous_endpoints) - set(current_endpoints))]
+    current_by_identity = {_endpoint_identity(row): row for row in current_endpoints.values()}
+    previous_by_identity = {_endpoint_identity(row): row for row in previous_endpoints.values()}
+    moved = []
+    for key in sorted(set(current_by_identity) & set(previous_by_identity)):
+        current_row = current_by_identity[key]
+        previous_row = previous_by_identity[key]
+        if (current_row.get("switch"), current_row.get("port")) != (
+            previous_row.get("switch"),
+            previous_row.get("port"),
+        ):
+            moved.append({"previous": previous_row, "current": current_row})
+
+    current_ports = {_port_key(row): row for row in _port_rows(current)}
+    previous_ports = {_port_key(row): row for row in _port_rows(previous)}
+    fields = ["oper_status", "admin_status", "vlan", "descr", "duplex", "last_change"]
+    port_changes = []
+    for key in sorted(set(current_ports) & set(previous_ports)):
+        changes = {
+            field: {"previous": previous_ports[key].get(field), "current": current_ports[key].get(field)}
+            for field in fields
+            if previous_ports[key].get(field) != current_ports[key].get(field)
+        }
+        if changes:
+            port_changes.append({"switch": key[0], "port": key[1], "changes": changes})
+    return {
+        "previous_generated_at": previous.get("generated_at", ""),
+        "added_endpoints": added,
+        "removed_endpoints": removed,
+        "moved_endpoints": moved,
+        "port_changes": port_changes,
     }
 
 
@@ -333,10 +444,11 @@ def build_site(
     unused_after_days: int = 30,
     oui_file: Path | None = None,
     history_dir: Path | None = None,
+    artifacts_dir: Path | None = None,
 ) -> None:
     failed_switch_reasons = failed_switch_reasons or {}
     output_dir.mkdir(parents=True, exist_ok=True)
-    for subdir in ["debug", "endpoints", "ports", "vlans", "switches", "search"]:
+    for subdir in ["debug", "endpoints", "history", "ports", "vlans", "switches", "search"]:
         (output_dir / subdir).mkdir(parents=True, exist_ok=True)
 
     env = build_environment(template_dir)
@@ -346,6 +458,7 @@ def build_site(
     vlan_template = env.get_template("vlans.html.j2")
     endpoint_template = env.get_template("endpoints.html.j2")
     debug_template = env.get_template("debug.html.j2")
+    history_template = env.get_template("history.html.j2")
     search_template = env.get_template("search.html.j2")
 
     maclist = maclist_store.load()
@@ -428,6 +541,7 @@ def build_site(
         failed_switch_reasons=failed_switch_reasons,
         unused_ports_by_switch=unused_ports_by_switch,
         build_date=build_date,
+        artifacts_dir=artifacts_dir,
     )
     debug_html_payload = {
         **debug_payload,
@@ -463,13 +577,17 @@ def build_site(
         "failed_switches": failed_switches,
         "debug": debug_payload,
     }
+    stamp = _to_utc(build_date).strftime("%Y%m%dT%H%M%SZ")
+    history_diff = _build_history_diff(search_payload, _load_previous_history_snapshot(history_dir, stamp))
+    search_payload["history_diff"] = history_diff
+    history_html = history_template.render(diff=history_diff, build_date=build_date)
+    (output_dir / "history" / "index.html").write_text(history_html, encoding="utf-8")
     (output_dir / "search" / "index.json").write_text(
         json.dumps(search_payload, indent=2, sort_keys=True, ensure_ascii=False),
         encoding="utf-8",
     )
     if history_dir is not None:
         history_dir.mkdir(parents=True, exist_ok=True)
-        stamp = _to_utc(build_date).strftime("%Y%m%dT%H%M%SZ")
         (history_dir / f"{stamp}.json").write_text(
             json.dumps(search_payload, indent=2, sort_keys=True, ensure_ascii=False),
             encoding="utf-8",

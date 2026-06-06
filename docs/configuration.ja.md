@@ -29,6 +29,7 @@ Review required for correctness, security, and licensing.
 - `idlesince_directory` (既定: `idlesince`)
 - `maclist_file` (既定: `maclist.json`)
 - `history_directory` (既定: `history`)
+- `collection_artifacts_directory` (既定: `artifacts`)
 - `oui_file` (任意の OUI/vendor CSV)
 - `unused_after_days` (既定: `30`)
 - `snmp_timeout` (既定: `2`)

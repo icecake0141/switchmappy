@@ -140,6 +140,7 @@ class SiteConfig(BaseSettings):
     maclist_file: Path = Path("maclist.json")
     oui_file: Optional[Path] = None
     history_directory: Path = Path("history")
+    collection_artifacts_directory: Path = Path("artifacts")
     unused_after_days: int = 30
     switches: list[SwitchConfig] = Field(default_factory=list)
     routers: list[RouterConfig] = Field(default_factory=list)

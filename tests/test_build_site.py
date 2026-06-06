@@ -227,6 +227,25 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     )
 
     output_dir = tmp_path / "output"
+    artifacts_dir = tmp_path / "artifacts"
+    artifact_switch_dir = artifacts_dir / "sw1"
+    artifact_switch_dir.mkdir(parents=True)
+    (artifact_switch_dir / "index.json").write_text(
+        json.dumps(
+            [
+                {
+                    "switch": "sw1",
+                    "method": "ssh",
+                    "kind": "ssh-command",
+                    "name": "show interfaces status",
+                    "status": "success",
+                    "relative_path": "sw1/ssh-command-show_interfaces_status.txt",
+                    "bytes": 42,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
     build_site(
         switches=[
             Switch(
@@ -257,6 +276,7 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
         maclist_store=MacListStore(maclist_path),
         build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
         history_dir=tmp_path / "history",
+        artifacts_dir=artifacts_dir,
     )
 
     debug_html = (output_dir / "debug" / "index.html").read_text(encoding="utf-8")
@@ -272,6 +292,98 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert debug["summary"]["unmatched_switch_macs"] == 1
     assert debug["build"]["failed_switch_reasons"] == {"sw-bad": "[SNMP_ERROR] timeout"}
     assert debug["correlation_trace"][0]["source"] == "maclist + switch mac table"
+    assert debug["artifacts"][0]["name"] == "show interfaces status"
+    assert "Collector Artifacts" in debug_html
+
+
+def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
+    template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    history_dir = tmp_path / "history"
+    history_dir.mkdir()
+    previous = {
+        "generated_at": "2024-01-01T00:00:00+00:00",
+        "endpoint_correlations": [
+            {
+                "hostname": "host-a",
+                "ip": "192.0.2.10",
+                "mac": "00:11:22:33:44:55",
+                "port": "Gi1/0/1",
+                "switch": "sw1",
+                "vendor": "",
+                "warning": "",
+            }
+        ],
+        "switches": [
+            {
+                "name": "sw1",
+                "ports": [
+                    {
+                        "name": "Gi1/0/1",
+                        "descr": "Old",
+                        "admin_status": "up",
+                        "oper_status": "down",
+                        "speed": 1000,
+                        "vlan": "10",
+                    }
+                ],
+            }
+        ],
+    }
+    (history_dir / "20240101T000000Z.json").write_text(json.dumps(previous), encoding="utf-8")
+    maclist_path = tmp_path / "maclist.json"
+    maclist_path.write_text(
+        json.dumps(
+            [
+                {
+                    "mac": "00:11:22:33:44:55",
+                    "ip": "192.0.2.10",
+                    "hostname": "host-a",
+                    "switch": None,
+                    "port": None,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    output_dir = tmp_path / "output"
+    build_site(
+        switches=[
+            Switch(
+                name="sw1",
+                management_ip="192.0.2.1",
+                vendor="test",
+                ports=[
+                    Port(
+                        name="Gi1/0/2",
+                        descr="New",
+                        admin_status="up",
+                        oper_status="up",
+                        speed=1000,
+                        vlan="20",
+                        macs=["00:11:22:33:44:55"],
+                    )
+                ],
+            )
+        ],
+        failed_switches=[],
+        output_dir=output_dir,
+        template_dir=template_dir,
+        static_dir=static_dir,
+        idlesince_store=IdleSinceStore(tmp_path / "idlesince"),
+        maclist_store=MacListStore(maclist_path),
+        build_date=datetime(2024, 1, 2, tzinfo=timezone.utc),
+        history_dir=history_dir,
+    )
+
+    search_index = json.loads((output_dir / "search" / "index.json").read_text(encoding="utf-8"))
+    history_html = (output_dir / "history" / "index.html").read_text(encoding="utf-8")
+    assert search_index["history_diff"]["moved_endpoints"][0]["previous"]["port"] == "Gi1/0/1"
+    assert search_index["history_diff"]["moved_endpoints"][0]["current"]["port"] == "Gi1/0/2"
+    assert "Moved Endpoints" in history_html
+    assert "sw1 / Gi1/0/2" in history_html
 
 
 def test_build_site_escapes_xss_in_user_controlled_data(tmp_path):

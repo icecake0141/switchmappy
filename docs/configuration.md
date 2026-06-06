@@ -29,6 +29,7 @@ Review required for correctness, security, and licensing.
 - `idlesince_directory` (default: `idlesince`)
 - `maclist_file` (default: `maclist.json`)
 - `history_directory` (default: `history`)
+- `collection_artifacts_directory` (default: `artifacts`)
 - `oui_file` (optional CSV override for OUI/vendor names)
 - `unused_after_days` (default: `30`)
 - `snmp_timeout` (default: `2`)

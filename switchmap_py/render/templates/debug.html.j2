@@ -53,10 +53,27 @@ Review required for correctness, security, and licensing.
       <li><a href="/index.html">Home</a></li>
       <li><a href="/ports/index.html">Ports</a></li>
       <li><a href="/endpoints/index.html">Endpoints</a></li>
+      <li><a href="/history/index.html">History</a></li>
       <li><a href="/vlans/index.html">VLANs</a></li>
       <li><a href="/search/index.html">Search</a></li>
     </ul>
   </nav>
+
+  <section class="panel">
+    <h2>Filters</h2>
+    <div class="filter-row">
+      <input id="debugQuery" type="text" placeholder="Filter by switch, port, MAC, hostname, anomaly, artifact" />
+      <select id="debugSection">
+        <option value="">All sections</option>
+        <option value="correlation">Correlation trace</option>
+        <option value="unmatched">Unmatched inputs</option>
+        <option value="anomaly">Anomalies</option>
+        <option value="port">Port debug</option>
+        <option value="artifact">Artifacts</option>
+      </select>
+      <button id="debugReset" type="button">Reset</button>
+    </div>
+  </section>
 
   <section class="panel">
     <h2>Build</h2>
@@ -181,7 +198,7 @@ Review required for correctness, security, and licensing.
             </thead>
             <tbody>
               {% for row in debug.unmatched_maclist %}
-              <tr>
+              <tr data-debug-section="unmatched" data-debug-filter="{{ [row.hostname, row.ip, row.mac, row.reason] | join(' ') | lower }}">
                 <td>{{ row.hostname or '' }}</td>
                 <td>{{ row.ip or '' }}</td>
                 <td>{{ row.mac }}</td>
@@ -204,7 +221,7 @@ Review required for correctness, security, and licensing.
             </thead>
             <tbody>
               {% for row in debug.unmatched_switch_macs %}
-              <tr>
+              <tr data-debug-section="unmatched" data-debug-filter="{{ [row.mac, row.reason] | join(' ') | lower }}">
                 <td>{{ row.mac }}</td>
                 <td>{{ row.reason }}</td>
               </tr>
@@ -234,7 +251,7 @@ Review required for correctness, security, and licensing.
         </thead>
         <tbody>
           {% for row in debug.anomalies %}
-          <tr>
+          <tr data-debug-section="anomaly" data-debug-filter="{{ [row.severity, row.type, row.switch, row.port, row.vlan] | join(' ') | lower }}">
             <td>{{ row.severity }}</td>
             <td>{{ row.type }}</td>
             <td>{{ row.switch }}</td>
@@ -276,7 +293,7 @@ Review required for correctness, security, and licensing.
         </thead>
         <tbody>
           {% for row in debug.ports %}
-          <tr>
+          <tr data-debug-section="port" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan] | join(' ') | lower }}">
             <td>{{ row.switch }}</td>
             <td>{{ row.port }}</td>
             <td>{{ row.description }}</td>
@@ -299,5 +316,58 @@ Review required for correctness, security, and licensing.
       </table>
     </div>
   </section>
+
+  <section class="panel">
+    <h2>Collector Artifacts</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th>Method</th>
+            <th>Kind</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Rows</th>
+            <th>Bytes</th>
+            <th>Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in debug.artifacts %}
+          <tr data-debug-section="artifact" data-debug-filter="{{ [row.switch, row.method, row.kind, row.name, row.status, row.relative_path] | join(' ') | lower }}">
+            <td>{{ row.switch }}</td>
+            <td>{{ row.method }}</td>
+            <td>{{ row.kind }}</td>
+            <td>{{ row.name }}</td>
+            <td>{{ row.status }}</td>
+            <td>{{ row.rows or '' }}</td>
+            <td>{{ row.bytes or '' }}</td>
+            <td>{{ row.relative_path }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <script>
+    function applyDebugFilters() {
+      const query = document.getElementById('debugQuery').value.toLowerCase().trim();
+      const section = document.getElementById('debugSection').value;
+      for (const row of document.querySelectorAll('[data-debug-section]')) {
+        const matchesSection = !section || row.dataset.debugSection === section;
+        const matchesQuery = !query || (row.dataset.debugFilter || '').includes(query);
+        row.hidden = !(matchesSection && matchesQuery);
+      }
+    }
+
+    document.getElementById('debugQuery').addEventListener('input', applyDebugFilters);
+    document.getElementById('debugSection').addEventListener('change', applyDebugFilters);
+    document.getElementById('debugReset').addEventListener('click', () => {
+      document.getElementById('debugQuery').value = '';
+      document.getElementById('debugSection').value = '';
+      applyDebugFilters();
+    });
+  </script>
 </body>
 </html>

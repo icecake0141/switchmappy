@@ -54,6 +54,7 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
                 f"idlesince_directory: {tmp_path / 'idlesince'}",
                 f"maclist_file: {maclist_path}",
                 f"history_directory: {tmp_path / 'history'}",
+                f"collection_artifacts_directory: {tmp_path / 'artifacts'}",
                 "unused_after_days: 30",
                 "switches:",
                 "  - name: sw-ok",
@@ -78,7 +79,8 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
         },
     )
 
-    def fake_collect_switch_state(sw, _timeout, _retries):
+    def fake_collect_switch_state(sw, _timeout, _retries, artifact_dir=None):
+        assert artifact_dir is not None
         if sw.name == "sw-bad":
             raise SnmpError("SNMP failure")
         return Switch(
@@ -109,6 +111,7 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
     assert (output_dir / "index.html").exists()
     assert (output_dir / "switches" / "sw-ok.html").exists()
     assert (output_dir / "ports" / "index.html").exists()
+    assert (output_dir / "history" / "index.html").exists()
     assert (output_dir / "vlans" / "index.html").exists()
     assert (output_dir / "search" / "index.html").exists()
     assert (output_dir / "search" / "index.json").exists()

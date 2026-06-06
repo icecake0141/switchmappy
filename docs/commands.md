@@ -62,6 +62,8 @@ All commands support:
   - records failed switch reasons in output index.
   - writes a JSON history snapshot to `history_directory`.
   - generates `/debug/index.html` with collection and correlation diagnostics.
+  - generates `/history/index.html` with previous-snapshot differences.
+  - stores collector artifacts under `collection_artifacts_directory`.
 
 ## `serve-search`
 

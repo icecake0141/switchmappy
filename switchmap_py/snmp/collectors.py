@@ -24,7 +24,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Mapping
 
+from switchmap_py.artifacts import CollectorArtifactRecorder
 from switchmap_py.config import SwitchConfig
 from switchmap_py.model.neighbor import Neighbor
 from switchmap_py.model.port import Port
@@ -60,6 +63,21 @@ def build_session(switch: SwitchConfig, timeout: int, retries: int) -> SnmpSessi
             retries=retries,
         )
     )
+
+
+class RecordingSnmpSession:
+    def __init__(self, session: SnmpSession, recorder: CollectorArtifactRecorder) -> None:
+        self.session = session
+        self.recorder = recorder
+
+    def get_table(self, oid: str) -> Mapping[str, str]:
+        try:
+            rows = self.session.get_table(oid)
+        except SnmpError:
+            self.recorder.record_table(oid=oid, rows={}, status="error")
+            raise
+        self.recorder.record_table(oid=oid, rows=rows)
+        return rows
 
 
 def _normalize_status(value: str) -> str:
@@ -278,8 +296,10 @@ def _collect_lldp_neighbors(session: SnmpSession, ports_by_ifindex: dict[int, Po
         )
 
 
-def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Switch:
+def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artifact_dir: Path | None = None) -> Switch:
     session = build_session(switch, timeout, retries)
+    if artifact_dir is not None:
+        session = RecordingSnmpSession(session, CollectorArtifactRecorder(artifact_dir, switch.name, "snmp"))
     names = session.get_table(mibs.IF_NAME)
     aliases = session.get_table(mibs.IF_ALIAS)
     descrs = session.get_table(mibs.IF_DESCR)

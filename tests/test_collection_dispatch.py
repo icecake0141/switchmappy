@@ -22,10 +22,11 @@ def test_dispatch_collect_switch_state_uses_snmp(monkeypatch):
     switch = SwitchConfig(name="sw1", management_ip="192.0.2.1", community="public")
     called = {"snmp": 0}
 
-    def fake_snmp(_switch, timeout, retries):
+    def fake_snmp(_switch, timeout, retries, artifact_dir=None):
         called["snmp"] += 1
         assert timeout == 2
         assert retries == 1
+        assert artifact_dir is None
         return Switch(name="sw1", management_ip="192.0.2.1", vendor="test")
 
     monkeypatch.setattr(collectors, "collect_switch_state_snmp", fake_snmp)
@@ -44,9 +45,10 @@ def test_dispatch_collect_switch_state_uses_ssh(monkeypatch):
     )
     called = {"ssh": 0}
 
-    def fake_ssh(_switch, timeout):
+    def fake_ssh(_switch, timeout, artifact_dir=None):
         called["ssh"] += 1
         assert timeout == 3
+        assert artifact_dir is None
         return Switch(name="sw-ssh", management_ip="192.0.2.50", vendor="test")
 
     monkeypatch.setattr(collectors, "collect_switch_state_ssh", fake_ssh)

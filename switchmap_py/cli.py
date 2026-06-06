@@ -405,13 +405,19 @@ def build_html(
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     build_date = datetime.fromisoformat(date) if date else datetime.now()
+    artifact_stamp = (
+        build_date.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        if build_date.tzinfo
+        else build_date.strftime("%Y%m%dT%H%M%SZ")
+    )
+    artifact_dir = site.collection_artifacts_directory / artifact_stamp
     switches = []
     failed_switches = []
     failed_switch_reasons: dict[str, str] = {}
     for sw in site.switches:
         started = time.monotonic()
         try:
-            switches.append(collect_switch_state(sw, site.snmp_timeout, site.snmp_retries))
+            switches.append(collect_switch_state(sw, site.snmp_timeout, site.snmp_retries, artifact_dir=artifact_dir))
             logger.info(
                 "Collected switch state",
                 extra=_event_extra(
@@ -456,6 +462,7 @@ def build_html(
         unused_after_days=site.unused_after_days,
         oui_file=site.oui_file,
         history_dir=site.history_directory,
+        artifacts_dir=artifact_dir,
     )
 
 

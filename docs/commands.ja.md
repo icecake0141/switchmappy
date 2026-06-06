@@ -62,6 +62,8 @@ Review required for correctness, security, and licensing.
   - 失敗理由を出力インデックスに記録。
   - `history_directory` に JSON 履歴スナップショットを保存。
   - 収集と相関の診断用に `/debug/index.html` を生成。
+  - 前回 snapshot との差分用に `/history/index.html` を生成。
+  - collector artifact を `collection_artifacts_directory` に保存。
 
 ## `serve-search`
 
