@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Iterable, Mapping
 
@@ -40,8 +41,11 @@ class SnmpSession:
         self.config = config
 
     def get_table(self, oid: str) -> Mapping[str, str]:
+        return asyncio.run(self._get_table(oid))
+
+    async def _get_table(self, oid: str) -> Mapping[str, str]:
         try:
-            from pysnmp.hlapi import (  # type: ignore[import-not-found]
+            from pysnmp.hlapi.v3arch.asyncio import (  # type: ignore[import-not-found]
                 CommunityData,
                 ContextData,
                 ObjectIdentity,
@@ -49,7 +53,7 @@ class SnmpSession:
                 SnmpEngine,
                 UdpTransportTarget,
                 UsmUserData,
-                nextCmd,
+                next_cmd,
                 usm3DESEDEPrivProtocol,
                 usmAesCfb128Protocol,
                 usmAesCfb192Protocol,
@@ -62,7 +66,7 @@ class SnmpSession:
                 usmHMACMD5AuthProtocol,
                 usmHMACSHAAuthProtocol,
             )
-        except ModuleNotFoundError as exc:
+        except (ImportError, ModuleNotFoundError) as exc:
             raise SnmpError("pysnmp is required for SNMP operations") from exc
 
         auth_protocols = {
@@ -126,24 +130,33 @@ class SnmpSession:
             raise SnmpError(f"Unsupported SNMP version: {version}")
 
         results: dict[str, str] = {}
-        for error_indication, error_status, error_index, var_binds in nextCmd(
-            SnmpEngine(),
-            auth_data,
-            UdpTransportTarget(
-                (self.config.hostname, 161),
-                timeout=self.config.timeout,
-                retries=self.config.retries,
-            ),
-            ContextData(),
-            ObjectType(ObjectIdentity(oid)),
-            lexicographicMode=False,
-        ):
+        transport = await UdpTransportTarget.create(
+            (self.config.hostname, 161),
+            timeout=self.config.timeout,
+            retries=self.config.retries,
+        )
+        request = ObjectType(ObjectIdentity(oid))
+        while True:
+            error_indication, error_status, error_index, var_binds = await next_cmd(
+                SnmpEngine(),
+                auth_data,
+                transport,
+                ContextData(),
+                request,
+                lexicographicMode=False,
+            )
             if error_indication:
                 raise SnmpError(str(error_indication))
             if error_status:
                 raise SnmpError(f"SNMP error {error_status.prettyPrint()} at {error_index}")
+            if not var_binds:
+                break
             for name, val in var_binds:
-                results[str(name)] = str(val)
+                name_text = str(name)
+                if name_text != oid and not name_text.startswith(f"{oid}."):
+                    return results
+                results[name_text] = str(val)
+            request = ObjectType(ObjectIdentity(str(var_binds[-1][0])))
         return results
 
     def get_bulk(self, oids: Iterable[str]) -> Mapping[str, str]:

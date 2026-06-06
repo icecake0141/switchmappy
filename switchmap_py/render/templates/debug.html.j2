@@ -1,0 +1,414 @@
+<!--
+Copyright 2026 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Debug - SwitchMappy</title>
+  <link rel="stylesheet" href="/switchmap.css" />
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <h1>Debug</h1>
+      <p>Generated at {{ build_date.isoformat() }}</p>
+    </div>
+    <div class="summary-strip" aria-label="Debug summary">
+      <div class="summary-item">
+        <span class="summary-value">{{ debug.summary.switches }}</span>
+        <span class="summary-label">switches</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ debug.summary.ports }}</span>
+        <span class="summary-label">ports</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ debug.summary.switch_macs }}</span>
+        <span class="summary-label">macs</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ debug.summary.endpoint_correlations }}</span>
+        <span class="summary-label">endpoints</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ debug.summary.anomalies }}</span>
+        <span class="summary-label">anomalies</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="quick-links" aria-label="Report sections">
+    <ul>
+      <li><a href="/index.html">Home</a></li>
+      <li><a href="/ports/index.html">Ports</a></li>
+      <li><a href="/endpoints/index.html">Endpoints</a></li>
+      <li><a href="/history/index.html">History</a></li>
+      <li><a href="/vlans/index.html">VLANs</a></li>
+      <li><a href="/search/index.html">Search</a></li>
+    </ul>
+  </nav>
+
+  <section class="panel">
+    <h2>Filters</h2>
+    <div class="filter-row">
+      <input id="debugQuery" type="text" placeholder="Filter by switch, port, MAC, hostname, anomaly, artifact" />
+      <select id="debugSection">
+        <option value="">All sections</option>
+        <option value="correlation">Correlation trace</option>
+        <option value="unmatched">Unmatched inputs</option>
+        <option value="anomaly">Anomalies</option>
+        <option value="port">Port debug</option>
+        <option value="artifact">Artifacts</option>
+      </select>
+      <select id="debugRole">
+        <option value="">All roles</option>
+        <option value="configured_trunk">configured_trunk</option>
+        <option value="network_neighbor">network_neighbor</option>
+        <option value="unknown">unknown</option>
+      </select>
+      <button id="debugReset" type="button">Reset</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Build</h2>
+    <dl class="debug-kv">
+      <dt>Generated</dt>
+      <dd>{{ debug.build.generated_at }}</dd>
+      <dt>Output directory</dt>
+      <dd>{{ debug.build.output_directory }}</dd>
+      <dt>History directory</dt>
+      <dd>{{ debug.build.history_directory }}</dd>
+      <dt>Failed switches</dt>
+      <dd>{{ debug.summary.failed_switches }}</dd>
+    </dl>
+  </section>
+
+  {% if debug.build.failed_switches %}
+  <section class="panel panel-warning">
+    <h2>Failed Switches</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Switch</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for switch_name in debug.build.failed_switches %}
+        <tr>
+          <td>{{ switch_name }}</td>
+          <td>{{ debug.build.failed_switch_reasons.get(switch_name, '') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>Switch Summary</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th>Management IP</th>
+            <th>Vendor</th>
+            <th>Platform</th>
+            <th>Version</th>
+            <th>Serial</th>
+            <th>Uptime</th>
+            <th>Ports</th>
+            <th>Active</th>
+            <th>MACs</th>
+            <th>VLANs</th>
+            <th>Neighbors</th>
+            <th>Endpoints</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for switch in debug.switches %}
+          <tr>
+            <td>{{ switch.name }}</td>
+            <td>{{ switch.management_ip }}</td>
+            <td>{{ switch.vendor }}</td>
+            <td>{{ switch.platform }}</td>
+            <td>{{ switch.os_version }}</td>
+            <td>{{ switch.serial_number }}</td>
+            <td>{{ switch.uptime }}</td>
+            <td>{{ switch.ports }}</td>
+            <td>{{ switch.active_ports }}</td>
+            <td>{{ switch.macs }}</td>
+            <td>{{ switch.vlans }}</td>
+            <td>{{ switch.neighbors }}</td>
+            <td>{{ switch.endpoints }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Correlation Trace</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Hostname</th>
+            <th>IP</th>
+            <th>MAC</th>
+            <th>Vendor</th>
+            <th>Switch</th>
+            <th>Port</th>
+            <th>Source</th>
+            <th>Warning</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in debug.correlation_trace %}
+          <tr>
+            <td>{{ row.hostname }}</td>
+            <td>{{ row.ip }}</td>
+            <td>{{ row.mac }}</td>
+            <td>{{ row.vendor }}</td>
+            <td>{{ row.switch }}</td>
+            <td>{{ row.port }}</td>
+            <td>{{ row.source }}</td>
+            <td>{{ row.warning }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Unmatched Inputs</h2>
+    <div class="debug-grid">
+      <div>
+        <h3>MAC list not found on switches</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Hostname</th>
+                <th>IP</th>
+                <th>MAC</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in debug.unmatched_maclist %}
+              <tr data-debug-section="unmatched" data-debug-filter="{{ [row.hostname, row.ip, row.mac, row.reason] | join(' ') | lower }}">
+                <td>{{ row.hostname or '' }}</td>
+                <td>{{ row.ip or '' }}</td>
+                <td>{{ row.mac }}</td>
+                <td>{{ row.reason }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>Switch MACs missing from MAC list</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>MAC</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in debug.unmatched_switch_macs %}
+              <tr data-debug-section="unmatched" data-debug-filter="{{ [row.mac, row.reason] | join(' ') | lower }}">
+                <td>{{ row.mac }}</td>
+                <td>{{ row.reason }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Anomalies</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Type</th>
+            <th>Switch</th>
+            <th>Port</th>
+            <th>VLAN</th>
+            <th>Mode</th>
+            <th>Voice</th>
+            <th>MACs</th>
+            <th>Endpoints</th>
+            <th>Neighbors</th>
+            <th>Role</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in debug.anomalies %}
+          <tr data-debug-section="anomaly" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.severity, row.type, row.switch, row.port, row.vlan, row.role] | join(' ') | lower }}">
+            <td>{{ row.severity }}</td>
+            <td>{{ row.type }}</td>
+            <td>{{ row.switch }}</td>
+            <td>{{ row.port }}</td>
+            <td>{{ row.vlan }}</td>
+            <td>{{ row.switchport_mode }}</td>
+            <td>{{ row.voice_vlan }}</td>
+            <td>{{ row.mac_count }}</td>
+            <td>{{ row.correlated_endpoint_count }}</td>
+            <td>{{ row.neighbor_count }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.role_confidence }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Port Debug</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th>Port</th>
+            <th>Description</th>
+            <th>Admin</th>
+            <th>Oper</th>
+            <th>VLAN</th>
+            <th>Mode</th>
+            <th>Access</th>
+            <th>Voice</th>
+            <th>Native</th>
+            <th>Allowed</th>
+            <th>Duplex</th>
+            <th>Speed</th>
+            <th>Last Change</th>
+            <th>MACs</th>
+            <th>Endpoints</th>
+            <th>Neighbors</th>
+            <th>Role</th>
+            <th>Confidence</th>
+            <th>Evidence</th>
+            <th>Unused</th>
+            <th>In Err</th>
+            <th>Out Err</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in debug.ports %}
+          <tr data-debug-section="port" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan, row.switchport_mode, row.access_vlan, row.voice_vlan, row.native_vlan, row.allowed_vlans, row.role, row.role_evidence] | join(' ') | lower }}">
+            <td>{{ row.switch }}</td>
+            <td>{{ row.port }}</td>
+            <td>{{ row.description }}</td>
+            <td>{{ row.admin_status }}</td>
+            <td>{{ row.oper_status }}</td>
+            <td>{{ row.vlan }}</td>
+            <td>{{ row.switchport_mode }}</td>
+            <td>{{ row.access_vlan }}</td>
+            <td>{{ row.voice_vlan }}</td>
+            <td>{{ row.native_vlan }}</td>
+            <td>{{ row.allowed_vlans }}</td>
+            <td>{{ row.duplex }}</td>
+            <td>{{ row.speed or '' }}</td>
+            <td>{{ row.last_change }}</td>
+            <td>{{ row.mac_count }}</td>
+            <td>{{ row.correlated_endpoint_count }}</td>
+            <td>{{ row.neighbor_count }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.role_confidence }}</td>
+            <td>{{ row.role_evidence }}</td>
+            <td>{{ row.is_unused }}</td>
+            <td>{{ row.input_errors or '' }}</td>
+            <td>{{ row.output_errors or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Collector Artifacts</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th>Method</th>
+            <th>Kind</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Rows</th>
+            <th>Bytes</th>
+            <th>Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in debug.artifacts %}
+          <tr data-debug-section="artifact" data-debug-filter="{{ [row.switch, row.method, row.kind, row.name, row.status, row.relative_path] | join(' ') | lower }}">
+            <td>{{ row.switch }}</td>
+            <td>{{ row.method }}</td>
+            <td>{{ row.kind }}</td>
+            <td>{{ row.name }}</td>
+            <td>{{ row.status }}</td>
+            <td>{{ row.rows or '' }}</td>
+            <td>{{ row.bytes or '' }}</td>
+            <td>{{ row.relative_path }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <script>
+    function applyDebugFilters() {
+      const query = document.getElementById('debugQuery').value.toLowerCase().trim();
+      const section = document.getElementById('debugSection').value;
+      const role = document.getElementById('debugRole').value;
+      for (const row of document.querySelectorAll('[data-debug-section]')) {
+        const matchesSection = !section || row.dataset.debugSection === section;
+        const matchesQuery = !query || (row.dataset.debugFilter || '').includes(query);
+        const rowRole = row.dataset.debugRole || '';
+        const matchesRole = !role || rowRole === role;
+        row.hidden = !(matchesSection && matchesQuery && matchesRole);
+      }
+    }
+
+    document.getElementById('debugQuery').addEventListener('input', applyDebugFilters);
+    document.getElementById('debugSection').addEventListener('change', applyDebugFilters);
+    document.getElementById('debugRole').addEventListener('change', applyDebugFilters);
+    document.getElementById('debugReset').addEventListener('click', () => {
+      document.getElementById('debugQuery').value = '';
+      document.getElementById('debugSection').value = '';
+      document.getElementById('debugRole').value = '';
+      applyDebugFilters();
+    });
+  </script>
+</body>
+</html>
