@@ -457,6 +457,18 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
             "diagnose switch physical-ports summary": status_output,
             "diagnose switch mac-address list": "MAC: 00:11:22:33:44:77\tVLAN: 10 Port: port1(port-id 1)",
             "diagnose switch vlan list": "10 port1 port2",
+            "show switch interface": "\n".join(
+                [
+                    "config switch interface",
+                    '    edit "port1"',
+                    "        set allowed-vlans 10",
+                    "    next",
+                    '    edit "port2"',
+                    "        set allowed-vlans 10",
+                    "    next",
+                    "end",
+                ]
+            ),
             "get switch lldp neighbors-detail": "port1 aa:bb:cc:dd:ee:ff port48 fsw-core-1",
             "diagnose switch physical-ports error-counters": "port1 2 3\nport2 0 1",
             "get switch poe inline-status": "port1 Enabled Delivering 8.8W\nport2 Enabled Off 0.0W",
@@ -475,6 +487,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
         "diagnose switch physical-ports summary",
         "diagnose switch mac-address list",
         "diagnose switch vlan list",
+        "show switch interface",
         "get switch lldp neighbors-detail",
         "diagnose switch physical-ports error-counters",
         "get switch poe inline-status",
@@ -540,6 +553,18 @@ def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
                     "  ______  ___________________________________________________",
                     "  1       port1 port2 port3 port4 port5 port6 port7 port8 internal",
                     "  10      port1",
+                ]
+            ),
+            "show switch interface": "\n".join(
+                [
+                    "config switch interface",
+                    '    edit "port1"',
+                    "        set allowed-vlans 1 10",
+                    "    next",
+                    '    edit "internal"',
+                    "        set allowed-vlans 1",
+                    "    next",
+                    "end",
                 ]
             ),
             "get switch lldp neighbors-detail": "\n".join(
