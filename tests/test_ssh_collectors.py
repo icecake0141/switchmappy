@@ -66,9 +66,25 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
             "show interfaces status": status_output,
             "show mac address-table": mac_output,
             "show vlan brief": "10 default active Gi1/0/1",
+            "show interfaces switchport": (
+                "Name: Gi1/0/1\n"
+                "Operational Mode: trunk\n"
+                "Trunking Native Mode VLAN: 1 (default)\n"
+                "Trunking VLANs Enabled: 10,20\n"
+                "Name: Gi1/0/2\n"
+                "Operational Mode: static access\n"
+                "Access Mode VLAN: 20 (VLAN0020)\n"
+                "Voice VLAN: none\n"
+            ),
             "show lldp neighbors detail": "Local Intf: Gi1/0/1\nSystem Name: dist-sw1\n",
             "show interfaces counters errors": "Gi1/0/1 0 0 5 7 0 0",
             "show power inline": "Gi1/0/1 auto on 15.4 30.0",
+            "show version": (
+                "Cisco IOS Software, Version 17.12.1\n"
+                "sw-ssh uptime is 2 weeks, 1 day\n"
+                "Model number                    : C9300-24P\n"
+                "System Serial Number            : FOC1234X1YZ\n"
+            ),
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -78,26 +94,152 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
         "show interfaces status",
         "show mac address-table",
         "show vlan brief",
+        "show interfaces switchport",
         "show lldp neighbors detail",
         "show interfaces counters errors",
         "show power inline",
+        "show version",
     ]
+    assert state.platform == "C9300-24P"
+    assert state.serial_number == "FOC1234X1YZ"
+    assert state.os_version == "17.12.1"
+    assert state.uptime == "2 weeks, 1 day"
     assert len(state.ports) == 2
     assert state.ports[0].name == "Gi1/0/1"
     assert state.ports[0].descr == "Uplink-Core"
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].is_trunk is True
     assert state.ports[0].vlan == "10"
+    assert state.ports[0].duplex == "a-full"
     assert state.ports[0].speed == 1000
+    assert state.ports[0].switchport_mode == "trunk"
+    assert state.ports[0].native_vlan == "1 (default)"
+    assert state.ports[0].allowed_vlans == "10,20"
     assert state.ports[0].macs == ["00:11:22:33:44:55"]
     assert _neighbor_devices(state.ports[0]) == ["dist-sw1"]
     assert _neighbor_protocols(state.ports[0]) == ["lldp"]
+    assert state.ports[0].neighbor_summaries == ["dist-sw1 (LLDP)"]
     assert state.ports[0].input_errors == 7
     assert state.ports[0].output_errors == 5
     assert state.ports[0].poe_status == "on"
     assert state.ports[0].poe_power_w == 15.4
     assert state.ports[1].macs == []
     assert state.ports[1].oper_status == "down"
+    assert state.ports[1].switchport_mode == "access"
+    assert state.ports[1].access_vlan == "20 (VLAN0020)"
+
+
+def test_parse_cisco_cdp_detail_keeps_entries_with_blank_lines():
+    output = """
+-------------------------
+Device ID: switchmappy-sw2.switchmappy.local
+Entry address(es):
+  IP address: 192.168.128.236
+Platform: Linux Unix,  Capabilities: Router Switch IGMP
+Interface: Ethernet0/1,  Port ID (outgoing port): Ethernet0/1
+Holdtime : 168 sec
+
+Version :
+Cisco IOS Software [IOSXE]
+
+advertisement version: 2
+Management address(es):
+  IP address: 192.168.128.236
+
+-------------------------
+Device ID: switchmappy-sw2.switchmappy.local
+Entry address(es):
+  IP address: 192.168.128.236
+Platform: Linux Unix,  Capabilities: Router Switch IGMP
+Interface: Ethernet0/0,  Port ID (outgoing port): Ethernet0/0
+Holdtime : 149 sec
+"""
+
+    neighbors = collectors._parse_cisco_cdp_neighbors_detail(output)
+
+    assert [neighbor.device for neighbor in neighbors["et0/1"]] == ["switchmappy-sw2.switchmappy.local"]
+    assert neighbors["et0/1"][0].port == "Ethernet0/1"
+    assert neighbors["et0/1"][0].capabilities == ["router", "switch", "igmp"]
+    assert [neighbor.device for neighbor in neighbors["et0/0"]] == ["switchmappy-sw2.switchmappy.local"]
+
+
+def test_parse_cisco_switchport_extracts_operational_vlan_details():
+    details = collectors._parse_cisco_switchport(
+        "\n".join(
+            [
+                "Name: Gi1/0/1",
+                "Operational Mode: trunk",
+                "Trunking Native Mode VLAN: 99 (Native)",
+                "Trunking VLANs Enabled: 10,20,30",
+                "Name: Gi1/0/2",
+                "Operational Mode: static access",
+                "Access Mode VLAN: 20 (Users)",
+                "Voice VLAN: 30 (Voice)",
+            ]
+        )
+    )
+
+    assert details["gi1/0/1"].mode == "trunk"
+    assert details["gi1/0/1"].native_vlan == "99 (Native)"
+    assert details["gi1/0/1"].allowed_vlans == "10,20,30"
+    assert details["gi1/0/2"].mode == "access"
+    assert details["gi1/0/2"].access_vlan == "20 (Users)"
+    assert details["gi1/0/2"].voice_vlan == "30 (Voice)"
+
+
+def test_parse_cisco_show_version_extracts_inventory():
+    inventory = collectors._parse_cisco_show_version(
+        "\n".join(
+            [
+                "Cisco IOS XE Software, Version 17.12.1",
+                "edge-sw1 uptime is 1 week, 2 days",
+                "Model number                    : C9300-24P",
+                "System Serial Number            : FOC1234X1YZ",
+            ]
+        )
+    )
+
+    assert inventory.platform == "C9300-24P"
+    assert inventory.serial_number == "FOC1234X1YZ"
+    assert inventory.os_version == "17.12.1"
+    assert inventory.uptime == "1 week, 2 days"
+
+
+def test_parse_cisco_show_version_uses_image_name_when_model_is_absent():
+    inventory = collectors._parse_cisco_show_version(
+        "\n".join(
+            [
+                "Cisco IOS Software [IOSXE], Linux Software (X86_64BI_LINUX_L2-ADVENTERPRISEK9-M), Version 17.18.2",
+                "edge-sw1 uptime is 3 hours, 25 minutes",
+                "Processor board ID 2039822",
+            ]
+        )
+    )
+
+    assert inventory.platform == "X86_64BI_LINUX_L2-ADVENTERPRISEK9-M"
+    assert inventory.serial_number == "2039822"
+    assert inventory.os_version == "17.18.2"
+
+
+def test_canonical_port_name_matches_cisco_short_and_long_forms():
+    assert collectors._canonical_port_name("Ethernet0/1") == "et0/1"
+    assert collectors._canonical_port_name("Et0/1") == "et0/1"
+    assert collectors._canonical_port_name("GigabitEthernet1/0/1") == "gi1/0/1"
+    assert collectors._canonical_port_name("Gi1/0/1") == "gi1/0/1"
+
+
+def test_run_command_rejects_cisco_invalid_output():
+    class InvalidSession:
+        def run(self, _command: str, timeout: int) -> str:
+            assert timeout == 3
+            return 'Line has invalid autocommand "show power inline"'
+
+    try:
+        collectors._run_command(InvalidSession(), "show power inline", timeout=3)
+    except SshError as exc:
+        assert "invalid autocommand" in str(exc)
+    else:
+        raise AssertionError("Expected SshError")
 
 
 def test_collect_port_snapshots_marks_up_ports_active(monkeypatch):
@@ -175,10 +317,12 @@ def test_collect_switch_state_keeps_ports_when_mac_command_fails(monkeypatch):
         "show interfaces status",
         "show mac address-table",
         "show vlan brief",
+        "show interfaces switchport",
         "show lldp neighbors detail",
         "show cdp neighbors detail",
         "show interfaces counters errors",
         "show power inline",
+        "show version",
     ]
     assert [port.name for port in state.ports] == ["Gi1/0/1"]
     assert state.ports[0].macs == []
@@ -260,9 +404,11 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
             "show interfaces status": status_output,
             "show mac address-table": "10 0011.2233.4466 dynamic Et1",
             "show vlan brief": "10 default active Et1",
+            "show interfaces switchport": "Name: Et1\nOperational Mode: trunk\nTrunking VLANs Enabled: 10\n",
             "show lldp neighbors detail": "Local Intf: Et1\nSystem Name: leaf-1\n",
             "show interfaces counters errors": "Et1 0 0 9 4 0 0",
             "show power inline": "Et1 auto on 3.5 30.0",
+            "show version": "Cisco vEOS, Version 4.31.1F\nProcessor board ID JPE00000000\n",
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
@@ -272,9 +418,11 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
         "show interfaces status",
         "show mac address-table",
         "show vlan brief",
+        "show interfaces switchport",
         "show lldp neighbors detail",
         "show interfaces counters errors",
         "show power inline",
+        "show version",
     ]
     assert [port.name for port in state.ports] == ["Et1"]
     assert state.ports[0].oper_status == "up"
@@ -285,6 +433,7 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
     assert state.ports[0].output_errors == 9
     assert state.ports[0].poe_status == "on"
     assert state.ports[0].poe_power_w == 3.5
+    assert state.ports[0].switchport_mode == "trunk"
 
 
 def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
@@ -366,6 +515,8 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
                 return "10 00:11:22:33:44:55 dynamic Gi1/0/1"
             if command == "show vlan brief":
                 return "10 default active Gi1/0/1"
+            if command == "show interfaces switchport":
+                return "Name: Gi1/0/1\nOperational Mode: static access\nAccess Mode VLAN: 10 (default)\n"
             if command == "show lldp neighbors detail":
                 raise SshError("lldp unsupported")
             if command == "show cdp neighbors detail":
@@ -374,6 +525,8 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
                 return "Gi1/0/1 0 0 4 6 0 0"
             if command == "show power inline":
                 return "Gi1/0/1 auto on 11.2 30.0"
+            if command == "show version":
+                return "Cisco IOS Software, Version 17.9.4\nProcessor board ID FOCEDGE1\n"
             raise AssertionError(f"unexpected command: {command}")
 
     session = CdpFallbackSession()
@@ -384,10 +537,12 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
         "show interfaces status",
         "show mac address-table",
         "show vlan brief",
+        "show interfaces switchport",
         "show lldp neighbors detail",
         "show cdp neighbors detail",
         "show interfaces counters errors",
         "show power inline",
+        "show version",
     ]
     assert [port.name for port in state.ports] == ["Gi1/0/1"]
     assert _neighbor_devices(state.ports[0]) == ["cdp-edge-1"]

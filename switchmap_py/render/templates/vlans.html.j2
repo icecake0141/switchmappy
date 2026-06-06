@@ -15,7 +15,7 @@ Review required for correctness, security, and licensing.
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>VLANs - SwitchMap</title>
+  <title>VLANs - SwitchMappy</title>
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
@@ -35,10 +35,13 @@ Review required for correctness, security, and licensing.
           <th>Name</th>
           <th>Source</th>
           <th>Ports</th>
+          <th>MACs</th>
+          <th>Endpoints</th>
         </tr>
       </thead>
       <tbody>
       {% for vlan in switch.vlans %}
+        {% set counts = vlan_summary.get(switch.name, {}).get(vlan.vlan_id, {}) %}
         <tr data-vlan-id="{{ vlan.vlan_id }}" data-vlan-name="{{ vlan.name | lower }}">
           <td>{{ vlan.vlan_id }}</td>
           <td>{{ vlan.name }}</td>
@@ -48,6 +51,8 @@ Review required for correctness, security, and licensing.
               <a href="/switches/{{ switch.name }}.html#port-{{ port_name | replace('/', '-') | replace(' ', '-') | replace('.', '-') }}">{{ port_name }}</a>{% if not loop.last %}, {% endif %}
             {% endfor %}
           </td>
+          <td>{{ counts.get('macs', 0) }}</td>
+          <td>{{ counts.get('endpoints', 0) }}</td>
         </tr>
       {% endfor %}
       </tbody>

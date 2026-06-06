@@ -28,11 +28,17 @@ Review required for correctness, security, and licensing.
 - `destination_directory` (既定: `output`)
 - `idlesince_directory` (既定: `idlesince`)
 - `maclist_file` (既定: `maclist.json`)
+- `history_directory` (既定: `history`)
+- `collection_artifacts_directory` (既定: `artifacts`)
+- `oui_file` (任意の OUI/vendor CSV)
 - `unused_after_days` (既定: `30`)
 - `snmp_timeout` (既定: `2`)
 - `snmp_retries` (既定: `1`)
 - `switches` (配列)
 - `routers` (配列)
+
+`oui_file` の行は `prefix,vendor` 形式です。prefix は `525400`、
+`52:54:00`、`52-54-00`、`5254.00` の形式を受け付けます。
 
 ## `switches[]`
 
