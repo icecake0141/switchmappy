@@ -61,6 +61,7 @@ Review required for correctness, security, and licensing.
   - スイッチ単位の SNMP/SSH 失敗時は継続し、
   - 失敗理由を出力インデックスに記録。
   - `history_directory` に JSON 履歴スナップショットを保存。
+  - 収集と相関の診断用に `/debug/index.html` を生成。
 
 ## `serve-search`
 

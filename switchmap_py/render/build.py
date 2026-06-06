@@ -174,6 +174,127 @@ def _build_vlan_summary(
     return summary
 
 
+def _build_debug_payload(
+    *,
+    switches: list[Switch],
+    maclist: list[MacEntry],
+    endpoint_rows: list[dict[str, object]],
+    failed_switches: list[str],
+    failed_switch_reasons: dict[str, str],
+    unused_ports_by_switch: dict[str, set[str]],
+    build_date: datetime,
+) -> dict[str, object]:
+    ports = [port for switch in switches for port in switch.ports]
+    switch_macs = {mac.lower() for port in ports for mac in port.macs}
+    correlated_keys = {str(row.get("mac", "")).lower() for row in endpoint_rows}
+    maclist_keys = {entry.mac.lower() for entry in maclist if entry.mac}
+    unmatched_maclist = [
+        {
+            **asdict(entry),
+            "reason": "MAC not present in collected switch tables",
+        }
+        for entry in maclist
+        if entry.mac.lower() not in switch_macs
+    ]
+    unmatched_switch_macs = [
+        {
+            "mac": mac,
+            "reason": "MAC present on switch but missing from maclist",
+        }
+        for mac in sorted(switch_macs - maclist_keys)
+    ]
+    correlation_trace = []
+    for row in endpoint_rows:
+        correlation_trace.append(
+            {
+                "hostname": row.get("hostname") or "",
+                "ip": row.get("ip") or "",
+                "mac": row.get("mac") or "",
+                "vendor": row.get("vendor") or "",
+                "switch": row.get("switch") or "",
+                "port": row.get("port") or "",
+                "warning": row.get("warning") or "",
+                "source": "maclist + switch mac table",
+            }
+        )
+
+    port_debug = []
+    anomalies = []
+    for switch in switches:
+        for port in switch.ports:
+            mac_count = len(port.macs)
+            correlated_count = sum(1 for mac in port.macs if mac.lower() in correlated_keys)
+            neighbor_count = len(port.neighbors)
+            is_unused = port.name in unused_ports_by_switch.get(switch.name, set())
+            row = {
+                "switch": switch.name,
+                "port": port.name,
+                "description": port.descr,
+                "admin_status": port.admin_status,
+                "oper_status": port.oper_status,
+                "vlan": port.vlan or "",
+                "duplex": port.duplex or "",
+                "speed": port.speed,
+                "last_change": port.last_change or "",
+                "mac_count": mac_count,
+                "correlated_endpoint_count": correlated_count,
+                "neighbor_count": neighbor_count,
+                "is_trunk": port.is_trunk,
+                "is_unused": is_unused,
+                "input_errors": port.input_errors,
+                "output_errors": port.output_errors,
+            }
+            port_debug.append(row)
+            if port.needs_description:
+                anomalies.append({"severity": "warning", "type": "missing description", **row})
+            if port.is_trunk and correlated_count:
+                anomalies.append({"severity": "info", "type": "endpoint visible on trunk", **row})
+            if mac_count and correlated_count == 0:
+                anomalies.append({"severity": "info", "type": "uncorrelated switch MACs", **row})
+
+    switch_debug = []
+    for switch in switches:
+        switch_ports = switch.ports
+        switch_debug.append(
+            {
+                "name": switch.name,
+                "management_ip": switch.management_ip,
+                "vendor": switch.vendor,
+                "ports": len(switch_ports),
+                "active_ports": sum(1 for port in switch_ports if port.is_link_up),
+                "macs": sum(len(port.macs) for port in switch_ports),
+                "vlans": len(switch.vlans),
+                "neighbors": sum(len(port.neighbors) for port in switch_ports),
+                "endpoints": sum(1 for row in endpoint_rows if row.get("switch") == switch.name),
+            }
+        )
+
+    return {
+        "build": {
+            "generated_at": build_date.isoformat(),
+            "failed_switches": failed_switches,
+            "failed_switch_reasons": failed_switch_reasons,
+        },
+        "summary": {
+            "switches": len(switches),
+            "failed_switches": len(failed_switches),
+            "ports": len(ports),
+            "maclist_entries": len(maclist),
+            "switch_macs": len(switch_macs),
+            "endpoint_correlations": len(endpoint_rows),
+            "unmatched_maclist_entries": len(unmatched_maclist),
+            "unmatched_switch_macs": len(unmatched_switch_macs),
+            "anomalies": len(anomalies),
+        },
+        "switches": switch_debug,
+        "ports": port_debug,
+        "correlation_trace": correlation_trace,
+        "unmatched_maclist": unmatched_maclist,
+        "unmatched_switch_macs": unmatched_switch_macs,
+        "anomalies": anomalies,
+    }
+
+
 def _to_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -215,7 +336,7 @@ def build_site(
 ) -> None:
     failed_switch_reasons = failed_switch_reasons or {}
     output_dir.mkdir(parents=True, exist_ok=True)
-    for subdir in ["endpoints", "ports", "vlans", "switches", "search"]:
+    for subdir in ["debug", "endpoints", "ports", "vlans", "switches", "search"]:
         (output_dir / subdir).mkdir(parents=True, exist_ok=True)
 
     env = build_environment(template_dir)
@@ -224,6 +345,7 @@ def build_site(
     port_template = env.get_template("ports.html.j2")
     vlan_template = env.get_template("vlans.html.j2")
     endpoint_template = env.get_template("endpoints.html.j2")
+    debug_template = env.get_template("debug.html.j2")
     search_template = env.get_template("search.html.j2")
 
     maclist = maclist_store.load()
@@ -298,6 +420,26 @@ def build_site(
     endpoint_html = endpoint_template.render(endpoints=endpoint_rows, switches=switches, build_date=build_date)
     (output_dir / "endpoints" / "index.html").write_text(endpoint_html, encoding="utf-8")
 
+    debug_payload = _build_debug_payload(
+        switches=switches,
+        maclist=maclist,
+        endpoint_rows=endpoint_rows,
+        failed_switches=failed_switches,
+        failed_switch_reasons=failed_switch_reasons,
+        unused_ports_by_switch=unused_ports_by_switch,
+        build_date=build_date,
+    )
+    debug_html_payload = {
+        **debug_payload,
+        "build": {
+            **debug_payload["build"],
+            "output_directory": str(output_dir),
+            "history_directory": str(history_dir) if history_dir is not None else "",
+        },
+    }
+    debug_html = debug_template.render(debug=debug_html_payload, build_date=build_date)
+    (output_dir / "debug" / "index.html").write_text(debug_html, encoding="utf-8")
+
     search_html = search_template.render(build_date=build_date)
     (output_dir / "search" / "index.html").write_text(search_html, encoding="utf-8")
 
@@ -319,6 +461,7 @@ def build_site(
         "maclist": [asdict(entry) for entry in maclist],
         "endpoint_correlations": endpoint_rows,
         "failed_switches": failed_switches,
+        "debug": debug_payload,
     }
     (output_dir / "search" / "index.json").write_text(
         json.dumps(search_payload, indent=2, sort_keys=True, ensure_ascii=False),

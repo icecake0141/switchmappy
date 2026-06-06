@@ -61,6 +61,7 @@ All commands support:
   - continues when a switch SNMP/SSH collection fails,
   - records failed switch reasons in output index.
   - writes a JSON history snapshot to `history_directory`.
+  - generates `/debug/index.html` with collection and correlation diagnostics.
 
 ## `serve-search`
 

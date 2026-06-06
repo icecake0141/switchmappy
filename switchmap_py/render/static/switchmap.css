@@ -214,3 +214,29 @@ input[type="text"] {
   max-width: 480px;
   margin-bottom: 1rem;
 }
+
+.debug-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+}
+
+.debug-kv {
+  display: grid;
+  gap: 0.5rem 1rem;
+  grid-template-columns: max-content 1fr;
+}
+
+.debug-kv dt {
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.debug-kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
