@@ -97,6 +97,42 @@ def test_collect_switch_state_assigns_vlan_to_ports(monkeypatch):
     assert state.vlans[0].ports == ["Gi1/0/1"]
 
 
+def test_collect_switch_state_uses_alias_last_change_and_lldp(monkeypatch):
+    switch = SwitchConfig(
+        name="sw1",
+        management_ip="192.0.2.1",
+        community="public",
+    )
+    tables = {
+        mibs.IF_NAME: {f"{mibs.IF_NAME}.1": "Gi1/0/1"},
+        mibs.IF_ALIAS: {f"{mibs.IF_ALIAS}.1": "Access printer"},
+        mibs.IF_DESCR: {f"{mibs.IF_DESCR}.1": "Gi1/0/1"},
+        mibs.IF_ADMIN_STATUS: {f"{mibs.IF_ADMIN_STATUS}.1": "1"},
+        mibs.IF_OPER_STATUS: {f"{mibs.IF_OPER_STATUS}.1": "1"},
+        mibs.IF_LAST_CHANGE: {f"{mibs.IF_LAST_CHANGE}.1": "12345"},
+        mibs.IF_SPEED: {f"{mibs.IF_SPEED}.1": "1000"},
+        mibs.LLDP_LOC_PORT_ID: {f"{mibs.LLDP_LOC_PORT_ID}.7": "1"},
+        mibs.LLDP_REM_SYS_NAME: {f"{mibs.LLDP_REM_SYS_NAME}.0.7.1": "neighbor-a"},
+        mibs.LLDP_REM_PORT_ID: {f"{mibs.LLDP_REM_PORT_ID}.0.7.1": "Gi0/1"},
+        mibs.LLDP_REM_SYS_CAP_ENABLED: {f"{mibs.LLDP_REM_SYS_CAP_ENABLED}.0.7.1": "20"},
+    }
+
+    monkeypatch.setattr(
+        collectors,
+        "build_session",
+        lambda *_args, **_kwargs: StubSession(tables),
+    )
+    monkeypatch.setattr(collectors, "_collect_macs", lambda _session: ({}, {}))
+
+    state = collectors.collect_switch_state(switch, timeout=1, retries=0)
+    assert state.ports[0].descr == "Access printer"
+    assert state.ports[0].last_change == "12345"
+    assert [(neighbor.device, neighbor.protocol, neighbor.port) for neighbor in state.ports[0].neighbors] == [
+        ("neighbor-a", "lldp", "Gi0/1")
+    ]
+    assert state.ports[0].neighbors[0].capabilities == ["bridge", "router"]
+
+
 def test_collect_switch_state_builds_vlan_from_fdb_without_name_table(monkeypatch):
     switch = SwitchConfig(
         name="sw1",
