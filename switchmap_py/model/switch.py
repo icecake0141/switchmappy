@@ -24,6 +24,10 @@ class Switch:
     name: str
     management_ip: str
     vendor: str
+    platform: str = ""
+    serial_number: str = ""
+    os_version: str = ""
+    uptime: str = ""
     ports: list[Port] = field(default_factory=list)
     vlans: list[Vlan] = field(default_factory=list)
 

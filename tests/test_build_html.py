@@ -27,6 +27,8 @@ def test_build_html_logs_failed_switches_and_passes_successful(tmp_path, monkeyp
                 f"destination_directory: {tmp_path / 'output'}",
                 f"idlesince_directory: {tmp_path / 'idlesince'}",
                 f"maclist_file: {tmp_path / 'maclist.json'}",
+                f"history_directory: {tmp_path / 'history'}",
+                f"collection_artifacts_directory: {tmp_path / 'artifacts'}",
                 "switches:",
                 "  - name: sw-ok",
                 "    management_ip: 192.0.2.10",
@@ -38,7 +40,9 @@ def test_build_html_logs_failed_switches_and_passes_successful(tmp_path, monkeyp
         )
     )
 
-    def fake_collect_switch_state(sw, _timeout, _retries):
+    def fake_collect_switch_state(sw, _timeout, _retries, artifact_dir=None):
+        assert artifact_dir is not None
+        assert artifact_dir.parent == tmp_path / "artifacts"
         if sw.name == "sw-bad":
             raise SnmpError("SNMP failure")
         return Switch(
@@ -64,6 +68,7 @@ def test_build_html_logs_failed_switches_and_passes_successful(tmp_path, monkeyp
     assert [sw.name for sw in captured["switches"]] == ["sw-ok"]
     assert captured["failed_switches"] == ["sw-bad"]
     assert captured["failed_switch_reasons"] == {"sw-bad": "[SNMP_ERROR] SNMP failure"}
+    assert captured["history_dir"] == tmp_path / "history"
     assert "sw-bad" in caplog.text
 
 
@@ -76,6 +81,8 @@ def test_build_html_propagates_unexpected_errors(tmp_path, monkeypatch):
                 f"destination_directory: {tmp_path / 'output'}",
                 f"idlesince_directory: {tmp_path / 'idlesince'}",
                 f"maclist_file: {tmp_path / 'maclist.json'}",
+                f"history_directory: {tmp_path / 'history'}",
+                f"collection_artifacts_directory: {tmp_path / 'artifacts'}",
                 "switches:",
                 "  - name: sw-programming-error",
                 "    management_ip: 192.0.2.10",
@@ -84,7 +91,8 @@ def test_build_html_propagates_unexpected_errors(tmp_path, monkeypatch):
         )
     )
 
-    def fake_collect_switch_state(sw, _timeout, _retries):
+    def fake_collect_switch_state(sw, _timeout, _retries, artifact_dir=None):
+        assert artifact_dir is not None
         # This represents a programming error that should not be caught
         raise ValueError("Unexpected programming error")
 

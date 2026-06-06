@@ -1,0 +1,89 @@
+<!--
+Copyright 2026 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Endpoints - SwitchMappy</title>
+  <link rel="stylesheet" href="/switchmap.css" />
+</head>
+<body>
+  <header>
+    <h1>Endpoints</h1>
+    <p>Generated at {{ build_date.isoformat() }}</p>
+  </header>
+  <div class="filter-row">
+    <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, role, warning" />
+    <select id="endpointRoleFilter">
+      <option value="">All roles</option>
+      <option value="configured_trunk">configured_trunk</option>
+      <option value="network_neighbor">network_neighbor</option>
+      <option value="unknown">unknown</option>
+    </select>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Hostname</th>
+        <th>IP</th>
+        <th>MAC</th>
+        <th>Vendor</th>
+        <th>Switch</th>
+        <th>Port</th>
+        <th>Port Role</th>
+        <th>Warning</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for endpoint in endpoints %}
+      <tr data-role="{{ endpoint.port_role or '' }}" data-filter="{{ [endpoint.hostname, endpoint.ip, endpoint.mac, endpoint.vendor, endpoint.switch, endpoint.port, endpoint.port_role, endpoint.warning] | join(' ') | lower }}">
+        <td>{{ endpoint.hostname or '' }}</td>
+        <td>{{ endpoint.ip or '' }}</td>
+        <td>{{ endpoint.mac }}</td>
+        <td>{{ endpoint.vendor or '' }}</td>
+        <td>
+          {% if endpoint.switch %}
+            <a href="/switches/{{ endpoint.switch }}.html">{{ endpoint.switch }}</a>
+          {% endif %}
+        </td>
+        <td>
+          {% if endpoint.switch and endpoint.port %}
+            <a href="/switches/{{ endpoint.switch }}.html#port-{{ endpoint.port | replace('/', '-') | replace(' ', '-') | replace('.', '-') }}">{{ endpoint.port }}</a>
+          {% else %}
+            {{ endpoint.port or '' }}
+          {% endif %}
+        </td>
+        <td>{{ endpoint.port_role or '' }}</td>
+        <td>{% if endpoint.warning %}<span class="badge badge-warning">{{ endpoint.warning }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <script>
+    const endpointFilter = document.getElementById('endpointFilter');
+    const endpointRoleFilter = document.getElementById('endpointRoleFilter');
+    function applyEndpointFilters() {
+      const query = endpointFilter.value.toLowerCase().trim();
+      const role = endpointRoleFilter.value;
+      for (const row of document.querySelectorAll('tbody tr[data-filter]')) {
+        const matchesQuery = !query || row.dataset.filter.includes(query);
+        const matchesRole = !role || row.dataset.role === role;
+        row.style.display = matchesQuery && matchesRole ? '' : 'none';
+      }
+    }
+    endpointFilter.addEventListener('input', applyEndpointFilters);
+    endpointRoleFilter.addEventListener('change', applyEndpointFilters);
+  </script>
+</body>
+</html>

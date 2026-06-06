@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from switchmap_py.config import SwitchConfig
 from switchmap_py.model.switch import Switch
 from switchmap_py.snmp.collectors import PortSnapshot
@@ -21,10 +23,10 @@ from switchmap_py.ssh.collectors import collect_port_snapshots as collect_port_s
 from switchmap_py.ssh.collectors import collect_switch_state as collect_switch_state_ssh
 
 
-def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Switch:
+def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artifact_dir: Path | None = None) -> Switch:
     if switch.collection_method == "ssh":
-        return collect_switch_state_ssh(switch, timeout=timeout)
-    return collect_switch_state_snmp(switch, timeout=timeout, retries=retries)
+        return collect_switch_state_ssh(switch, timeout=timeout, artifact_dir=artifact_dir)
+    return collect_switch_state_snmp(switch, timeout=timeout, retries=retries, artifact_dir=artifact_dir)
 
 
 def collect_port_snapshots(switch: SwitchConfig, timeout: int, retries: int) -> list[PortSnapshot]:

@@ -35,6 +35,43 @@ class SshSession:
         self.config = config
 
     def run(self, command: str, timeout: int) -> str:
+        if self.config.password:
+            return self._run_with_password(command, timeout)
+        return self._run_with_openssh(command, timeout)
+
+    def _run_with_password(self, command: str, timeout: int) -> str:
+        try:
+            import paramiko  # type: ignore[import-not-found]
+        except ModuleNotFoundError as exc:
+            raise SshError("paramiko is required for password SSH operations") from exc
+
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            client.connect(
+                hostname=self.config.hostname,
+                port=self.config.port,
+                username=self.config.username,
+                password=self.config.password,
+                look_for_keys=False,
+                allow_agent=False,
+                timeout=self.config.connect_timeout,
+                auth_timeout=timeout,
+                banner_timeout=timeout,
+            )
+            _stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
+            output = stdout.read().decode(errors="replace")
+            error = stderr.read().decode(errors="replace")
+            exit_status = stdout.channel.recv_exit_status()
+        except Exception as exc:
+            raise SshError(str(exc)) from exc
+        finally:
+            client.close()
+        if exit_status != 0:
+            raise SshError(error.strip() or output.strip() or "ssh command failed")
+        return output
+
+    def _run_with_openssh(self, command: str, timeout: int) -> str:
         argv = [
             "ssh",
             "-o",

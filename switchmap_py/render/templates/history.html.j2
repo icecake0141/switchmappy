@@ -1,0 +1,157 @@
+<!--
+Copyright 2026 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>History - SwitchMappy</title>
+  <link rel="stylesheet" href="/switchmap.css" />
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <h1>History</h1>
+      <p>Generated at {{ build_date.isoformat() }}</p>
+      {% if diff.previous_generated_at %}
+      <p>Compared with {{ diff.previous_generated_at }}</p>
+      {% else %}
+      <p>No previous snapshot found.</p>
+      {% endif %}
+    </div>
+    <div class="summary-strip" aria-label="History summary">
+      <div class="summary-item">
+        <span class="summary-value">{{ diff.added_endpoints | length }}</span>
+        <span class="summary-label">added</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ diff.removed_endpoints | length }}</span>
+        <span class="summary-label">removed</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ diff.moved_endpoints | length }}</span>
+        <span class="summary-label">moved</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-value">{{ diff.port_changes | length }}</span>
+        <span class="summary-label">port changes</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="quick-links" aria-label="Report sections">
+    <ul>
+      <li><a href="/index.html">Home</a></li>
+      <li><a href="/ports/index.html">Ports</a></li>
+      <li><a href="/endpoints/index.html">Endpoints</a></li>
+      <li><a href="/debug/index.html">Debug</a></li>
+    </ul>
+  </nav>
+
+  {% set endpoint_sections = [
+    ('Added Endpoints', diff.added_endpoints),
+    ('Removed Endpoints', diff.removed_endpoints)
+  ] %}
+  {% for title, rows in endpoint_sections %}
+  <section class="panel">
+    <h2>{{ title }}</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Hostname</th>
+            <th>IP</th>
+            <th>MAC</th>
+            <th>Vendor</th>
+            <th>Switch</th>
+            <th>Port</th>
+            <th>Warning</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ row.hostname or '' }}</td>
+            <td>{{ row.ip or '' }}</td>
+            <td>{{ row.mac }}</td>
+            <td>{{ row.vendor or '' }}</td>
+            <td>{{ row.switch or '' }}</td>
+            <td>{{ row.port or '' }}</td>
+            <td>{{ row.warning or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endfor %}
+
+  <section class="panel">
+    <h2>Moved Endpoints</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Hostname</th>
+            <th>IP</th>
+            <th>MAC</th>
+            <th>Previous</th>
+            <th>Current</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in diff.moved_endpoints %}
+          <tr>
+            <td>{{ row.current.hostname or row.previous.hostname or '' }}</td>
+            <td>{{ row.current.ip or row.previous.ip or '' }}</td>
+            <td>{{ row.current.mac or row.previous.mac }}</td>
+            <td>{{ row.previous.switch }} / {{ row.previous.port }}</td>
+            <td>{{ row.current.switch }} / {{ row.current.port }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Port Changes</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th>Port</th>
+            <th>Field</th>
+            <th>Previous</th>
+            <th>Current</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in diff.port_changes %}
+            {% for field, change in row.changes.items() %}
+            <tr>
+              <td>{{ row.switch }}</td>
+              <td>{{ row.port }}</td>
+              <td>{{ field }}</td>
+              <td>{{ change.previous or '' }}</td>
+              <td>{{ change.current or '' }}</td>
+            </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</body>
+</html>

@@ -15,7 +15,7 @@ Review required for correctness, security, and licensing.
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Ports - SwitchMap</title>
+  <title>Ports - SwitchMappy</title>
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
@@ -34,6 +34,13 @@ Review required for correctness, security, and licensing.
     <input id="poeFilter" type="text" placeholder="e.g. on, delivering" />
     <label for="neighborFilter">Neighbor:</label>
     <input id="neighborFilter" type="text" placeholder="e.g. dist-sw1" />
+    <label for="roleFilter">Role:</label>
+    <select id="roleFilter">
+      <option value="">All</option>
+      <option value="configured_trunk">configured_trunk</option>
+      <option value="network_neighbor">network_neighbor</option>
+      <option value="unknown">unknown</option>
+    </select>
     <label for="inErrFilter">In Err >=</label>
     <input id="inErrFilter" type="number" min="0" step="1" placeholder="0" />
     <label for="outErrFilter">Out Err >=</label>
@@ -49,39 +56,95 @@ Review required for correctness, security, and licensing.
       <thead>
         <tr>
           <th>Port</th>
+          <th>State</th>
           <th>Description</th>
           <th>Oper</th>
+          <th>Duplex</th>
+          <th>Last Change</th>
           <th>Neighbor</th>
+          <th>Mode</th>
+          <th>Access</th>
+          <th>Voice</th>
+          <th>Native</th>
+          <th>Allowed</th>
           <th>In Err</th>
           <th>Out Err</th>
           <th>PoE</th>
           <th>PoE W</th>
-          <th>Trunk</th>
+          <th>Role</th>
+          <th>Role Evidence</th>
           <th>Idle Since</th>
           <th>Unused (>= {{ unused_after_days }}d)</th>
           <th>ARP</th>
+          <th>Vendor</th>
         </tr>
       </thead>
       <tbody>
       {% set idle_states = idle_states_by_switch.get(switch.name, {}) %}
       {% set unused_ports = unused_ports_by_switch.get(switch.name, []) %}
       {% for port in switch.ports %}
+        {% set is_unused = port.name in unused_ports %}
+        {% if is_unused %}
+          {% set state_label = 'long unused' %}
+          {% set state_class = 'state-long-unused' %}
+        {% elif port.is_admin_disabled %}
+          {% set state_label = 'disabled' %}
+          {% set state_class = 'state-disabled' %}
+        {% elif port.is_active %}
+          {% set state_label = 'active' %}
+          {% set state_class = 'state-active' %}
+        {% elif port.is_link_up %}
+          {% set state_label = 'link up, no MAC' %}
+          {% set state_class = 'state-link-up' %}
+        {% else %}
+          {% set state_label = 'inactive' %}
+          {% set state_class = 'state-inactive' %}
+        {% endif %}
         <tr
+          class="{{ state_class }}{% if port.needs_description %} missing-description{% endif %}"
           data-status="{{ port.oper_status | lower }}"
+          data-state="{{ state_label }}"
           data-neighbor="{{ port.neighbor_names | join(',') | lower }}"
+          data-role="{{ port.role | lower }}"
           data-poe="{{ (port.poe_status or '') | lower }}"
           data-in-err="{{ port.input_errors if port.input_errors is not none else 0 }}"
           data-out-err="{{ port.output_errors if port.output_errors is not none else 0 }}"
         >
           <td>{{ port.name }}</td>
-          <td>{{ port.descr }}</td>
+          <td><span class="badge {{ state_class }}">{{ state_label }}</span></td>
+          <td>
+            {% if port.descr %}
+              {{ port.descr }}
+            {% else %}
+              <span class="muted">-</span>
+            {% endif %}
+            {% if port.needs_description %}
+              <span class="badge badge-warning">missing description</span>
+            {% endif %}
+          </td>
           <td>{{ port.oper_status }}</td>
-          <td>{{ port.neighbor_names | join(', ') }}</td>
+          <td>{{ port.duplex or '' }}</td>
+          <td>{{ port.last_change or '' }}</td>
+          <td>
+            {% for neighbor in port.neighbors %}
+              <div>{{ neighbor.display_name }}</div>
+            {% endfor %}
+          </td>
+          <td>{{ port.switchport_mode or '' }}</td>
+          <td>{{ port.access_vlan or '' }}</td>
+          <td>{{ port.voice_vlan or '' }}</td>
+          <td>{{ port.native_vlan or '' }}</td>
+          <td>{{ port.allowed_vlans or '' }}</td>
           <td>{{ port.input_errors if port.input_errors is not none else '' }}</td>
           <td>{{ port.output_errors if port.output_errors is not none else '' }}</td>
           <td>{{ port.poe_status or '' }}</td>
           <td>{{ port.poe_power_w if port.poe_power_w is not none else '' }}</td>
-          <td>{% if port.is_trunk %}yes{% else %}-{% endif %}</td>
+          <td>{{ port.role }}{% if port.role_confidence %} ({{ port.role_confidence }}){% endif %}</td>
+          <td>
+            {% for evidence in port.role_evidence %}
+              <div>{{ evidence }}</div>
+            {% endfor %}
+          </td>
           <td>
             {% set idle = idle_states.get(port.name) %}
             {% if idle and idle.idle_since %}
@@ -90,12 +153,20 @@ Review required for correctness, security, and licensing.
               -
             {% endif %}
           </td>
-          <td>{% if port.name in unused_ports %}yes{% else %}-{% endif %}</td>
+          <td>{% if is_unused %}yes{% else %}-{% endif %}</td>
           <td>
             {% for mac in port.macs %}
               {% for entry in mac_entries_by_mac.get(mac.lower(), []) %}
                 <div>{{ entry.ip or '' }}{% if entry.hostname %} ({{ entry.hostname }}){% endif %}</div>
               {% endfor %}
+            {% endfor %}
+          </td>
+          <td>
+            {% for mac in port.macs %}
+              {% set vendor = mac_vendor_lookup.get(mac.lower(), '') %}
+              {% if vendor %}
+                <div>{{ vendor }}</div>
+              {% endif %}
             {% endfor %}
           </td>
         </tr>
@@ -109,6 +180,7 @@ Review required for correctness, security, and licensing.
       const status = document.getElementById('statusFilter').value;
       const poe = document.getElementById('poeFilter').value.toLowerCase().trim();
       const neighbor = document.getElementById('neighborFilter').value.toLowerCase().trim();
+      const role = document.getElementById('roleFilter').value;
       const inErr = document.getElementById('inErrFilter').value.trim();
       const outErr = document.getElementById('outErrFilter').value.trim();
       const minInErr = inErr ? Number.parseInt(inErr, 10) : null;
@@ -125,6 +197,7 @@ Review required for correctness, security, and licensing.
           (!status || rowStatus === status) &&
           (!poe || rowPoe.includes(poe)) &&
           (!neighbor || rowNeighbor.includes(neighbor)) &&
+          (!role || row.dataset.role === role) &&
           (minInErr === null || !Number.isFinite(minInErr) || rowInErr >= minInErr) &&
           (minOutErr === null || !Number.isFinite(minOutErr) || rowOutErr >= minOutErr);
         row.hidden = !match;
@@ -138,6 +211,7 @@ Review required for correctness, security, and licensing.
       document.getElementById('statusFilter').value = '';
       document.getElementById('poeFilter').value = '';
       document.getElementById('neighborFilter').value = '';
+      document.getElementById('roleFilter').value = '';
       document.getElementById('inErrFilter').value = '';
       document.getElementById('outErrFilter').value = '';
       applyFilters();
@@ -146,6 +220,7 @@ Review required for correctness, security, and licensing.
     document.getElementById('statusFilter').addEventListener('change', applyFilters);
     document.getElementById('poeFilter').addEventListener('input', applyFilters);
     document.getElementById('neighborFilter').addEventListener('input', applyFilters);
+    document.getElementById('roleFilter').addEventListener('change', applyFilters);
     document.getElementById('inErrFilter').addEventListener('input', applyFilters);
     document.getElementById('outErrFilter').addEventListener('input', applyFilters);
     document.getElementById('resetFilters').addEventListener('click', resetFilters);

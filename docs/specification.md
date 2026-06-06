@@ -23,6 +23,8 @@ Review required for correctness, security, and licensing.
 ## Core Capabilities
 
 - Collect per-port state from switches using SNMP or SSH.
+- Collect switch inventory details where available, including platform, serial
+  number, OS version, and uptime.
 - Track idle-since timestamps in per-switch JSON files.
 - Import ARP data from CSV or SNMP-enabled routers.
 - Build static HTML pages (`index`, `switches`, `ports`, `vlans`, `search`).
@@ -33,6 +35,26 @@ Review required for correctness, security, and licensing.
 - `destination_directory`: generated HTML and search index files.
 - `idlesince_directory`: idle-since history by switch and port.
 - `maclist_file`: normalized MAC/IP/hostname mapping used for ARP correlation.
+
+## Port Role Display
+
+- `configured_trunk`: port is explicitly listed in `trunk_ports`.
+- `network_neighbor`: port has an LLDP/CDP neighbor and is shown as a network-adjacent port.
+- `unknown`: no explicit trunk configuration or neighbor evidence is present.
+- MAC count, endpoint count, and multi-VLAN observations are not used for role assignment.
+
+## Switchport Evidence
+
+For Cisco-like SSH collection, `show interfaces switchport` is used when
+available to expose operational mode, access VLAN, voice VLAN, native VLAN, and
+allowed VLANs. These values are evidence fields in reports and search output;
+they do not override explicit `trunk_ports` role assignment.
+
+## Neighbor Capabilities
+
+LLDP/CDP neighbor capability data is preserved when the collector can obtain it.
+SNMP LLDP capability bitmaps are decoded to readable labels such as `bridge` and
+`router`.
 
 ## Error Handling Policy
 
