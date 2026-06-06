@@ -23,6 +23,7 @@ Review required for correctness, security, and licensing.
 - [コマンド](commands.ja.md)
 - [テスト](testing.ja.md)
 - [移行メモ](migration_notes.ja.md)
+- [SwitchMap 差分分析](switchmap_gap_analysis.ja.md)
 
 ## 方針
 

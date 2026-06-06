@@ -225,6 +225,8 @@ def _build_debug_payload(
     switch_macs = {mac.lower() for port in ports for mac in port.macs}
     correlated_keys = {str(row.get("mac", "")).lower() for row in endpoint_rows}
     maclist_keys = {entry.mac.lower() for entry in maclist if entry.mac}
+    artifacts = _build_artifact_summary(artifacts_dir)
+    artifact_diagnostics = _build_artifact_diagnostics(artifacts)
     unmatched_maclist = [
         {
             **asdict(entry),
@@ -300,11 +302,19 @@ def _build_debug_payload(
     switch_debug = []
     for switch in switches:
         switch_ports = switch.ports
+        diagnostics = artifact_diagnostics.get(switch.name, {})
         switch_debug.append(
             {
                 "name": switch.name,
                 "management_ip": switch.management_ip,
                 "vendor": switch.vendor,
+                "parser_profile": _parser_profile_for_vendor(switch.vendor),
+                "collection_methods": ", ".join(diagnostics.get("methods", [])),
+                "artifact_count": diagnostics.get("artifact_count", 0),
+                "successful_artifacts": diagnostics.get("successful_artifacts", 0),
+                "error_artifacts": diagnostics.get("error_artifacts", 0),
+                "unsupported_artifacts": diagnostics.get("unsupported_artifacts", 0),
+                "commands": ", ".join(diagnostics.get("commands", [])),
                 "platform": switch.platform,
                 "serial_number": switch.serial_number,
                 "os_version": switch.os_version,
@@ -341,8 +351,61 @@ def _build_debug_payload(
         "unmatched_maclist": unmatched_maclist,
         "unmatched_switch_macs": unmatched_switch_macs,
         "anomalies": anomalies,
-        "artifacts": _build_artifact_summary(artifacts_dir),
+        "artifacts": artifacts,
     }
+
+
+def _parser_profile_for_vendor(vendor: str) -> str:
+    value = vendor.lower()
+    if "juniper" in value:
+        return "juniper"
+    if "fortinet" in value or "fortiswitch" in value:
+        return "fortiswitch"
+    if "arista" in value:
+        return "arista"
+    return "cisco_like"
+
+
+def _build_artifact_diagnostics(artifacts: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    diagnostics: dict[str, dict[str, object]] = {}
+    for artifact in artifacts:
+        switch_name = str(artifact.get("switch") or "")
+        if not switch_name:
+            continue
+        record = diagnostics.setdefault(
+            switch_name,
+            {
+                "methods": set(),
+                "commands": [],
+                "artifact_count": 0,
+                "successful_artifacts": 0,
+                "error_artifacts": 0,
+                "unsupported_artifacts": 0,
+            },
+        )
+        record["artifact_count"] += 1
+        method = str(artifact.get("method") or "")
+        if method:
+            record["methods"].add(method)
+        name = str(artifact.get("name") or "")
+        if name:
+            record["commands"].append(name)
+        status = str(artifact.get("status") or "").lower()
+        if status == "success":
+            record["successful_artifacts"] += 1
+        elif status == "error":
+            record["error_artifacts"] += 1
+        text = " ".join(str(artifact.get(key) or "").lower() for key in ("status", "name", "relative_path"))
+        if "unsupported" in text or "no such" in text or "invalid" in text or "parse error" in text:
+            record["unsupported_artifacts"] += 1
+    normalized = {}
+    for switch_name, record in diagnostics.items():
+        normalized[switch_name] = {
+            **record,
+            "methods": sorted(record["methods"]),
+            "commands": sorted(set(record["commands"])),
+        }
+    return normalized
 
 
 def _build_artifact_summary(artifacts_dir: Path | None) -> list[dict[str, object]]:

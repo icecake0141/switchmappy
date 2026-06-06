@@ -38,6 +38,8 @@ Review required for correctness, security, and licensing.
 
 ## Remaining Differences from Perl SwitchMap
 
+See [SwitchMap Gap Analysis](switchmap_gap_analysis.md) for the full matrix.
+
 - Exact legacy HTML layout parity is not guaranteed.
 - Device-family OID coverage may still be narrower than mature Perl deployments.
 - Site-specific `ThisSite.pm` behaviors such as publishing and scheduling are
