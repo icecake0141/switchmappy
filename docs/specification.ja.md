@@ -23,6 +23,7 @@ Review required for correctness, security, and licensing.
 ## 主要機能
 
 - SNMP または SSH によるスイッチのポート情報収集。
+- 取得可能な場合、platform、serial number、OS version、uptime などの装置インベントリを収集。
 - スイッチごとの JSON ファイルによる idle-since 追跡。
 - CSV または SNMP ルータからの ARP 取り込み。
 - 静的 HTML (`index` / `switches` / `ports` / `vlans` / `search`) の生成。
@@ -40,6 +41,18 @@ Review required for correctness, security, and licensing.
 - `network_neighbor`: LLDP/CDP neighbor があり、ネットワーク機器隣接として表示されるポート。
 - `unknown`: 明示 trunk 設定や neighbor 根拠がないポート。
 - MAC 数、endpoint 数、複数 VLAN 観測は role 判定に使いません。
+
+## Switchport Evidence
+
+Cisco 系 SSH collection では、利用可能な場合に `show interfaces switchport`
+を使い、operational mode、access VLAN、voice VLAN、native VLAN、allowed VLANs
+を表示します。これらはレポートと検索で確認するための根拠情報であり、明示的な
+`trunk_ports` role assignment を上書きしません。
+
+## Neighbor Capabilities
+
+collector が取得できる場合、LLDP/CDP neighbor capability を保持します。SNMP
+LLDP capability bitmap は `bridge` や `router` などの読みやすいラベルに変換します。
 
 ## エラーハンドリング方針
 

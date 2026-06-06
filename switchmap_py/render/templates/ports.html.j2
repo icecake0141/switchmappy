@@ -62,6 +62,11 @@ Review required for correctness, security, and licensing.
           <th>Duplex</th>
           <th>Last Change</th>
           <th>Neighbor</th>
+          <th>Mode</th>
+          <th>Access</th>
+          <th>Voice</th>
+          <th>Native</th>
+          <th>Allowed</th>
           <th>In Err</th>
           <th>Out Err</th>
           <th>PoE</th>
@@ -125,6 +130,11 @@ Review required for correctness, security, and licensing.
               <div>{{ neighbor.display_name }}</div>
             {% endfor %}
           </td>
+          <td>{{ port.switchport_mode or '' }}</td>
+          <td>{{ port.access_vlan or '' }}</td>
+          <td>{{ port.voice_vlan or '' }}</td>
+          <td>{{ port.native_vlan or '' }}</td>
+          <td>{{ port.allowed_vlans or '' }}</td>
           <td>{{ port.input_errors if port.input_errors is not none else '' }}</td>
           <td>{{ port.output_errors if port.output_errors is not none else '' }}</td>
           <td>{{ port.poe_status or '' }}</td>

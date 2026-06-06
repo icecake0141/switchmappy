@@ -47,6 +47,18 @@ class PortSnapshot:
     oper_status: str
 
 
+_LLDP_CAPABILITIES = {
+    1: "other",
+    2: "repeater",
+    3: "bridge",
+    4: "wlan",
+    5: "router",
+    6: "telephone",
+    7: "docsis",
+    8: "station",
+}
+
+
 def build_session(switch: SwitchConfig, timeout: int, retries: int) -> SnmpSession:
     return SnmpSession(
         SnmpConfig(
@@ -261,6 +273,11 @@ def _collect_lldp_neighbors(session: SnmpSession, ports_by_ifindex: dict[int, Po
     except SnmpError:
         logger.debug("Failed to fetch LLDP tables.", exc_info=True)
         return
+    try:
+        remote_capabilities = session.get_table(mibs.LLDP_REM_SYS_CAP_ENABLED)
+    except SnmpError:
+        logger.debug("Failed to fetch LLDP capability table.", exc_info=True)
+        remote_capabilities = {}
 
     local_port_to_ifindex: dict[str, int] = {}
     canonical_ifnames = {port.name.lower(): ifindex for ifindex, port in ports_by_ifindex.items()}
@@ -287,14 +304,26 @@ def _collect_lldp_neighbors(session: SnmpSession, ports_by_ifindex: dict[int, Po
         if port is None:
             continue
         remote_port_oid = f"{mibs.LLDP_REM_PORT_ID}.{'.'.join(index)}"
+        remote_capability_oid = f"{mibs.LLDP_REM_SYS_CAP_ENABLED}.{'.'.join(index)}"
         port.neighbors.append(
             Neighbor(
                 device=system_name,
                 protocol="lldp",
                 port=remote_ports.get(remote_port_oid) or remote_index,
-                capabilities=[],
+                capabilities=_parse_lldp_capabilities(remote_capabilities.get(remote_capability_oid, "")),
             )
         )
+
+
+def _parse_lldp_capabilities(value: str) -> list[str]:
+    token = value.strip()
+    if not token:
+        return []
+    try:
+        numeric = int(token, 0)
+    except ValueError:
+        return [part.lower() for part in token.replace(",", " ").split() if part]
+    return [label for bit, label in _LLDP_CAPABILITIES.items() if numeric & (1 << (bit - 1))]
 
 
 def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artifact_dir: Path | None = None) -> Switch:
@@ -308,6 +337,14 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
     oper = session.get_table(mibs.IF_OPER_STATUS)
     last_changes = session.get_table(mibs.IF_LAST_CHANGE)
     speeds = session.get_table(mibs.IF_SPEED)
+    try:
+        sys_descr = session.get_table(mibs.SYS_DESCR)
+    except SnmpError:
+        sys_descr = {}
+    try:
+        sys_uptime = session.get_table(mibs.SYS_UPTIME)
+    except SnmpError:
+        sys_uptime = {}
 
     ports: list[Port] = []
     ports_by_ifindex: dict[int, Port] = {}
@@ -390,6 +427,8 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
         name=switch.name,
         management_ip=switch.management_ip,
         vendor=switch.vendor,
+        platform=next(iter(sys_descr.values()), ""),
+        uptime=next(iter(sys_uptime.values()), ""),
         ports=ports,
         vlans=vlans,
     )

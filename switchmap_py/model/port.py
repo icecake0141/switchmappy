@@ -35,6 +35,11 @@ class Port:
     output_errors: Optional[int] = None
     poe_status: Optional[str] = None
     poe_power_w: Optional[float] = None
+    switchport_mode: Optional[str] = None
+    access_vlan: Optional[str] = None
+    voice_vlan: Optional[str] = None
+    native_vlan: Optional[str] = None
+    allowed_vlans: Optional[str] = None
     role: str = "unknown"
     role_confidence: str = "low"
     role_evidence: list[str] = field(default_factory=list)

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from switchmap_py.artifacts import CollectorArtifactRecorder
@@ -84,6 +85,23 @@ class RecordingSshSession:
             raise
         self.recorder.record_text(kind="ssh-command", name=command, content=output)
         return output
+
+
+@dataclass
+class SwitchInventory:
+    platform: str = ""
+    serial_number: str = ""
+    os_version: str = ""
+    uptime: str = ""
+
+
+@dataclass
+class SwitchportInfo:
+    mode: str = ""
+    access_vlan: str = ""
+    voice_vlan: str = ""
+    native_vlan: str = ""
+    allowed_vlans: str = ""
 
 
 def _normalize_oper_status(status: str) -> str:
@@ -600,6 +618,72 @@ def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
     return neighbors_by_port
 
 
+def _parse_cisco_show_version(text: str) -> SwitchInventory:
+    inventory = SwitchInventory()
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        lower = line.lower()
+        if not inventory.os_version and "version" in lower:
+            match = re.search(r"\bversion\s+([^,\s]+)", line, flags=re.IGNORECASE)
+            if match:
+                inventory.os_version = match.group(1)
+        if not inventory.uptime and " uptime is " in lower:
+            inventory.uptime = line.split(" uptime is ", 1)[1].strip()
+        if lower.startswith("model number"):
+            inventory.platform = line.split(":", 1)[1].strip() if ":" in line else line
+        elif not inventory.platform and "software (" in lower:
+            match = re.search(r"software\s+\(([^)]+)\)", line, flags=re.IGNORECASE)
+            if match:
+                inventory.platform = match.group(1)
+        elif not inventory.platform and lower.startswith("cisco "):
+            tokens = line.split()
+            if len(tokens) > 1:
+                inventory.platform = tokens[1].strip(",")
+        if lower.startswith("system serial number"):
+            inventory.serial_number = line.split(":", 1)[1].strip() if ":" in line else line.split()[-1]
+        elif not inventory.serial_number and lower.startswith("processor board id"):
+            inventory.serial_number = line.split()[-1]
+    return inventory
+
+
+def _parse_switchport_mode_line(value: str) -> str:
+    cleaned = value.strip().lower()
+    if cleaned in {"static access", "access"}:
+        return "access"
+    if "trunk" in cleaned:
+        return "trunk"
+    return cleaned
+
+
+def _parse_cisco_switchport(text: str) -> dict[str, SwitchportInfo]:
+    details: dict[str, SwitchportInfo] = {}
+    current_port: str | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith("name:"):
+            current_port = _canonical_port_name(line.split(":", 1)[1].strip())
+            details.setdefault(current_port, SwitchportInfo())
+            continue
+        if current_port is None:
+            continue
+        info = details[current_port]
+        if lower.startswith("operational mode:"):
+            info.mode = _parse_switchport_mode_line(line.split(":", 1)[1])
+        elif lower.startswith("access mode vlan:"):
+            info.access_vlan = line.split(":", 1)[1].strip()
+        elif lower.startswith("voice vlan:"):
+            value = line.split(":", 1)[1].strip()
+            info.voice_vlan = "" if value.lower() in {"none", "none configured"} else value
+        elif lower.startswith("trunking native mode vlan:"):
+            info.native_vlan = line.split(":", 1)[1].strip()
+        elif lower.startswith("trunking vlans enabled:"):
+            info.allowed_vlans = line.split(":", 1)[1].strip()
+    return details
+
+
 def _parse_cisco_like_error_counters(text: str) -> dict[str, tuple[int, int]]:
     errors_by_port: dict[str, tuple[int, int]] = {}
     for raw_line in text.splitlines():
@@ -858,11 +942,28 @@ def _collect_poe_status(session: SshSession, switch: SwitchConfig, timeout: int)
     return _parse_cisco_like_poe(output)
 
 
+def _collect_switchport_details(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, SwitchportInfo]:
+    profile = _vendor_profile(switch.vendor)
+    if profile not in {"cisco_like", "arista"}:
+        return {}
+    output = _run_command(session, "show interfaces switchport", timeout=timeout)
+    return _parse_cisco_switchport(output)
+
+
+def _collect_inventory(session: SshSession, switch: SwitchConfig, timeout: int) -> SwitchInventory:
+    profile = _vendor_profile(switch.vendor)
+    if profile not in {"cisco_like", "arista"}:
+        return SwitchInventory()
+    output = _run_command(session, "show version", timeout=timeout)
+    return _parse_cisco_show_version(output)
+
+
 def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path | None = None) -> Switch:
     session = build_session(switch, timeout=timeout)
     if artifact_dir is not None:
         session = RecordingSshSession(session, CollectorArtifactRecorder(artifact_dir, switch.name, "ssh"))
     ports: list[Port] = []
+    inventory = SwitchInventory()
     try:
         output = _collect_interface_output(session, switch, timeout=timeout)
         profile = _vendor_profile(switch.vendor)
@@ -911,6 +1012,29 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
                 exc_info=True,
             )
         try:
+            switchport_by_port = _collect_switchport_details(session, switch, timeout=timeout)
+            for port in ports:
+                details = switchport_by_port.get(_canonical_port_name(port.name))
+                if not details:
+                    continue
+                port.switchport_mode = details.mode or None
+                port.access_vlan = details.access_vlan or None
+                port.voice_vlan = details.voice_vlan or None
+                port.native_vlan = details.native_vlan or None
+                port.allowed_vlans = details.allowed_vlans or None
+        except SshError as exc:
+            if _is_unsupported_optional_command(exc):
+                logger.debug(
+                    "SSH switchport detail command is unsupported on switch %s; continuing without switchport data.",
+                    switch.name,
+                )
+            else:
+                logger.warning(
+                    "SSH switchport detail command failed for switch %s; continuing without switchport data.",
+                    switch.name,
+                    exc_info=True,
+                )
+        try:
             neighbors_by_port = _collect_neighbors(session, switch, timeout=timeout)
             for port in ports:
                 canonical = _canonical_port_name(port.name)
@@ -957,6 +1081,14 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
                     switch.name,
                     exc_info=True,
                 )
+        try:
+            inventory = _collect_inventory(session, switch, timeout=timeout)
+        except SshError:
+            logger.warning(
+                "SSH inventory collection command failed for switch %s; continuing without inventory.",
+                switch.name,
+                exc_info=True,
+            )
     except SshError:
         logger.warning(
             "SSH collection command failed for switch %s; returning empty switch state.",
@@ -967,6 +1099,10 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
         name=switch.name,
         management_ip=switch.management_ip,
         vendor=switch.vendor,
+        platform=inventory.platform,
+        serial_number=inventory.serial_number,
+        os_version=inventory.os_version,
+        uptime=inventory.uptime,
         ports=ports,
         vlans=[],
     )

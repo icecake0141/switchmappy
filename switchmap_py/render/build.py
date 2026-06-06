@@ -273,6 +273,11 @@ def _build_debug_payload(
                 "duplex": port.duplex or "",
                 "speed": port.speed,
                 "last_change": port.last_change or "",
+                "switchport_mode": port.switchport_mode or "",
+                "access_vlan": port.access_vlan or "",
+                "voice_vlan": port.voice_vlan or "",
+                "native_vlan": port.native_vlan or "",
+                "allowed_vlans": port.allowed_vlans or "",
                 "mac_count": mac_count,
                 "correlated_endpoint_count": correlated_count,
                 "neighbor_count": neighbor_count,
@@ -300,6 +305,10 @@ def _build_debug_payload(
                 "name": switch.name,
                 "management_ip": switch.management_ip,
                 "vendor": switch.vendor,
+                "platform": switch.platform,
+                "serial_number": switch.serial_number,
+                "os_version": switch.os_version,
+                "uptime": switch.uptime,
                 "ports": len(switch_ports),
                 "active_ports": sum(1 for port in switch_ports if port.is_link_up),
                 "macs": sum(len(port.macs) for port in switch_ports),
@@ -436,7 +445,19 @@ def _build_history_diff(current: dict[str, object], previous: dict[str, object] 
 
     current_ports = {_port_key(row): row for row in _port_rows(current)}
     previous_ports = {_port_key(row): row for row in _port_rows(previous)}
-    fields = ["oper_status", "admin_status", "vlan", "descr", "duplex", "last_change"]
+    fields = [
+        "oper_status",
+        "admin_status",
+        "vlan",
+        "descr",
+        "duplex",
+        "last_change",
+        "switchport_mode",
+        "access_vlan",
+        "voice_vlan",
+        "native_vlan",
+        "allowed_vlans",
+    ]
     port_changes = []
     for key in sorted(set(current_ports) & set(previous_ports)):
         changes = {

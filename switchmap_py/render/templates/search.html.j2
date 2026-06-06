@@ -74,6 +74,11 @@ Review required for correctness, security, and licensing.
         <th>Status</th>
         <th>VLAN</th>
         <th>Duplex</th>
+        <th>Mode</th>
+        <th>Access</th>
+        <th>Voice</th>
+        <th>Native</th>
+        <th>Allowed</th>
         <th>Neighbor</th>
         <th>Port Role</th>
         <th>In Err</th>
@@ -101,6 +106,11 @@ Review required for correctness, security, and licensing.
         entry.status,
         entry.vlan,
         entry.duplex,
+        entry.switchport_mode,
+        entry.access_vlan,
+        entry.voice_vlan,
+        entry.native_vlan,
+        entry.allowed_vlans,
         entry.neighbor,
         entry.port_role,
         entry.input_errors,
@@ -185,6 +195,11 @@ Review required for correctness, security, and licensing.
         status: '',
         vlan: '',
         duplex: '',
+        switchport_mode: '',
+        access_vlan: '',
+        voice_vlan: '',
+        native_vlan: '',
+        allowed_vlans: '',
         neighbor: '',
         port_role: '',
         input_errors: '',
@@ -208,6 +223,11 @@ Review required for correctness, security, and licensing.
         status: '',
         vlan: '',
         duplex: '',
+        switchport_mode: '',
+        access_vlan: '',
+        voice_vlan: '',
+        native_vlan: '',
+        allowed_vlans: '',
         neighbor: '',
         port_role: entry.port_role ?? '',
         input_errors: '',
@@ -234,6 +254,11 @@ Review required for correctness, security, and licensing.
             status: port.oper_status ?? '',
             vlan: port.vlan ?? '',
             duplex: port.duplex ?? '',
+            switchport_mode: port.switchport_mode ?? '',
+            access_vlan: port.access_vlan ?? '',
+            voice_vlan: port.voice_vlan ?? '',
+            native_vlan: port.native_vlan ?? '',
+            allowed_vlans: port.allowed_vlans ?? '',
             neighbor: (port.neighbors || []).map((n) => {
               const details = [n.protocol ? String(n.protocol).toUpperCase() : '', n.port || ''].filter(Boolean);
               return `${n.device || ''}${details.length ? ` (${details.join(', ')})` : ''}`;
@@ -273,6 +298,11 @@ Review required for correctness, security, and licensing.
           entry.status ?? '',
           entry.vlan ?? '',
           entry.duplex ?? '',
+          entry.switchport_mode ?? '',
+          entry.access_vlan ?? '',
+          entry.voice_vlan ?? '',
+          entry.native_vlan ?? '',
+          entry.allowed_vlans ?? '',
           entry.neighbor ?? '',
           entry.port_role ?? '',
           entry.input_errors ?? '',

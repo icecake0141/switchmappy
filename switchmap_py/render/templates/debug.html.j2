@@ -126,6 +126,10 @@ Review required for correctness, security, and licensing.
             <th>Switch</th>
             <th>Management IP</th>
             <th>Vendor</th>
+            <th>Platform</th>
+            <th>Version</th>
+            <th>Serial</th>
+            <th>Uptime</th>
             <th>Ports</th>
             <th>Active</th>
             <th>MACs</th>
@@ -140,6 +144,10 @@ Review required for correctness, security, and licensing.
             <td>{{ switch.name }}</td>
             <td>{{ switch.management_ip }}</td>
             <td>{{ switch.vendor }}</td>
+            <td>{{ switch.platform }}</td>
+            <td>{{ switch.os_version }}</td>
+            <td>{{ switch.serial_number }}</td>
+            <td>{{ switch.uptime }}</td>
             <td>{{ switch.ports }}</td>
             <td>{{ switch.active_ports }}</td>
             <td>{{ switch.macs }}</td>
@@ -250,6 +258,8 @@ Review required for correctness, security, and licensing.
             <th>Switch</th>
             <th>Port</th>
             <th>VLAN</th>
+            <th>Mode</th>
+            <th>Voice</th>
             <th>MACs</th>
             <th>Endpoints</th>
             <th>Neighbors</th>
@@ -265,6 +275,8 @@ Review required for correctness, security, and licensing.
             <td>{{ row.switch }}</td>
             <td>{{ row.port }}</td>
             <td>{{ row.vlan }}</td>
+            <td>{{ row.switchport_mode }}</td>
+            <td>{{ row.voice_vlan }}</td>
             <td>{{ row.mac_count }}</td>
             <td>{{ row.correlated_endpoint_count }}</td>
             <td>{{ row.neighbor_count }}</td>
@@ -289,6 +301,11 @@ Review required for correctness, security, and licensing.
             <th>Admin</th>
             <th>Oper</th>
             <th>VLAN</th>
+            <th>Mode</th>
+            <th>Access</th>
+            <th>Voice</th>
+            <th>Native</th>
+            <th>Allowed</th>
             <th>Duplex</th>
             <th>Speed</th>
             <th>Last Change</th>
@@ -305,13 +322,18 @@ Review required for correctness, security, and licensing.
         </thead>
         <tbody>
           {% for row in debug.ports %}
-          <tr data-debug-section="port" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan, row.role, row.role_evidence] | join(' ') | lower }}">
+          <tr data-debug-section="port" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan, row.switchport_mode, row.access_vlan, row.voice_vlan, row.native_vlan, row.allowed_vlans, row.role, row.role_evidence] | join(' ') | lower }}">
             <td>{{ row.switch }}</td>
             <td>{{ row.port }}</td>
             <td>{{ row.description }}</td>
             <td>{{ row.admin_status }}</td>
             <td>{{ row.oper_status }}</td>
             <td>{{ row.vlan }}</td>
+            <td>{{ row.switchport_mode }}</td>
+            <td>{{ row.access_vlan }}</td>
+            <td>{{ row.voice_vlan }}</td>
+            <td>{{ row.native_vlan }}</td>
+            <td>{{ row.allowed_vlans }}</td>
             <td>{{ row.duplex }}</td>
             <td>{{ row.speed or '' }}</td>
             <td>{{ row.last_change }}</td>

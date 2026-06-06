@@ -22,6 +22,14 @@ Review required for correctness, security, and licensing.
   <header>
     <h1>{{ switch.name }}</h1>
     <p>Management IP: {{ switch.management_ip }}</p>
+    {% if switch.platform or switch.os_version or switch.serial_number or switch.uptime %}
+    <p>
+      {% if switch.platform %}Platform: {{ switch.platform }}{% endif %}
+      {% if switch.os_version %} Version: {{ switch.os_version }}{% endif %}
+      {% if switch.serial_number %} Serial: {{ switch.serial_number }}{% endif %}
+      {% if switch.uptime %} Uptime: {{ switch.uptime }}{% endif %}
+    </p>
+    {% endif %}
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
   <div>
@@ -62,6 +70,11 @@ Review required for correctness, security, and licensing.
         <th>Duplex</th>
         <th>Last Change</th>
         <th>VLAN</th>
+        <th>Mode</th>
+        <th>Access</th>
+        <th>Voice</th>
+        <th>Native</th>
+        <th>Allowed</th>
         <th>Neighbor</th>
         <th>In Err</th>
         <th>Out Err</th>
@@ -123,6 +136,11 @@ Review required for correctness, security, and licensing.
         <td>{{ port.duplex or '' }}</td>
         <td>{{ port.last_change or '' }}</td>
         <td>{{ port.vlan or '' }}</td>
+        <td>{{ port.switchport_mode or '' }}</td>
+        <td>{{ port.access_vlan or '' }}</td>
+        <td>{{ port.voice_vlan or '' }}</td>
+        <td>{{ port.native_vlan or '' }}</td>
+        <td>{{ port.allowed_vlans or '' }}</td>
         <td>
           {% for neighbor in port.neighbors %}
             <div>{{ neighbor.display_name }}</div>

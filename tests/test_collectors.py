@@ -114,6 +114,7 @@ def test_collect_switch_state_uses_alias_last_change_and_lldp(monkeypatch):
         mibs.LLDP_LOC_PORT_ID: {f"{mibs.LLDP_LOC_PORT_ID}.7": "1"},
         mibs.LLDP_REM_SYS_NAME: {f"{mibs.LLDP_REM_SYS_NAME}.0.7.1": "neighbor-a"},
         mibs.LLDP_REM_PORT_ID: {f"{mibs.LLDP_REM_PORT_ID}.0.7.1": "Gi0/1"},
+        mibs.LLDP_REM_SYS_CAP_ENABLED: {f"{mibs.LLDP_REM_SYS_CAP_ENABLED}.0.7.1": "20"},
     }
 
     monkeypatch.setattr(
@@ -129,6 +130,7 @@ def test_collect_switch_state_uses_alias_last_change_and_lldp(monkeypatch):
     assert [(neighbor.device, neighbor.protocol, neighbor.port) for neighbor in state.ports[0].neighbors] == [
         ("neighbor-a", "lldp", "Gi0/1")
     ]
+    assert state.ports[0].neighbors[0].capabilities == ["bridge", "router"]
 
 
 def test_collect_switch_state_builds_vlan_from_fdb_without_name_table(monkeypatch):

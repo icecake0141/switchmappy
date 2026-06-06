@@ -72,7 +72,7 @@ Review required for correctness, security, and licensing.
       <li>
         <a href="/switches/{{ switch.name }}.html">
           <span>{{ switch.name }}</span>
-          <span class="muted">{{ switch.management_ip }}</span>
+          <span class="muted">{{ switch.management_ip }}{% if switch.platform %} · {{ switch.platform }}{% endif %}</span>
         </a>
       </li>
       {% endfor %}
