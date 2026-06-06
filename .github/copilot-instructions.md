@@ -56,6 +56,7 @@ PR content and quality expectations
 - Validation commands: list exact commands used to validate lint, tests, and formatting.
 - Attach logs or screenshots if the change affects UI or developer UX.
 - Commit messages: follow the repository's convention (e.g., Conventional Commits). Keep commits atomic and well-scoped.
+- Public PRs and repository files must describe only repository code, product behavior, public fixtures, and reproducible commands. Do not include local validation environment details such as private lab names, controller URLs, private IP allocations, node inventories, local workspace paths, temporary artifact directories, or operational notes from a contributor's private lab. Keep that information only in private/local notes outside Git tracking.
 
 PR checklist (include in PR description or use as template)
 - [ ] License header added to new files and top-level LICENSE present

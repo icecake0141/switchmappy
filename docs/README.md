@@ -23,6 +23,7 @@ Review required for correctness, security, and licensing.
 - [Commands](commands.md)
 - [Testing](testing.md)
 - [Migration Notes](migration_notes.md)
+- [SwitchMap Gap Analysis](switchmap_gap_analysis.md)
 
 ## Scope
 

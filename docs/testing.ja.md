@@ -16,7 +16,7 @@ Review required for correctness, security, and licensing.
 
 - English version: [testing.md](testing.md)
 
-## ローカル標準検証
+## 標準検証
 
 ```bash
 python -m ruff check .
@@ -36,3 +36,13 @@ python -m pre_commit run --all-files
 ## 回帰メモ
 
 - XSS 回帰シナリオは `tests/XSS_REGRESSION_TESTS.md` に記載。
+## Mixed-Vendor 回帰検証
+
+mixed-vendor behavior は unit fixture と integration-ready な site 設定で
+検証します。FortiSwitch trunk 検証は 2 段階に分かれます:
+
+- 設定意図: `trunk_ports` で既知の uplink を明示し、endpoint や MAC 数に
+  依存せず trunk/uplink として表示されること。
+- デバイス報告の証跡: FortiSwitch の physical port と VLAN membership 出力から
+  access VLAN、port mode、allowed VLAN fields を埋めること。trunk/uplink
+  状態は、見えているホスト MAC 数から推測してはいけません。

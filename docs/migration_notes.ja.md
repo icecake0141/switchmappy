@@ -38,6 +38,8 @@ Review required for correctness, security, and licensing.
 
 ## Perl SwitchMap との差分として残るもの
 
+詳細な一覧は [SwitchMap 差分分析](switchmap_gap_analysis.ja.md) を参照してください。
+
 - 従来HTMLレイアウトの完全一致は保証しません。
 - 長年運用された Perl 版に比べ、機種別OID対応の幅はまだ狭い可能性があります。
 - `ThisSite.pm` の公開・定期実行などのサイト固有処理は、Perl互換ランタイムではなく
