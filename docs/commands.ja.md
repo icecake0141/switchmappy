@@ -39,8 +39,18 @@ Review required for correctness, security, and licensing.
 - オプション:
   - `--source csv|snmp` (既定: `csv`)
   - `--csv <path>` (`--source csv` 時に必須)
+  - `--resolve-hostnames`: 逆引き DNS に成功したホスト名を追加
 - 挙動:
   - `snmp` 利用時は `routers` 設定が必須。
+
+## `import-hostnames`
+
+- 目的: IPAM、DHCP lease、またはインベントリのホスト名を MAC リストへ統合。
+- オプション:
+  - `--csv <path>` は `mac,ip,hostname` または `ip,hostname` の行を受け付ける
+  - `--overwrite | --no-overwrite` で既存ホスト名の置き換えを制御
+- 挙動:
+  - MAC アドレスを優先し、次に IP アドレスで照合。
 
 ## `build-html`
 
@@ -50,6 +60,10 @@ Review required for correctness, security, and licensing.
 - 挙動:
   - スイッチ単位の SNMP/SSH 失敗時は継続し、
   - 失敗理由を出力インデックスに記録。
+  - `history_directory` に JSON 履歴スナップショットを保存。
+  - 収集と相関の診断用に `/debug/index.html` を生成。
+  - 前回 snapshot との差分用に `/history/index.html` を生成。
+  - collector artifact を `collection_artifacts_directory` に保存。
 
 ## `serve-search`
 

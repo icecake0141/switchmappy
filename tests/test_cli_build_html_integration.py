@@ -53,6 +53,8 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
                 f"destination_directory: {output_dir}",
                 f"idlesince_directory: {tmp_path / 'idlesince'}",
                 f"maclist_file: {maclist_path}",
+                f"history_directory: {tmp_path / 'history'}",
+                f"collection_artifacts_directory: {tmp_path / 'artifacts'}",
                 "unused_after_days: 30",
                 "switches:",
                 "  - name: sw-ok",
@@ -77,7 +79,8 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
         },
     )
 
-    def fake_collect_switch_state(sw, _timeout, _retries):
+    def fake_collect_switch_state(sw, _timeout, _retries, artifact_dir=None):
+        assert artifact_dir is not None
         if sw.name == "sw-bad":
             raise SnmpError("SNMP failure")
         return Switch(
@@ -108,6 +111,7 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
     assert (output_dir / "index.html").exists()
     assert (output_dir / "switches" / "sw-ok.html").exists()
     assert (output_dir / "ports" / "index.html").exists()
+    assert (output_dir / "history" / "index.html").exists()
     assert (output_dir / "vlans" / "index.html").exists()
     assert (output_dir / "search" / "index.html").exists()
     assert (output_dir / "search" / "index.json").exists()
@@ -119,6 +123,6 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
     assert "sw-bad" in index_html
     assert "192.0.2.100 (host-a)" in switch_html
     assert "Users" in vlan_html
-    assert "Trunk" in switch_html
+    assert "configured_trunk" in switch_html
     assert "Unused (>= 30d)" in switch_html
     assert "Unused (>= 30d)" in ports_html

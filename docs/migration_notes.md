@@ -29,3 +29,19 @@ Review required for correctness, security, and licensing.
 
 - SNMP v1/v2c/v3 are supported.
 - Switch collection supports `collection_method: snmp|ssh`.
+- Cisco-like SSH collection captures `show interfaces switchport` evidence for
+  operational mode, access VLAN, voice VLAN, native VLAN, and allowed VLANs.
+- Switch inventory is exposed where available. SSH uses `show version` for
+  Cisco-like devices; SNMP exposes `sysDescr` and `sysUpTime`.
+- LLDP/CDP neighbor capabilities are retained when available, including SNMP
+  LLDP capability bitmap decoding.
+
+## Remaining Differences from Perl SwitchMap
+
+- Exact legacy HTML layout parity is not guaranteed.
+- Device-family OID coverage may still be narrower than mature Perl deployments.
+- Site-specific `ThisSite.pm` behaviors such as publishing and scheduling are
+  represented as YAML configuration and local commands, not as a Perl-compatible
+  runtime.
+- Location or office-specific workflows from `FindOffice.pl` are represented by
+  search/debug pages, not by a one-for-one UI clone.

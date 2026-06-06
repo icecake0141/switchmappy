@@ -15,7 +15,7 @@ Review required for correctness, security, and licensing.
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Search - SwitchMap</title>
+  <title>Search - SwitchMappy</title>
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
@@ -27,6 +27,7 @@ Review required for correctness, security, and licensing.
     <label for="typeFilter">Type:</label>
     <select id="typeFilter">
       <option value="">All</option>
+      <option value="endpoint">Endpoint</option>
       <option value="port">Port</option>
       <option value="mac">MAC</option>
     </select>
@@ -40,6 +41,13 @@ Review required for correctness, security, and licensing.
     <input id="vlanFilter" type="text" placeholder="e.g. 10" />
     <label for="neighborFilter">Neighbor:</label>
     <input id="neighborFilter" type="text" placeholder="e.g. dist-sw1" />
+    <label for="roleFilter">Role:</label>
+    <select id="roleFilter">
+      <option value="">All</option>
+      <option value="configured_trunk">configured_trunk</option>
+      <option value="network_neighbor">network_neighbor</option>
+      <option value="unknown">unknown</option>
+    </select>
     <label for="inErrFilter">In Err >=</label>
     <input id="inErrFilter" type="number" min="0" step="1" placeholder="0" />
     <label for="outErrFilter">Out Err >=</label>
@@ -65,12 +73,21 @@ Review required for correctness, security, and licensing.
         <th>Port</th>
         <th>Status</th>
         <th>VLAN</th>
+        <th>Duplex</th>
+        <th>Mode</th>
+        <th>Access</th>
+        <th>Voice</th>
+        <th>Native</th>
+        <th>Allowed</th>
         <th>Neighbor</th>
+        <th>Port Role</th>
         <th>In Err</th>
         <th>Out Err</th>
         <th>MAC</th>
+        <th>Vendor</th>
         <th>IP</th>
         <th>Hostname</th>
+        <th>Warning</th>
       </tr>
     </thead>
     <tbody id="results"></tbody>
@@ -88,12 +105,21 @@ Review required for correctness, security, and licensing.
         entry.port,
         entry.status,
         entry.vlan,
+        entry.duplex,
+        entry.switchport_mode,
+        entry.access_vlan,
+        entry.voice_vlan,
+        entry.native_vlan,
+        entry.allowed_vlans,
         entry.neighbor,
+        entry.port_role,
         entry.input_errors,
         entry.output_errors,
         entry.mac,
+        entry.vendor,
         entry.ip,
         entry.hostname,
+        entry.warning,
       ]
         .filter(Boolean)
         .join(' ')
@@ -107,6 +133,7 @@ Review required for correctness, security, and licensing.
       const status = document.getElementById('statusFilter').value;
       const vlan = document.getElementById('vlanFilter').value.toLowerCase().trim();
       const neighbor = document.getElementById('neighborFilter').value.toLowerCase().trim();
+      const role = document.getElementById('roleFilter').value;
       const inErr = document.getElementById('inErrFilter').value.trim();
       const outErr = document.getElementById('outErrFilter').value.trim();
       const minInErr = inErr ? Number.parseInt(inErr, 10) : null;
@@ -122,6 +149,9 @@ Review required for correctness, security, and licensing.
           return false;
         }
         if (neighbor && !(entry.neighbor || '').toLowerCase().includes(neighbor)) {
+          return false;
+        }
+        if (role && entry.port_role !== role) {
           return false;
         }
         if (minInErr !== null && Number.isFinite(minInErr) && Number(entry.input_errors || 0) < minInErr) {
@@ -164,12 +194,49 @@ Review required for correctness, security, and licensing.
         port: entry.port ?? '',
         status: '',
         vlan: '',
+        duplex: '',
+        switchport_mode: '',
+        access_vlan: '',
+        voice_vlan: '',
+        native_vlan: '',
+        allowed_vlans: '',
         neighbor: '',
+        port_role: '',
         input_errors: '',
         output_errors: '',
         mac: entry.mac ?? '',
+        vendor: '',
         ip: entry.ip ?? '',
         hostname: entry.hostname ?? '',
+        warning: '',
+        target_url: (entry.switch && entry.port)
+          ? `/switches/${entry.switch}.html#port-${entry.port.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
+          : '',
+      }));
+    }
+
+    function endpointEntries(index) {
+      return (index.endpoint_correlations || []).map((entry) => ({
+        type: 'endpoint',
+        switch: entry.switch ?? '',
+        port: entry.port ?? '',
+        status: '',
+        vlan: '',
+        duplex: '',
+        switchport_mode: '',
+        access_vlan: '',
+        voice_vlan: '',
+        native_vlan: '',
+        allowed_vlans: '',
+        neighbor: '',
+        port_role: entry.port_role ?? '',
+        input_errors: '',
+        output_errors: '',
+        mac: entry.mac ?? '',
+        vendor: entry.vendor ?? '',
+        ip: entry.ip ?? '',
+        hostname: entry.hostname ?? '',
+        warning: entry.warning ?? '',
         target_url: (entry.switch && entry.port)
           ? `/switches/${entry.switch}.html#port-${entry.port.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
           : '',
@@ -186,12 +253,24 @@ Review required for correctness, security, and licensing.
             port: port.name ?? '',
             status: port.oper_status ?? '',
             vlan: port.vlan ?? '',
-            neighbor: (port.neighbors || []).map((n) => n.device || '').filter(Boolean).join(', '),
+            duplex: port.duplex ?? '',
+            switchport_mode: port.switchport_mode ?? '',
+            access_vlan: port.access_vlan ?? '',
+            voice_vlan: port.voice_vlan ?? '',
+            native_vlan: port.native_vlan ?? '',
+            allowed_vlans: port.allowed_vlans ?? '',
+            neighbor: (port.neighbors || []).map((n) => {
+              const details = [n.protocol ? String(n.protocol).toUpperCase() : '', n.port || ''].filter(Boolean);
+              return `${n.device || ''}${details.length ? ` (${details.join(', ')})` : ''}`;
+            }).filter(Boolean).join(', '),
+            port_role: port.role ?? '',
             input_errors: port.input_errors ?? 0,
             output_errors: port.output_errors ?? 0,
             mac: (port.macs || []).join(', '),
+            vendor: '',
             ip: '',
             hostname: '',
+            warning: '',
             target_url: (sw.name && port.name)
               ? `/switches/${sw.name}.html#port-${port.name.replaceAll('/', '-').replaceAll(' ', '-').replaceAll('.', '-')}`
               : '',
@@ -202,7 +281,7 @@ Review required for correctness, security, and licensing.
     }
 
     function buildEntries(index) {
-      return macEntries(index).concat(switchPortEntries(index));
+      return endpointEntries(index).concat(macEntries(index), switchPortEntries(index));
     }
 
     function render(entries) {
@@ -218,12 +297,21 @@ Review required for correctness, security, and licensing.
           entry.port ?? '',
           entry.status ?? '',
           entry.vlan ?? '',
+          entry.duplex ?? '',
+          entry.switchport_mode ?? '',
+          entry.access_vlan ?? '',
+          entry.voice_vlan ?? '',
+          entry.native_vlan ?? '',
+          entry.allowed_vlans ?? '',
           entry.neighbor ?? '',
+          entry.port_role ?? '',
           entry.input_errors ?? '',
           entry.output_errors ?? '',
           entry.mac ?? '',
+          entry.vendor ?? '',
           entry.ip ?? '',
           entry.hostname ?? '',
+          entry.warning ?? '',
         ];
         for (const value of values) {
           const cell = document.createElement('td');
@@ -247,6 +335,7 @@ Review required for correctness, security, and licensing.
       document.getElementById('statusFilter').value = params.get('status') || '';
       document.getElementById('vlanFilter').value = params.get('vlan') || '';
       document.getElementById('neighborFilter').value = params.get('neighbor') || '';
+      document.getElementById('roleFilter').value = params.get('role') || '';
       document.getElementById('inErrFilter').value = params.get('inErr') || '';
       document.getElementById('outErrFilter').value = params.get('outErr') || '';
       document.getElementById('sortBy').value = params.get('sort') || 'switch-port';
@@ -259,6 +348,7 @@ Review required for correctness, security, and licensing.
       const status = document.getElementById('statusFilter').value;
       const vlan = document.getElementById('vlanFilter').value.trim();
       const neighbor = document.getElementById('neighborFilter').value.trim();
+      const role = document.getElementById('roleFilter').value;
       const inErr = document.getElementById('inErrFilter').value.trim();
       const outErr = document.getElementById('outErrFilter').value.trim();
       const sort = document.getElementById('sortBy').value;
@@ -267,6 +357,7 @@ Review required for correctness, security, and licensing.
       if (status) params.set('status', status);
       if (vlan) params.set('vlan', vlan);
       if (neighbor) params.set('neighbor', neighbor);
+      if (role) params.set('role', role);
       if (inErr) params.set('inErr', inErr);
       if (outErr) params.set('outErr', outErr);
       if (sort && sort !== 'switch-port') params.set('sort', sort);
@@ -289,6 +380,7 @@ Review required for correctness, security, and licensing.
         document.getElementById('statusFilter').value = '';
         document.getElementById('vlanFilter').value = '';
         document.getElementById('neighborFilter').value = '';
+        document.getElementById('roleFilter').value = '';
         document.getElementById('inErrFilter').value = '';
         document.getElementById('outErrFilter').value = '';
         document.getElementById('sortBy').value = 'switch-port';
@@ -300,6 +392,7 @@ Review required for correctness, security, and licensing.
       document.getElementById('statusFilter').addEventListener('change', refresh);
       document.getElementById('vlanFilter').addEventListener('input', refresh);
       document.getElementById('neighborFilter').addEventListener('input', refresh);
+      document.getElementById('roleFilter').addEventListener('change', refresh);
       document.getElementById('inErrFilter').addEventListener('input', refresh);
       document.getElementById('outErrFilter').addEventListener('input', refresh);
       document.getElementById('sortBy').addEventListener('change', refresh);

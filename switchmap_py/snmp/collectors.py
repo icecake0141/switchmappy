@@ -24,8 +24,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Mapping
 
+from switchmap_py.artifacts import CollectorArtifactRecorder
 from switchmap_py.config import SwitchConfig
+from switchmap_py.model.neighbor import Neighbor
 from switchmap_py.model.port import Port
 from switchmap_py.model.switch import Switch
 from switchmap_py.model.vlan import Vlan
@@ -41,6 +45,18 @@ class PortSnapshot:
     is_active: bool
     mac_count: int
     oper_status: str
+
+
+_LLDP_CAPABILITIES = {
+    1: "other",
+    2: "repeater",
+    3: "bridge",
+    4: "wlan",
+    5: "router",
+    6: "telephone",
+    7: "docsis",
+    8: "station",
+}
 
 
 def build_session(switch: SwitchConfig, timeout: int, retries: int) -> SnmpSession:
@@ -59,6 +75,21 @@ def build_session(switch: SwitchConfig, timeout: int, retries: int) -> SnmpSessi
             retries=retries,
         )
     )
+
+
+class RecordingSnmpSession:
+    def __init__(self, session: SnmpSession, recorder: CollectorArtifactRecorder) -> None:
+        self.session = session
+        self.recorder = recorder
+
+    def get_table(self, oid: str) -> Mapping[str, str]:
+        try:
+            rows = self.session.get_table(oid)
+        except SnmpError:
+            self.recorder.record_table(oid=oid, rows={}, status="error")
+            raise
+        self.recorder.record_table(oid=oid, rows=rows)
+        return rows
 
 
 def _normalize_status(value: str) -> str:
@@ -214,20 +245,113 @@ def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, 
     return macs_by_ifindex, vlan_ids_by_ifindex
 
 
-def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Switch:
+def _lldp_local_port_number(oid: str, prefix: str) -> str | None:
+    prefix_parts = prefix.split(".")
+    oid_parts = oid.split(".")
+    if oid_parts[: len(prefix_parts)] != prefix_parts:
+        return None
+    suffix = oid_parts[len(prefix_parts) :]
+    return suffix[0] if suffix else None
+
+
+def _lldp_remote_index(oid: str, prefix: str) -> tuple[str, str, str] | None:
+    prefix_parts = prefix.split(".")
+    oid_parts = oid.split(".")
+    if oid_parts[: len(prefix_parts)] != prefix_parts:
+        return None
+    suffix = oid_parts[len(prefix_parts) :]
+    if len(suffix) < 3:
+        return None
+    return suffix[0], suffix[1], suffix[2]
+
+
+def _collect_lldp_neighbors(session: SnmpSession, ports_by_ifindex: dict[int, Port]) -> None:
+    try:
+        local_port_ids = session.get_table(mibs.LLDP_LOC_PORT_ID)
+        remote_systems = session.get_table(mibs.LLDP_REM_SYS_NAME)
+        remote_ports = session.get_table(mibs.LLDP_REM_PORT_ID)
+    except SnmpError:
+        logger.debug("Failed to fetch LLDP tables.", exc_info=True)
+        return
+    try:
+        remote_capabilities = session.get_table(mibs.LLDP_REM_SYS_CAP_ENABLED)
+    except SnmpError:
+        logger.debug("Failed to fetch LLDP capability table.", exc_info=True)
+        remote_capabilities = {}
+
+    local_port_to_ifindex: dict[str, int] = {}
+    canonical_ifnames = {port.name.lower(): ifindex for ifindex, port in ports_by_ifindex.items()}
+    for oid, port_id in local_port_ids.items():
+        local_number = _lldp_local_port_number(oid, mibs.LLDP_LOC_PORT_ID)
+        if local_number is None:
+            continue
+        if port_id.isdigit():
+            local_port_to_ifindex[local_number] = int(port_id)
+            continue
+        ifindex = canonical_ifnames.get(port_id.lower())
+        if ifindex is not None:
+            local_port_to_ifindex[local_number] = ifindex
+
+    for oid, system_name in remote_systems.items():
+        index = _lldp_remote_index(oid, mibs.LLDP_REM_SYS_NAME)
+        if index is None:
+            continue
+        _time_mark, local_port_num, remote_index = index
+        ifindex = local_port_to_ifindex.get(local_port_num)
+        if ifindex is None:
+            continue
+        port = ports_by_ifindex.get(ifindex)
+        if port is None:
+            continue
+        remote_port_oid = f"{mibs.LLDP_REM_PORT_ID}.{'.'.join(index)}"
+        remote_capability_oid = f"{mibs.LLDP_REM_SYS_CAP_ENABLED}.{'.'.join(index)}"
+        port.neighbors.append(
+            Neighbor(
+                device=system_name,
+                protocol="lldp",
+                port=remote_ports.get(remote_port_oid) or remote_index,
+                capabilities=_parse_lldp_capabilities(remote_capabilities.get(remote_capability_oid, "")),
+            )
+        )
+
+
+def _parse_lldp_capabilities(value: str) -> list[str]:
+    token = value.strip()
+    if not token:
+        return []
+    try:
+        numeric = int(token, 0)
+    except ValueError:
+        return [part.lower() for part in token.replace(",", " ").split() if part]
+    return [label for bit, label in _LLDP_CAPABILITIES.items() if numeric & (1 << (bit - 1))]
+
+
+def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artifact_dir: Path | None = None) -> Switch:
     session = build_session(switch, timeout, retries)
+    if artifact_dir is not None:
+        session = RecordingSnmpSession(session, CollectorArtifactRecorder(artifact_dir, switch.name, "snmp"))
     names = session.get_table(mibs.IF_NAME)
+    aliases = session.get_table(mibs.IF_ALIAS)
     descrs = session.get_table(mibs.IF_DESCR)
     admin = session.get_table(mibs.IF_ADMIN_STATUS)
     oper = session.get_table(mibs.IF_OPER_STATUS)
+    last_changes = session.get_table(mibs.IF_LAST_CHANGE)
     speeds = session.get_table(mibs.IF_SPEED)
+    try:
+        sys_descr = session.get_table(mibs.SYS_DESCR)
+    except SnmpError:
+        sys_descr = {}
+    try:
+        sys_uptime = session.get_table(mibs.SYS_UPTIME)
+    except SnmpError:
+        sys_uptime = {}
 
     ports: list[Port] = []
     ports_by_ifindex: dict[int, Port] = {}
     for oid, name in names.items():
         index = oid.split(".")[-1]
         ifindex = int(index) if index.isdigit() else None
-        descr = descrs.get(f"{mibs.IF_DESCR}.{index}", "")
+        descr = aliases.get(f"{mibs.IF_ALIAS}.{index}", "") or descrs.get(f"{mibs.IF_DESCR}.{index}", "")
         resolved_name = _select_port_name(
             (name or "").strip(),
             (descr or "").strip(),
@@ -243,6 +367,7 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Sw
             oper_status=oper_status,
             speed=int(speed) if speed and speed.isdigit() else None,
             vlan=None,
+            last_change=last_changes.get(f"{mibs.IF_LAST_CHANGE}.{index}"),
             macs=[],
             idle_since=None,
             last_active=None,
@@ -261,6 +386,7 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Sw
         port = ports_by_ifindex.get(ifindex)
         if port and vlan_ids:
             port.vlan = ",".join(sorted(vlan_ids, key=_vlan_sort_key))
+    _collect_lldp_neighbors(session, ports_by_ifindex)
 
     vlans: list[Vlan] = []
     try:
@@ -301,6 +427,8 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int) -> Sw
         name=switch.name,
         management_ip=switch.management_ip,
         vendor=switch.vendor,
+        platform=next(iter(sys_descr.values()), ""),
+        uptime=next(iter(sys_uptime.values()), ""),
         ports=ports,
         vlans=vlans,
     )
