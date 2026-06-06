@@ -448,12 +448,15 @@ def _add_neighbor(
     device: str,
     protocol: str,
     remote_port: str | None = None,
+    capabilities: list[str] | None = None,
 ) -> None:
     neighbors = table.setdefault(local_port, [])
     key = (device.lower(), (remote_port or "").lower(), protocol.lower())
     if any((n.device.lower(), (n.port or "").lower(), n.protocol.lower()) == key for n in neighbors):
         return
-    neighbors.append(Neighbor(device=device, protocol=protocol, port=remote_port))
+    neighbors.append(
+        Neighbor(device=device, protocol=protocol, port=remote_port, capabilities=list(capabilities or []))
+    )
 
 
 def _parse_neighbor_table(text: str, protocol: str) -> dict[str, list[Neighbor]]:
@@ -497,6 +500,7 @@ def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
     current_local: str | None = None
     current_neighbor: str | None = None
     current_remote_port: str | None = None
+    current_capabilities: list[str] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
@@ -507,10 +511,12 @@ def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
                     current_neighbor,
                     "lldp",
                     remote_port=current_remote_port,
+                    capabilities=current_capabilities,
                 )
             current_local = None
             current_neighbor = None
             current_remote_port = None
+            current_capabilities = []
             continue
         lower = line.lower()
         if lower.startswith("local intf:") or lower.startswith("local interface:"):
@@ -523,9 +529,25 @@ def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
         if lower.startswith("port id:"):
             current_remote_port = line.split(":", 1)[1].strip()
             continue
+        if "capabilities:" in lower:
+            current_capabilities = _parse_capabilities(line.split(":", 1)[1])
+            continue
     if current_local and current_neighbor:
-        _add_neighbor(neighbors_by_port, current_local, current_neighbor, "lldp", remote_port=current_remote_port)
+        _add_neighbor(
+            neighbors_by_port,
+            current_local,
+            current_neighbor,
+            "lldp",
+            remote_port=current_remote_port,
+            capabilities=current_capabilities,
+        )
     return neighbors_by_port
+
+
+def _parse_capabilities(value: str) -> list[str]:
+    tokens = [token.strip(" ,") for token in re.split(r"[\s,]+", value) if token.strip(" ,")]
+    ignored = {"capabilities", "enabled", "system", "bridge:"}
+    return [token.lower() for token in tokens if token.lower() not in ignored]
 
 
 def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
@@ -533,14 +555,23 @@ def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
     current_local: str | None = None
     current_neighbor: str | None = None
     current_remote_port: str | None = None
+    current_capabilities: list[str] = []
 
     def flush_current() -> None:
         nonlocal current_local, current_neighbor, current_remote_port
         if current_local and current_neighbor:
-            _add_neighbor(neighbors_by_port, current_local, current_neighbor, "cdp", remote_port=current_remote_port)
+            _add_neighbor(
+                neighbors_by_port,
+                current_local,
+                current_neighbor,
+                "cdp",
+                remote_port=current_remote_port,
+                capabilities=current_capabilities,
+            )
         current_local = None
         current_neighbor = None
         current_remote_port = None
+        current_capabilities.clear()
 
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -553,6 +584,9 @@ def _parse_cisco_cdp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
         if lower.startswith("device id:"):
             flush_current()
             current_neighbor = line.split(":", 1)[1].strip()
+            continue
+        if "capabilities:" in lower:
+            current_capabilities[:] = _parse_capabilities(line.split("Capabilities:", 1)[1])
             continue
         if lower.startswith("interface:"):
             rhs = line.split(":", 1)[1]

@@ -294,6 +294,7 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert debug["correlation_trace"][0]["source"] == "maclist + switch mac table"
     assert debug["artifacts"][0]["name"] == "show interfaces status"
     assert "Collector Artifacts" in debug_html
+    assert 'id="debugRole"' in debug_html
 
 
 def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):

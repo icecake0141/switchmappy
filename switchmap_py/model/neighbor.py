@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -21,6 +21,7 @@ class Neighbor:
     device: str
     protocol: str
     port: Optional[str] = None
+    capabilities: list[str] = field(default_factory=list)
 
     @property
     def display_name(self) -> str:
@@ -30,5 +31,7 @@ class Neighbor:
             details.append(protocol)
         if self.port:
             details.append(self.port)
+        if self.capabilities:
+            details.append("/".join(self.capabilities))
         suffix = f" ({', '.join(details)})" if details else ""
         return f"{self.device}{suffix}"

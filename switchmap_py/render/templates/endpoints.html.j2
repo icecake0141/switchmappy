@@ -23,7 +23,15 @@ Review required for correctness, security, and licensing.
     <h1>Endpoints</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
-  <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, role, warning" />
+  <div class="filter-row">
+    <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, role, warning" />
+    <select id="endpointRoleFilter">
+      <option value="">All roles</option>
+      <option value="configured_trunk">configured_trunk</option>
+      <option value="network_neighbor">network_neighbor</option>
+      <option value="unknown">unknown</option>
+    </select>
+  </div>
   <table>
     <thead>
       <tr>
@@ -39,7 +47,7 @@ Review required for correctness, security, and licensing.
     </thead>
     <tbody>
       {% for endpoint in endpoints %}
-      <tr data-filter="{{ [endpoint.hostname, endpoint.ip, endpoint.mac, endpoint.vendor, endpoint.switch, endpoint.port, endpoint.port_role, endpoint.warning] | join(' ') | lower }}">
+      <tr data-role="{{ endpoint.port_role or '' }}" data-filter="{{ [endpoint.hostname, endpoint.ip, endpoint.mac, endpoint.vendor, endpoint.switch, endpoint.port, endpoint.port_role, endpoint.warning] | join(' ') | lower }}">
         <td>{{ endpoint.hostname or '' }}</td>
         <td>{{ endpoint.ip or '' }}</td>
         <td>{{ endpoint.mac }}</td>
@@ -64,12 +72,18 @@ Review required for correctness, security, and licensing.
   </table>
   <script>
     const endpointFilter = document.getElementById('endpointFilter');
-    endpointFilter.addEventListener('input', (event) => {
-      const query = event.target.value.toLowerCase().trim();
+    const endpointRoleFilter = document.getElementById('endpointRoleFilter');
+    function applyEndpointFilters() {
+      const query = endpointFilter.value.toLowerCase().trim();
+      const role = endpointRoleFilter.value;
       for (const row of document.querySelectorAll('tbody tr[data-filter]')) {
-        row.style.display = !query || row.dataset.filter.includes(query) ? '' : 'none';
+        const matchesQuery = !query || row.dataset.filter.includes(query);
+        const matchesRole = !role || row.dataset.role === role;
+        row.style.display = matchesQuery && matchesRole ? '' : 'none';
       }
-    });
+    }
+    endpointFilter.addEventListener('input', applyEndpointFilters);
+    endpointRoleFilter.addEventListener('change', applyEndpointFilters);
   </script>
 </body>
 </html>

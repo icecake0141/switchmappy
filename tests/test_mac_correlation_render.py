@@ -336,4 +336,6 @@ def test_build_site_marks_configured_trunk_and_network_neighbor_roles(tmp_path):
     assert search_index["endpoint_correlations"][0]["port_role"] == "configured_trunk"
     assert "configured_trunk" in switch_html
     assert "network_neighbor" in switch_html
+    assert 'id="roleFilter"' in switch_html
+    assert 'id="endpointRoleFilter"' in endpoints_html
     assert "configured_trunk" in endpoints_html

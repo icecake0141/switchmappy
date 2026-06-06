@@ -71,6 +71,12 @@ Review required for correctness, security, and licensing.
         <option value="port">Port debug</option>
         <option value="artifact">Artifacts</option>
       </select>
+      <select id="debugRole">
+        <option value="">All roles</option>
+        <option value="configured_trunk">configured_trunk</option>
+        <option value="network_neighbor">network_neighbor</option>
+        <option value="unknown">unknown</option>
+      </select>
       <button id="debugReset" type="button">Reset</button>
     </div>
   </section>
@@ -253,7 +259,7 @@ Review required for correctness, security, and licensing.
         </thead>
         <tbody>
           {% for row in debug.anomalies %}
-          <tr data-debug-section="anomaly" data-debug-filter="{{ [row.severity, row.type, row.switch, row.port, row.vlan] | join(' ') | lower }}">
+          <tr data-debug-section="anomaly" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.severity, row.type, row.switch, row.port, row.vlan, row.role] | join(' ') | lower }}">
             <td>{{ row.severity }}</td>
             <td>{{ row.type }}</td>
             <td>{{ row.switch }}</td>
@@ -299,7 +305,7 @@ Review required for correctness, security, and licensing.
         </thead>
         <tbody>
           {% for row in debug.ports %}
-          <tr data-debug-section="port" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan] | join(' ') | lower }}">
+          <tr data-debug-section="port" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan, row.role, row.role_evidence] | join(' ') | lower }}">
             <td>{{ row.switch }}</td>
             <td>{{ row.port }}</td>
             <td>{{ row.description }}</td>
@@ -362,18 +368,23 @@ Review required for correctness, security, and licensing.
     function applyDebugFilters() {
       const query = document.getElementById('debugQuery').value.toLowerCase().trim();
       const section = document.getElementById('debugSection').value;
+      const role = document.getElementById('debugRole').value;
       for (const row of document.querySelectorAll('[data-debug-section]')) {
         const matchesSection = !section || row.dataset.debugSection === section;
         const matchesQuery = !query || (row.dataset.debugFilter || '').includes(query);
-        row.hidden = !(matchesSection && matchesQuery);
+        const rowRole = row.dataset.debugRole || '';
+        const matchesRole = !role || rowRole === role;
+        row.hidden = !(matchesSection && matchesQuery && matchesRole);
       }
     }
 
     document.getElementById('debugQuery').addEventListener('input', applyDebugFilters);
     document.getElementById('debugSection').addEventListener('change', applyDebugFilters);
+    document.getElementById('debugRole').addEventListener('change', applyDebugFilters);
     document.getElementById('debugReset').addEventListener('click', () => {
       document.getElementById('debugQuery').value = '';
       document.getElementById('debugSection').value = '';
+      document.getElementById('debugRole').value = '';
       applyDebugFilters();
     });
   </script>

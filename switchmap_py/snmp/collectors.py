@@ -292,6 +292,7 @@ def _collect_lldp_neighbors(session: SnmpSession, ports_by_ifindex: dict[int, Po
                 device=system_name,
                 protocol="lldp",
                 port=remote_ports.get(remote_port_oid) or remote_index,
+                capabilities=[],
             )
         )
 

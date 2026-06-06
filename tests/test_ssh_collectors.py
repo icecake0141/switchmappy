@@ -132,6 +132,7 @@ Holdtime : 149 sec
 
     assert [neighbor.device for neighbor in neighbors["et0/1"]] == ["switchmappy-sw2.switchmappy.local"]
     assert neighbors["et0/1"][0].port == "Ethernet0/1"
+    assert neighbors["et0/1"][0].capabilities == ["router", "switch", "igmp"]
     assert [neighbor.device for neighbor in neighbors["et0/0"]] == ["switchmappy-sw2.switchmappy.local"]
 
 

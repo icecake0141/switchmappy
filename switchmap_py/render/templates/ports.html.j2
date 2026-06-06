@@ -34,6 +34,13 @@ Review required for correctness, security, and licensing.
     <input id="poeFilter" type="text" placeholder="e.g. on, delivering" />
     <label for="neighborFilter">Neighbor:</label>
     <input id="neighborFilter" type="text" placeholder="e.g. dist-sw1" />
+    <label for="roleFilter">Role:</label>
+    <select id="roleFilter">
+      <option value="">All</option>
+      <option value="configured_trunk">configured_trunk</option>
+      <option value="network_neighbor">network_neighbor</option>
+      <option value="unknown">unknown</option>
+    </select>
     <label for="inErrFilter">In Err >=</label>
     <input id="inErrFilter" type="number" min="0" step="1" placeholder="0" />
     <label for="outErrFilter">Out Err >=</label>
@@ -93,6 +100,7 @@ Review required for correctness, security, and licensing.
           data-status="{{ port.oper_status | lower }}"
           data-state="{{ state_label }}"
           data-neighbor="{{ port.neighbor_names | join(',') | lower }}"
+          data-role="{{ port.role | lower }}"
           data-poe="{{ (port.poe_status or '') | lower }}"
           data-in-err="{{ port.input_errors if port.input_errors is not none else 0 }}"
           data-out-err="{{ port.output_errors if port.output_errors is not none else 0 }}"
@@ -162,6 +170,7 @@ Review required for correctness, security, and licensing.
       const status = document.getElementById('statusFilter').value;
       const poe = document.getElementById('poeFilter').value.toLowerCase().trim();
       const neighbor = document.getElementById('neighborFilter').value.toLowerCase().trim();
+      const role = document.getElementById('roleFilter').value;
       const inErr = document.getElementById('inErrFilter').value.trim();
       const outErr = document.getElementById('outErrFilter').value.trim();
       const minInErr = inErr ? Number.parseInt(inErr, 10) : null;
@@ -178,6 +187,7 @@ Review required for correctness, security, and licensing.
           (!status || rowStatus === status) &&
           (!poe || rowPoe.includes(poe)) &&
           (!neighbor || rowNeighbor.includes(neighbor)) &&
+          (!role || row.dataset.role === role) &&
           (minInErr === null || !Number.isFinite(minInErr) || rowInErr >= minInErr) &&
           (minOutErr === null || !Number.isFinite(minOutErr) || rowOutErr >= minOutErr);
         row.hidden = !match;
@@ -191,6 +201,7 @@ Review required for correctness, security, and licensing.
       document.getElementById('statusFilter').value = '';
       document.getElementById('poeFilter').value = '';
       document.getElementById('neighborFilter').value = '';
+      document.getElementById('roleFilter').value = '';
       document.getElementById('inErrFilter').value = '';
       document.getElementById('outErrFilter').value = '';
       applyFilters();
@@ -199,6 +210,7 @@ Review required for correctness, security, and licensing.
     document.getElementById('statusFilter').addEventListener('change', applyFilters);
     document.getElementById('poeFilter').addEventListener('input', applyFilters);
     document.getElementById('neighborFilter').addEventListener('input', applyFilters);
+    document.getElementById('roleFilter').addEventListener('change', applyFilters);
     document.getElementById('inErrFilter').addEventListener('input', applyFilters);
     document.getElementById('outErrFilter').addEventListener('input', applyFilters);
     document.getElementById('resetFilters').addEventListener('click', resetFilters);
