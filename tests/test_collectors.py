@@ -57,7 +57,7 @@ def test_collect_switch_state_falls_back_to_descr_or_ifindex(monkeypatch):
         "build_session",
         lambda *_args, **_kwargs: StubSession(tables),
     )
-    monkeypatch.setattr(collectors, "_collect_macs", lambda _session: ({}, {}))
+    monkeypatch.setattr(collectors, "_collect_macs", lambda _session: ({}, {}, []))
 
     state = collectors.collect_switch_state(switch, timeout=1, retries=0)
     assert state.ports[0].name == "Gi1/0/1"
@@ -95,6 +95,7 @@ def test_collect_switch_state_assigns_vlan_to_ports(monkeypatch):
     assert len(state.vlans) == 1
     assert state.vlans[0].vlan_id == "10"
     assert state.vlans[0].ports == ["Gi1/0/1"]
+    assert state.diagnostics[0]["label"] == "Q-BRIDGE populated"
 
 
 def test_collect_switch_state_uses_alias_last_change_and_lldp(monkeypatch):
@@ -122,7 +123,7 @@ def test_collect_switch_state_uses_alias_last_change_and_lldp(monkeypatch):
         "build_session",
         lambda *_args, **_kwargs: StubSession(tables),
     )
-    monkeypatch.setattr(collectors, "_collect_macs", lambda _session: ({}, {}))
+    monkeypatch.setattr(collectors, "_collect_macs", lambda _session: ({}, {}, []))
 
     state = collectors.collect_switch_state(switch, timeout=1, retries=0)
     assert state.ports[0].descr == "Access printer"
@@ -163,3 +164,49 @@ def test_collect_switch_state_builds_vlan_from_fdb_without_name_table(monkeypatc
     assert state.vlans[0].name == "VLAN 20"
     assert state.vlans[0].source == "derived"
     assert state.vlans[0].ports == ["Gi1/0/1"]
+
+
+def test_collect_switch_state_records_legacy_fdb_diagnostic_and_inventory(monkeypatch):
+    switch = SwitchConfig(
+        name="sw1",
+        management_ip="192.0.2.1",
+        community="public@10",
+    )
+    tables = {
+        mibs.IF_NAME: {f"{mibs.IF_NAME}.1": "Gi1/0/1"},
+        mibs.IF_DESCR: {f"{mibs.IF_DESCR}.1": "Gi1/0/1"},
+        mibs.IF_ADMIN_STATUS: {f"{mibs.IF_ADMIN_STATUS}.1": "1"},
+        mibs.IF_OPER_STATUS: {f"{mibs.IF_OPER_STATUS}.1": "1"},
+        mibs.IF_SPEED: {f"{mibs.IF_SPEED}.1": "1000"},
+        mibs.IF_IN_ERRORS: {f"{mibs.IF_IN_ERRORS}.1": "4"},
+        mibs.IF_OUT_ERRORS: {f"{mibs.IF_OUT_ERRORS}.1": "9"},
+        mibs.DOT1D_BASE_PORT_IFINDEX: {f"{mibs.DOT1D_BASE_PORT_IFINDEX}.1": "1"},
+        mibs.QBRIDGE_VLAN_FDB_PORT: {},
+        mibs.DOT1D_TP_FDB_PORT: {f"{mibs.DOT1D_TP_FDB_PORT}.0.17.34.51.68.85": "1"},
+        mibs.DOT1D_TP_FDB_STATUS: {f"{mibs.DOT1D_TP_FDB_STATUS}.0.17.34.51.68.85": "3"},
+        mibs.ENT_PHYSICAL_MODEL_NAME: {f"{mibs.ENT_PHYSICAL_MODEL_NAME}.1": "C9300-24P"},
+        mibs.ENT_PHYSICAL_SERIAL_NUM: {f"{mibs.ENT_PHYSICAL_SERIAL_NUM}.1": "FOC1234X1YZ"},
+        mibs.ENT_PHYSICAL_SOFTWARE_REV: {f"{mibs.ENT_PHYSICAL_SOFTWARE_REV}.1": "17.12.1"},
+        mibs.PETH_PSE_PORT_DETECTION_STATUS: {f"{mibs.PETH_PSE_PORT_DETECTION_STATUS}.1.1": "3"},
+        mibs.PETH_PSE_PORT_POWER: {f"{mibs.PETH_PSE_PORT_POWER}.1.1": "154"},
+    }
+
+    monkeypatch.setattr(
+        collectors,
+        "build_session",
+        lambda *_args, **_kwargs: StubSession(tables),
+    )
+
+    state = collectors.collect_switch_state(switch, timeout=1, retries=0)
+    labels = [diagnostic["label"] for diagnostic in state.diagnostics]
+    assert "Q-BRIDGE empty" in labels
+    assert "FDB populated" in labels
+    assert "VLAN-indexed community may be required" in labels
+    assert state.platform == "C9300-24P"
+    assert state.serial_number == "FOC1234X1YZ"
+    assert state.os_version == "17.12.1"
+    assert state.ports[0].macs == ["00:11:22:33:44:55"]
+    assert state.ports[0].input_errors == 4
+    assert state.ports[0].output_errors == 9
+    assert state.ports[0].poe_status == "delivering"
+    assert state.ports[0].poe_power_w == 15.4

@@ -168,10 +168,16 @@ def _vlan_sort_key(vlan_id: str) -> tuple[int, str]:
         return (1, vlan_id)
 
 
-def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, set[str]]]:
+def _diagnostic(kind: str, label: str, detail: str) -> dict[str, str]:
+    return {"kind": kind, "label": label, "detail": detail}
+
+
+def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, set[str]], list[dict[str, str]]]:
+    diagnostics: list[dict[str, str]] = []
     bridge_port_to_ifindex = _bridge_port_map(session)
     if not bridge_port_to_ifindex:
-        return {}, {}
+        diagnostics.append(_diagnostic("snmp_fdb", "collection error", "BRIDGE-MIB port to ifIndex map is empty"))
+        return {}, {}, diagnostics
 
     macs_by_ifindex: dict[int, set[str]] = {}
     vlan_ids_by_ifindex: dict[int, set[str]] = {}
@@ -183,9 +189,13 @@ def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, 
             mibs.QBRIDGE_VLAN_FDB_PORT,
             exc_info=True,
         )
+        diagnostics.append(_diagnostic("snmp_fdb", "Q-BRIDGE unavailable", "Q-BRIDGE VLAN FDB table collection failed"))
         vlan_fdb_ports = {}
 
     if vlan_fdb_ports:
+        diagnostics.append(
+            _diagnostic("snmp_fdb", "Q-BRIDGE populated", f"Q-BRIDGE VLAN FDB rows: {len(vlan_fdb_ports)}")
+        )
         try:
             vlan_fdb_status = session.get_table(mibs.QBRIDGE_VLAN_FDB_STATUS)
         except SnmpError:
@@ -209,7 +219,9 @@ def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, 
             macs_by_ifindex.setdefault(ifindex, set()).add(mac)
             if vlan_id:
                 vlan_ids_by_ifindex.setdefault(ifindex, set()).add(vlan_id)
-        return macs_by_ifindex, vlan_ids_by_ifindex
+        return macs_by_ifindex, vlan_ids_by_ifindex, diagnostics
+
+    diagnostics.append(_diagnostic("snmp_fdb", "Q-BRIDGE empty", "Q-BRIDGE VLAN FDB table returned no rows"))
 
     try:
         fdb_ports = session.get_table(mibs.DOT1D_TP_FDB_PORT)
@@ -219,7 +231,19 @@ def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, 
             mibs.DOT1D_TP_FDB_PORT,
             exc_info=True,
         )
-        return {}, {}
+        diagnostics.append(_diagnostic("snmp_fdb", "BRIDGE FDB unavailable", "BRIDGE-MIB FDB table collection failed"))
+        return {}, {}, diagnostics
+    if not fdb_ports:
+        diagnostics.append(_diagnostic("snmp_fdb", "FDB empty", "BRIDGE-MIB FDB table returned no rows"))
+        return {}, {}, diagnostics
+    diagnostics.append(_diagnostic("snmp_fdb", "FDB populated", f"BRIDGE-MIB FDB rows: {len(fdb_ports)}"))
+    diagnostics.append(
+        _diagnostic(
+            "snmp_fdb",
+            "VLAN-indexed community may be required",
+            "Legacy FDB has MACs but VLAN-aware Q-BRIDGE data is empty",
+        )
+    )
     try:
         fdb_status = session.get_table(mibs.DOT1D_TP_FDB_STATUS)
     except SnmpError:
@@ -242,7 +266,72 @@ def _collect_macs(session: SnmpSession) -> tuple[dict[int, set[str]], dict[int, 
         if ifindex is None:
             continue
         macs_by_ifindex.setdefault(ifindex, set()).add(mac)
-    return macs_by_ifindex, vlan_ids_by_ifindex
+    return macs_by_ifindex, vlan_ids_by_ifindex, diagnostics
+
+
+def _first_table_value(session: SnmpSession, oid: str) -> str:
+    try:
+        values = session.get_table(oid)
+    except SnmpError:
+        return ""
+    for value in values.values():
+        if str(value).strip():
+            return str(value).strip()
+    return ""
+
+
+def _collect_error_counters(session: SnmpSession, ports_by_ifindex: dict[int, Port]) -> None:
+    try:
+        in_errors = session.get_table(mibs.IF_IN_ERRORS)
+        out_errors = session.get_table(mibs.IF_OUT_ERRORS)
+    except SnmpError:
+        return
+    for ifindex, port in ports_by_ifindex.items():
+        input_value = in_errors.get(f"{mibs.IF_IN_ERRORS}.{ifindex}")
+        output_value = out_errors.get(f"{mibs.IF_OUT_ERRORS}.{ifindex}")
+        if input_value and input_value.isdigit():
+            port.input_errors = int(input_value)
+        if output_value and output_value.isdigit():
+            port.output_errors = int(output_value)
+
+
+def _poe_ifindex_from_oid(oid: str, base_oid: str) -> int | None:
+    suffix = oid.removeprefix(f"{base_oid}.").split(".")
+    if not suffix:
+        return None
+    candidate = suffix[-1]
+    return int(candidate) if candidate.isdigit() else None
+
+
+def _collect_poe_status(session: SnmpSession, ports_by_ifindex: dict[int, Port]) -> None:
+    status_labels = {
+        "1": "disabled",
+        "2": "searching",
+        "3": "delivering",
+        "4": "fault",
+        "5": "test",
+        "6": "other-fault",
+    }
+    try:
+        statuses = session.get_table(mibs.PETH_PSE_PORT_DETECTION_STATUS)
+    except SnmpError:
+        statuses = {}
+    try:
+        powers = session.get_table(mibs.PETH_PSE_PORT_POWER)
+    except SnmpError:
+        powers = {}
+    for oid, status in statuses.items():
+        ifindex = _poe_ifindex_from_oid(oid, mibs.PETH_PSE_PORT_DETECTION_STATUS)
+        port = ports_by_ifindex.get(ifindex or -1)
+        if port is None:
+            continue
+        port.poe_status = status_labels.get(status, status)
+        status_prefix_len = len(mibs.PETH_PSE_PORT_DETECTION_STATUS.split("."))
+        power_suffix = ".".join(oid.split(".")[status_prefix_len:])
+        power_oid = f"{mibs.PETH_PSE_PORT_POWER}.{power_suffix}"
+        power = powers.get(power_oid)
+        if power and power.isdigit():
+            port.poe_power_w = int(power) / 10.0
 
 
 def _lldp_local_port_number(oid: str, prefix: str) -> str | None:
@@ -377,7 +466,7 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
         if ifindex is not None:
             ports_by_ifindex[ifindex] = port
 
-    macs_by_ifindex, vlan_ids_by_ifindex = _collect_macs(session)
+    macs_by_ifindex, vlan_ids_by_ifindex, diagnostics = _collect_macs(session)
     for ifindex, macs in macs_by_ifindex.items():
         port = ports_by_ifindex.get(ifindex)
         if port:
@@ -387,6 +476,8 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
         if port and vlan_ids:
             port.vlan = ",".join(sorted(vlan_ids, key=_vlan_sort_key))
     _collect_lldp_neighbors(session, ports_by_ifindex)
+    _collect_error_counters(session, ports_by_ifindex)
+    _collect_poe_status(session, ports_by_ifindex)
 
     vlans: list[Vlan] = []
     try:
@@ -427,10 +518,13 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
         name=switch.name,
         management_ip=switch.management_ip,
         vendor=switch.vendor,
-        platform=next(iter(sys_descr.values()), ""),
+        platform=_first_table_value(session, mibs.ENT_PHYSICAL_MODEL_NAME) or next(iter(sys_descr.values()), ""),
+        serial_number=_first_table_value(session, mibs.ENT_PHYSICAL_SERIAL_NUM),
+        os_version=_first_table_value(session, mibs.ENT_PHYSICAL_SOFTWARE_REV),
         uptime=next(iter(sys_uptime.values()), ""),
         ports=ports,
         vlans=vlans,
+        diagnostics=diagnostics,
     )
 
 

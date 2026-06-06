@@ -301,9 +301,20 @@ def _build_debug_payload(
                 anomalies.append({"severity": "info", "type": "uncorrelated switch MACs", **row})
 
     switch_debug = []
+    collector_diagnostics = []
     for switch in switches:
         switch_ports = switch.ports
         diagnostics = artifact_diagnostics.get(switch.name, {})
+        for diagnostic in switch.diagnostics:
+            if not isinstance(diagnostic, dict):
+                continue
+            collector_diagnostics.append(
+                {
+                    "switch": switch.name,
+                    "labels": diagnostic.get("label", ""),
+                    "detail": diagnostic.get("detail", ""),
+                }
+            )
         switch_debug.append(
             {
                 "name": switch.name,
@@ -352,7 +363,10 @@ def _build_debug_payload(
         "unmatched_maclist": unmatched_maclist,
         "unmatched_switch_macs": unmatched_switch_macs,
         "anomalies": anomalies,
-        "snmp_fdb_diagnostics": snmp_fdb_diagnostics,
+        "snmp_fdb_diagnostics": sorted(
+            [*snmp_fdb_diagnostics, *collector_diagnostics],
+            key=lambda row: (str(row.get("switch") or ""), str(row.get("labels") or "")),
+        ),
         "artifacts": artifacts,
     }
 

@@ -30,6 +30,7 @@ class Switch:
     uptime: str = ""
     ports: list[Port] = field(default_factory=list)
     vlans: list[Vlan] = field(default_factory=list)
+    diagnostics: list[dict[str, str]] = field(default_factory=list)
 
     def port_by_name(self) -> Mapping[str, Port]:
         return {port.name: port for port in self.ports}
