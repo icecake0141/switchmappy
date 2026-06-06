@@ -19,7 +19,7 @@ _DEFAULT_OUI_VENDORS = {
     "000c29": "VMware, Inc.",
     "3ca308": "Texas Instruments",
     "485e5e": "SERNET (SUZHOU) TECHNOLOGIES CORPORATION",
-    "525400": "QEMU / CML virtual machine",
+    "525400": "QEMU virtual machine",
     "707414": "Murata Manufacturing Co., Ltd.",
     "8060b7": "Cloud Network Technology Singapore Pte. Ltd.",
     "ac1f6b": "Super Micro Computer, Inc.",

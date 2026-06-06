@@ -19,4 +19,4 @@ def test_vendor_for_mac_uses_default_oui_data():
     vendors = load_oui_vendors()
 
     assert normalize_oui_prefix("52:54:00:00:10:10") == "525400"
-    assert vendor_for_mac("52:54:00:00:10:10", vendors) == "QEMU / CML virtual machine"
+    assert vendor_for_mac("52:54:00:00:10:10", vendors) == "QEMU virtual machine"

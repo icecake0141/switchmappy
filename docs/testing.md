@@ -36,3 +36,13 @@ python -m pre_commit run --all-files
 ## Regression Notes
 
 - XSS regression scenarios are documented in `tests/XSS_REGRESSION_TESTS.md`.
+## Mixed-Vendor Regression
+
+Mixed-vendor behavior is covered by unit fixtures and integration-ready site
+configuration. FortiSwitch trunk validation has two levels:
+
+- Configured intent: `trunk_ports` marks known uplinks explicitly and should
+  render as trunk/uplink without relying on endpoint or MAC counts.
+- Device-reported evidence: FortiSwitch physical port and VLAN membership output
+  should populate access VLAN, port mode, and allowed VLAN fields. Trunk/uplink
+  status must not be inferred from the number of visible host MAC addresses.

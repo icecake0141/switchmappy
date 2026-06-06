@@ -134,7 +134,7 @@ def test_parse_cisco_cdp_detail_keeps_entries_with_blank_lines():
 -------------------------
 Device ID: switchmappy-sw2.switchmappy.local
 Entry address(es):
-  IP address: 192.168.128.236
+  IP address: 192.0.2.236
 Platform: Linux Unix,  Capabilities: Router Switch IGMP
 Interface: Ethernet0/1,  Port ID (outgoing port): Ethernet0/1
 Holdtime : 168 sec
@@ -144,12 +144,12 @@ Cisco IOS Software [IOSXE]
 
 advertisement version: 2
 Management address(es):
-  IP address: 192.168.128.236
+  IP address: 192.0.2.236
 
 -------------------------
 Device ID: switchmappy-sw2.switchmappy.local
 Entry address(es):
-  IP address: 192.168.128.236
+  IP address: 192.0.2.236
 Platform: Linux Unix,  Capabilities: Router Switch IGMP
 Interface: Ethernet0/0,  Port ID (outgoing port): Ethernet0/0
 Holdtime : 149 sec
@@ -447,37 +447,46 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     )
     status_output = "\n".join(
         [
-            "Port Status Speed Description",
-            "port1 up 1000 Uplink-Core",
-            "port2 down 100 User-Edge",
+            "Portname Status Tpid Vlan Duplex Speed Flags Discard",
+            "port1 up 8100 10 full 1000M , , none",
+            "port2 down 8100 10 full 100M , , none",
         ]
     )
     session = StubSession(
         by_command={
-            "get switch interface status": status_output,
-            "get switch mac-address-table": "10 00:11:22:33:44:77 dynamic port1",
-            "show switch vlan": "default 10 port1,port2",
+            "diagnose switch physical-ports summary": status_output,
+            "diagnose switch mac-address list": "MAC: 00:11:22:33:44:77\tVLAN: 10 Port: port1(port-id 1)",
+            "diagnose switch vlan list": "10 port1 port2",
             "get switch lldp neighbors-detail": "port1 aa:bb:cc:dd:ee:ff port48 fsw-core-1",
             "diagnose switch physical-ports error-counters": "port1 2 3\nport2 0 1",
             "get switch poe inline-status": "port1 Enabled Delivering 8.8W\nport2 Enabled Off 0.0W",
+            "get system status": "\n".join(
+                [
+                    "fortiswitch-edge # Version: FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)",
+                    "Serial-Number: S108DVIUL-MKIA2D",
+                ]
+            ),
         }
     )
     monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
 
     state = collectors.collect_switch_state(switch, timeout=3)
     assert session.commands == [
-        "get switch interface status",
-        "get switch mac-address-table",
-        "show switch vlan",
+        "diagnose switch physical-ports summary",
+        "diagnose switch mac-address list",
+        "diagnose switch vlan list",
         "get switch lldp neighbors-detail",
         "diagnose switch physical-ports error-counters",
         "get switch poe inline-status",
+        "get system status",
     ]
     assert [port.name for port in state.ports] == ["port1", "port2"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].speed == 1000
     assert state.ports[0].macs == ["00:11:22:33:44:77"]
     assert state.ports[0].vlan == "10"
+    assert state.ports[0].switchport_mode == "access"
+    assert state.ports[0].access_vlan == "10"
     assert _neighbor_devices(state.ports[0]) == ["fsw-core-1"]
     assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[0].input_errors == 2
@@ -486,10 +495,91 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     assert state.ports[0].poe_power_w == 8.8
     assert state.ports[1].oper_status == "down"
     assert state.ports[1].vlan == "10"
+    assert state.ports[1].switchport_mode == "access"
+    assert state.ports[1].access_vlan == "10"
     assert state.ports[1].input_errors == 0
     assert state.ports[1].output_errors == 1
     assert state.ports[1].poe_status == "off"
     assert state.ports[1].poe_power_w == 0.0
+    assert state.platform == "FortiSwitch-108D-VM"
+    assert state.os_version == "FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)"
+    assert state.serial_number == "S108DVIUL-MKIA2D"
+
+
+def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
+    switch = SwitchConfig(
+        name="sw-forti",
+        management_ip="192.0.2.80",
+        vendor="fortiswitch",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+        trunk_ports=["port1"],
+    )
+    session = StubSession(
+        by_command={
+            "diagnose switch physical-ports summary": "\n".join(
+                [
+                    "  Portname    Status  Tpid  Vlan  Duplex  Speed  Flags         Discard",
+                    "  __________  ______  ____  ____  ______  _____  ____________  _________",
+                    "  port1       up      8100  1     full    100M   QS,  ,        none",
+                    "  port2       down    8100  1     full    -        ,  ,        none",
+                    "  internal    up      8100  1     full    100M     ,  ,        none",
+                ]
+            ),
+            "diagnose switch mac-address list": "\n".join(
+                [
+                    "MAC: 52:54:00:00:10:10\tVLAN: 1 Port: port1(port-id 1)",
+                    "  Flags: 0x13000000 [ dynamic age forward-dst forward-src ]",
+                    "MAC: 36:f0:e1:7f:00:01\tVLAN: 1 Port: internal(port-id 9)",
+                ]
+            ),
+            "diagnose switch vlan list": "\n".join(
+                [
+                    "  VlanId  Ports",
+                    "  ______  ___________________________________________________",
+                    "  1       port1 port2 port3 port4 port5 port6 port7 port8 internal",
+                    "  10      port1",
+                ]
+            ),
+            "get switch lldp neighbors-detail": "\n".join(
+                [
+                    "Neighbor learned on port port1 by LLDP protocol",
+                    "System Name: edge-sw3.switchmappy.local",
+                    "Port ID: Et0/3 (ifname)",
+                ]
+            ),
+            "diagnose switch physical-ports error-counters": "command parse error before 'error-counters'",
+            "get switch poe inline-status": "command parse error before 'inline-status'",
+            "get system status": "\n".join(
+                [
+                    "Version: FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)",
+                    "Serial-Number: S108DVIUL-MKIA2D",
+                ]
+            ),
+        }
+    )
+    monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
+
+    state = collectors.collect_switch_state(switch, timeout=3)
+
+    assert [port.name for port in state.ports] == ["port1", "port2", "internal"]
+    assert state.ports[0].oper_status == "up"
+    assert state.ports[0].speed == 100
+    assert state.ports[0].descr == ""
+    assert state.ports[0].vlan == "1"
+    assert state.ports[0].switchport_mode == "trunk"
+    assert state.ports[0].access_vlan == "1"
+    assert state.ports[0].allowed_vlans == "1,10"
+    assert state.ports[0].macs == ["52:54:00:00:10:10"]
+    assert state.ports[0].is_trunk is True
+    assert _neighbor_devices(state.ports[0]) == ["edge-sw3.switchmappy.local"]
+    assert _neighbor_protocols(state.ports[0]) == ["lldp"]
+    assert state.ports[1].oper_status == "down"
+    assert state.ports[2].macs == ["36:f0:e1:7f:00:01"]
+    assert state.platform == "FortiSwitch-108D-VM"
+    assert state.os_version == "FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)"
+    assert state.serial_number == "S108DVIUL-MKIA2D"
 
 
 def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):

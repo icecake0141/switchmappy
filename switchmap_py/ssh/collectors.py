@@ -114,7 +114,7 @@ def _normalize_oper_status(status: str) -> str:
 
 
 def _parse_speed(token: str) -> int | None:
-    match = re.search(r"(\d+)$", token)
+    match = re.search(r"(\d+)", token)
     if not match:
         return None
     try:
@@ -248,13 +248,27 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
         if len(tokens) < 2:
             continue
         name = tokens[0]
-        if not re.match(r"^(port|internal)\d+", name.lower()):
+        if not re.match(r"^(?:port\d+|internal\d*)$", name.lower()):
             continue
         raw_status = tokens[1]
+        vlan = None
+        speed_token = tokens[2] if len(tokens) > 2 else ""
+        descr_start = 3
+        switchport_mode = None
+        access_vlan = None
+        if len(tokens) >= 6 and re.fullmatch(r"[0-9a-fA-F]{4}", tokens[2]) and _VLAN_ID_RE.match(tokens[3]):
+            vlan = tokens[3]
+            access_vlan = vlan
+            speed_token = tokens[5]
+            descr_start = 7
+            flag_tokens = {token.strip(" ,").upper() for token in tokens[6:] if token.strip(" ,")}
+            switchport_mode = "trunk" if flag_tokens & {"QS", "QE", "QI", "TS", "TF", "TL"} else "access"
         oper_status = _normalize_oper_status(raw_status)
         admin_status = "down" if oper_status == "down" else "up"
-        speed = _parse_speed(tokens[2]) if len(tokens) > 2 else None
-        descr = " ".join(tokens[3:]) if len(tokens) > 3 else ""
+        speed = _parse_speed(speed_token) if speed_token and speed_token != "-" else None
+        descr = " ".join(tokens[descr_start:]) if len(tokens) > descr_start else ""
+        if descr.replace(" ", "") in {",,none", ",none", "none"}:
+            descr = ""
         ports.append(
             Port(
                 name=name,
@@ -262,8 +276,10 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
                 admin_status=admin_status,
                 oper_status=oper_status,
                 speed=speed,
-                vlan=None,
+                vlan=vlan,
                 macs=[],
+                switchport_mode=switchport_mode,
+                access_vlan=access_vlan,
                 is_trunk=_is_trunk_port(name, switch),
             )
         )
@@ -323,7 +339,15 @@ def _parse_fortiswitch_mac_table(text: str) -> dict[str, set[str]]:
         if not line:
             continue
         lower = line.lower()
-        if lower.startswith(("vlan", "mac", "----")):
+        if lower.startswith(("vlan", "----")) or lower.startswith("mac address"):
+            continue
+        if lower.startswith("mac:"):
+            mac_match = re.search(r"\bMAC:\s+([0-9a-fA-F:.-]{12,17})", line, flags=re.IGNORECASE)
+            port_match = re.search(r"\bPort:\s+([^\s(]+)", line, flags=re.IGNORECASE)
+            canonical = _canonical_port_name(port_match.group(1)) if port_match else ""
+            normalized_mac = _normalize_mac(mac_match.group(1) if mac_match else "")
+            if canonical and normalized_mac:
+                macs_by_port.setdefault(canonical, set()).add(normalized_mac)
             continue
         tokens = _WS_RE.split(line)
         if len(tokens) < 3:
@@ -387,6 +411,7 @@ def _parse_juniper_vlans(text: str) -> dict[str, str]:
 
 def _parse_fortiswitch_vlans(text: str) -> dict[str, str]:
     vlan_by_port: dict[str, str] = {}
+    vlans_by_port: dict[str, list[str]] = {}
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
@@ -400,11 +425,16 @@ def _parse_fortiswitch_vlans(text: str) -> dict[str, str]:
             continue
         for token in tokens:
             for candidate in token.split(","):
-                if not re.match(r"^(port|internal)\d+", candidate.lower()):
+                if not re.match(r"^(?:port\d+|internal\d*)$", candidate.lower()):
                     continue
                 canonical = _canonical_port_name(candidate)
                 if canonical:
                     vlan_by_port[canonical] = vlan_id
+                    vlans_by_port.setdefault(canonical, []).append(vlan_id)
+    for canonical, vlan_ids in vlans_by_port.items():
+        unique_vlan_ids = sorted(set(vlan_ids), key=lambda vlan_id: int(vlan_id))
+        if len(unique_vlan_ids) > 1:
+            vlan_by_port[canonical] = ",".join(unique_vlan_ids)
     return vlan_by_port
 
 
@@ -452,6 +482,7 @@ def _is_rejected_command_output(output: str) -> bool:
     return (
         "% invalid input detected" in lowered
         or "% invalid command" in lowered
+        or "command parse error" in lowered
         or "line has invalid autocommand" in lowered
     )
 
@@ -562,6 +593,40 @@ def _parse_cisco_lldp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
     return neighbors_by_port
 
 
+def _parse_fortiswitch_lldp_neighbors_detail(text: str) -> dict[str, list[Neighbor]]:
+    neighbors_by_port: dict[str, list[Neighbor]] = {}
+    current_local: str | None = None
+    current_neighbor: str | None = None
+    current_remote_port: str | None = None
+
+    def flush_current() -> None:
+        nonlocal current_local, current_neighbor, current_remote_port
+        if current_local and current_neighbor:
+            _add_neighbor(neighbors_by_port, current_local, current_neighbor, "lldp", remote_port=current_remote_port)
+        current_local = None
+        current_neighbor = None
+        current_remote_port = None
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith("neighbor learned on port"):
+            flush_current()
+            match = re.search(r"\bport\s+(\S+)\s+by\s+lldp", line, flags=re.IGNORECASE)
+            current_local = _canonical_port_name(match.group(1)) if match else None
+            continue
+        if lower.startswith("system name:"):
+            current_neighbor = line.split(":", 1)[1].strip()
+            continue
+        if lower.startswith("port id:"):
+            current_remote_port = line.split(":", 1)[1].strip().split(None, 1)[0]
+            continue
+    flush_current()
+    return neighbors_by_port
+
+
 def _parse_capabilities(value: str) -> list[str]:
     tokens = [token.strip(" ,") for token in re.split(r"[\s,]+", value) if token.strip(" ,")]
     ignored = {"capabilities", "enabled", "system", "bridge:"}
@@ -643,6 +708,27 @@ def _parse_cisco_show_version(text: str) -> SwitchInventory:
             inventory.serial_number = line.split(":", 1)[1].strip() if ":" in line else line.split()[-1]
         elif not inventory.serial_number and lower.startswith("processor board id"):
             inventory.serial_number = line.split()[-1]
+    return inventory
+
+
+def _parse_fortiswitch_system_status(text: str) -> SwitchInventory:
+    inventory = SwitchInventory()
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if "# " in line:
+            line = line.rsplit("# ", 1)[1].strip()
+        if not line or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key == "version":
+            inventory.os_version = value
+            platform_match = re.match(r"([^,\s]+)", value)
+            if platform_match:
+                inventory.platform = platform_match.group(1)
+        elif key == "serial-number":
+            inventory.serial_number = value
     return inventory
 
 
@@ -863,7 +949,7 @@ def _collect_interface_output(session: SshSession, switch: SwitchConfig, timeout
     if profile == "juniper":
         command = "show interfaces terse"
     elif profile == "fortiswitch":
-        command = "get switch interface status"
+        command = "diagnose switch physical-ports summary"
     else:
         command = "show interfaces status"
     return _run_command(session, command, timeout=timeout, retries=_PRIMARY_COMMAND_RETRIES)
@@ -874,7 +960,7 @@ def _collect_mac_output(session: SshSession, switch: SwitchConfig, timeout: int)
     if profile == "juniper":
         command = "show ethernet-switching table"
     elif profile == "fortiswitch":
-        command = "get switch mac-address-table"
+        command = "diagnose switch mac-address list"
     else:
         command = "show mac address-table"
     return _run_command(session, command, timeout=timeout)
@@ -885,7 +971,7 @@ def _collect_vlan_output(session: SshSession, switch: SwitchConfig, timeout: int
     if profile == "juniper":
         command = "show vlans"
     elif profile == "fortiswitch":
-        command = "show switch vlan"
+        command = "diagnose switch vlan list"
     else:
         command = "show vlan brief"
     return _run_command(session, command, timeout=timeout)
@@ -897,7 +983,7 @@ def _collect_neighbors(session: SshSession, switch: SwitchConfig, timeout: int) 
         return _parse_neighbor_table(_run_command(session, "show lldp neighbors", timeout=timeout), "lldp")
     if profile == "fortiswitch":
         output = _run_command(session, "get switch lldp neighbors-detail", timeout=timeout)
-        return _parse_neighbor_table(output, "lldp")
+        return _parse_fortiswitch_lldp_neighbors_detail(output) or _parse_neighbor_table(output, "lldp")
 
     lldp_neighbors: dict[str, list[Neighbor]] = {}
     try:
@@ -952,10 +1038,13 @@ def _collect_switchport_details(session: SshSession, switch: SwitchConfig, timeo
 
 def _collect_inventory(session: SshSession, switch: SwitchConfig, timeout: int) -> SwitchInventory:
     profile = _vendor_profile(switch.vendor)
-    if profile not in {"cisco_like", "arista"}:
-        return SwitchInventory()
-    output = _run_command(session, "show version", timeout=timeout)
-    return _parse_cisco_show_version(output)
+    if profile == "fortiswitch":
+        output = _run_command(session, "get system status", timeout=timeout)
+        return _parse_fortiswitch_system_status(output)
+    if profile in {"cisco_like", "arista"}:
+        output = _run_command(session, "show version", timeout=timeout)
+        return _parse_cisco_show_version(output)
+    return SwitchInventory()
 
 
 def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path | None = None) -> Switch:
@@ -999,12 +1088,14 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
             else:
                 vlan_by_port = _parse_cisco_vlan_brief(vlan_output)
             for port in ports:
-                if port.vlan:
-                    continue
                 canonical = _canonical_port_name(port.name)
                 mapped_vlan = vlan_by_port.get(canonical)
+                if profile == "fortiswitch" and mapped_vlan and "," in mapped_vlan:
+                    port.allowed_vlans = mapped_vlan
+                if port.vlan:
+                    continue
                 if mapped_vlan:
-                    port.vlan = mapped_vlan
+                    port.vlan = mapped_vlan.split(",", maxsplit=1)[0]
         except SshError:
             logger.warning(
                 "SSH VLAN collection command failed for switch %s; continuing without VLAN table.",
@@ -1054,12 +1145,18 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
                     continue
                 port.input_errors = counters[0]
                 port.output_errors = counters[1]
-        except SshError:
-            logger.warning(
-                "SSH error counter collection command failed for switch %s; continuing without counters.",
-                switch.name,
-                exc_info=True,
-            )
+        except SshError as exc:
+            if _is_unsupported_optional_command(exc):
+                logger.debug(
+                    "SSH error counter collection command is unsupported on switch %s; continuing without counters.",
+                    switch.name,
+                )
+            else:
+                logger.warning(
+                    "SSH error counter collection command failed for switch %s; continuing without counters.",
+                    switch.name,
+                    exc_info=True,
+                )
         try:
             poe_by_port = _collect_poe_status(session, switch, timeout=timeout)
             for port in ports:

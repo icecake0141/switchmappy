@@ -126,6 +126,12 @@ Review required for correctness, security, and licensing.
             <th>Switch</th>
             <th>Management IP</th>
             <th>Vendor</th>
+            <th>Profile</th>
+            <th>Methods</th>
+            <th>Artifacts</th>
+            <th>OK</th>
+            <th>Errors</th>
+            <th>Unsupported</th>
             <th>Platform</th>
             <th>Version</th>
             <th>Serial</th>
@@ -144,6 +150,12 @@ Review required for correctness, security, and licensing.
             <td>{{ switch.name }}</td>
             <td>{{ switch.management_ip }}</td>
             <td>{{ switch.vendor }}</td>
+            <td>{{ switch.parser_profile }}</td>
+            <td>{{ switch.collection_methods }}</td>
+            <td>{{ switch.artifact_count }}</td>
+            <td>{{ switch.successful_artifacts }}</td>
+            <td>{{ switch.error_artifacts }}</td>
+            <td>{{ switch.unsupported_artifacts }}</td>
             <td>{{ switch.platform }}</td>
             <td>{{ switch.os_version }}</td>
             <td>{{ switch.serial_number }}</td>
