@@ -28,11 +28,17 @@ Review required for correctness, security, and licensing.
 - `destination_directory` (default: `output`)
 - `idlesince_directory` (default: `idlesince`)
 - `maclist_file` (default: `maclist.json`)
+- `history_directory` (default: `history`)
+- `collection_artifacts_directory` (default: `artifacts`)
+- `oui_file` (optional CSV override for OUI/vendor names)
 - `unused_after_days` (default: `30`)
 - `snmp_timeout` (default: `2`)
 - `snmp_retries` (default: `1`)
 - `switches` (list)
 - `routers` (list)
+
+`oui_file` rows use `prefix,vendor` format. The prefix may be written as
+`525400`, `52:54:00`, `52-54-00`, or `5254.00`.
 
 ## `switches[]`
 

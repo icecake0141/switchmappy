@@ -26,6 +26,8 @@ from switchmap_py.collectors import collect_port_snapshots, collect_switch_state
 from switchmap_py.config import SiteConfig, default_config_path
 from switchmap_py.importers.arp_csv import load_arp_csv
 from switchmap_py.importers.arp_snmp import load_arp_snmp
+from switchmap_py.importers.hostname_csv import load_hostname_csv
+from switchmap_py.importers.hostname_resolver import resolve_missing_hostnames
 from switchmap_py.render.build import build_site
 from switchmap_py.search.app import SearchServer
 from switchmap_py.snmp.session import SnmpError
@@ -48,6 +50,10 @@ def _is_bool(value: object) -> bool:
 
 def _is_str(value: object) -> bool:
     return isinstance(value, str)
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -155,6 +161,7 @@ def _configure_logging(
     root.handlers = [existing for existing in root.handlers if not getattr(existing, _SWITCHMAP_HANDLER_ATTR, False)]
     root.setLevel(level)
     root.addHandler(handler)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 
 @app.command("scan-switch")
@@ -239,6 +246,8 @@ def scan_switch(
 def get_arp(
     source: str = typer.Option("csv", "--source"),
     csv_path: Optional[Path] = typer.Option(None, "--csv"),
+    resolve_hostnames: bool = typer.Option(False, "--resolve-hostnames/--no-resolve-hostnames"),
+    dns_timeout: float = typer.Option(1.0, "--dns-timeout", min=0.1),
     config: Optional[Path] = typer.Option(None, "--config"),
     debug: bool = typer.Option(False, "--debug"),
     info: bool = typer.Option(False, "--info"),
@@ -247,6 +256,17 @@ def get_arp(
     log_format: str = typer.Option("text", "--log-format"),
 ) -> None:
     """Update MAC list from ARP data."""
+    resolve_hostnames = resolve_hostnames if _is_bool(resolve_hostnames) else False
+    dns_timeout = float(dns_timeout) if _is_number(dns_timeout) else 1.0
+    source = source if _is_str(source) else "csv"
+    csv_path = csv_path if isinstance(csv_path, Path) else None
+    config = config if isinstance(config, Path) else None
+    logfile = logfile if isinstance(logfile, Path) else None
+    log_format = log_format if _is_str(log_format) else "text"
+    debug = debug if _is_bool(debug) else False
+    info = info if _is_bool(info) else False
+    warn = warn if _is_bool(warn) else False
+
     _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
     logger = logging.getLogger(__name__)
     site = _load_config(config)
@@ -281,7 +301,87 @@ def get_arp(
         )
     else:
         raise CliUsageError("source must be one of: csv, snmp")
+    if resolve_hostnames:
+        started = time.monotonic()
+        before = sum(1 for entry in entries if entry.hostname)
+        entries = resolve_missing_hostnames(entries, timeout=dns_timeout)
+        after = sum(1 for entry in entries if entry.hostname)
+        logger.info(
+            "Resolved missing hostnames",
+            extra={
+                **_event_extra(
+                    event="resolve_hostnames",
+                    command="get-arp",
+                    status="success",
+                    elapsed_seconds=time.monotonic() - started,
+                ),
+                "entries_count": after - before,
+            },
+        )
     store.save(entries)
+
+
+@app.command("import-hostnames")
+def import_hostnames(
+    csv_path: Path = typer.Option(..., "--csv"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    overwrite: bool = typer.Option(False, "--overwrite/--no-overwrite"),
+    debug: bool = typer.Option(False, "--debug"),
+    info: bool = typer.Option(False, "--info"),
+    warn: bool = typer.Option(False, "--warn"),
+    logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    log_format: str = typer.Option("text", "--log-format"),
+) -> None:
+    """Merge IPAM or DHCP lease hostnames into the MAC list."""
+    csv_path = csv_path if isinstance(csv_path, Path) else Path(str(csv_path))
+    config = config if isinstance(config, Path) else None
+    logfile = logfile if isinstance(logfile, Path) else None
+    log_format = log_format if _is_str(log_format) else "text"
+    overwrite = overwrite if _is_bool(overwrite) else False
+    debug = debug if _is_bool(debug) else False
+    info = info if _is_bool(info) else False
+    warn = warn if _is_bool(warn) else False
+
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
+    logger = logging.getLogger(__name__)
+    site = _load_config(config)
+    store = MacListStore(site.maclist_file)
+    entries = store.load()
+    records = load_hostname_csv(csv_path)
+    by_mac = {record.mac: record for record in records if record.mac}
+    by_ip = {record.ip: record for record in records if record.ip}
+
+    updated = []
+    changes = 0
+    for entry in entries:
+        record = by_mac.get(entry.mac.lower()) or by_ip.get(entry.ip)
+        if record and record.hostname and (overwrite or not entry.hostname):
+            if entry.hostname != record.hostname:
+                changes += 1
+            updated.append(
+                type(entry)(
+                    mac=entry.mac,
+                    ip=entry.ip,
+                    hostname=record.hostname,
+                    switch=entry.switch,
+                    port=entry.port,
+                )
+            )
+        else:
+            updated.append(entry)
+    store.save(updated)
+    logger.info(
+        "Imported hostnames",
+        extra={
+            **_event_extra(
+                event="import_hostnames",
+                command="import-hostnames",
+                status="success",
+                elapsed_seconds=0,
+            ),
+            "entries_count": changes,
+        },
+    )
 
 
 @app.command("build-html")
@@ -305,13 +405,19 @@ def build_html(
     logger = logging.getLogger(__name__)
     site = _load_config(config)
     build_date = datetime.fromisoformat(date) if date else datetime.now()
+    artifact_stamp = (
+        build_date.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        if build_date.tzinfo
+        else build_date.strftime("%Y%m%dT%H%M%SZ")
+    )
+    artifact_dir = site.collection_artifacts_directory / artifact_stamp
     switches = []
     failed_switches = []
     failed_switch_reasons: dict[str, str] = {}
     for sw in site.switches:
         started = time.monotonic()
         try:
-            switches.append(collect_switch_state(sw, site.snmp_timeout, site.snmp_retries))
+            switches.append(collect_switch_state(sw, site.snmp_timeout, site.snmp_retries, artifact_dir=artifact_dir))
             logger.info(
                 "Collected switch state",
                 extra=_event_extra(
@@ -354,6 +460,9 @@ def build_html(
         maclist_store=MacListStore(site.maclist_file),
         build_date=build_date,
         unused_after_days=site.unused_after_days,
+        oui_file=site.oui_file,
+        history_dir=site.history_directory,
+        artifacts_dir=artifact_dir,
     )
 
 
