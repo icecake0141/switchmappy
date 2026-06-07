@@ -50,8 +50,10 @@ Cisco 系 SSH collection では、利用可能な場合に `show interfaces swit
 speed/media type も switch、ports、search、debug view に表示します。
 Cisco 系 SSH では利用可能な場合に `show interfaces transceiver` も取得し、
 optic model、Tx/Rx optical power (dBm)、bias current (mA) を表示します。
-FortiSwitch SSH では利用可能な場合に module summary/status 出力も取得し、
-module part number と DMI optical level を表示します。
+Juniper SSH では利用可能な場合に `show interfaces diagnostics optics` を取得し、
+Tx/Rx optical power と laser bias current を表示します。FortiSwitch SSH では
+利用可能な場合に module summary/status 出力も取得し、module part number と
+DMI optical level を表示します。
 multi-lane module の単一表示では、平均ではなく Tx/Rx dBm は最弱 lane、
 bias current は最大 lane を使い、劣化 lane が隠れないようにします。
 これらはレポートと検索で確認するための根拠情報であり、明示的な
