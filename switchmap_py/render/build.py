@@ -17,13 +17,14 @@ import shutil
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from switchmap_py.model.mac import MacEntry
 from switchmap_py.model.switch import Switch
 from switchmap_py.oui import load_oui_vendors, vendor_for_mac
-from switchmap_py.storage.idlesince_store import IdleSinceStore
+from switchmap_py.storage.idlesince_store import IdleSinceStore, PortIdleState
 from switchmap_py.storage.maclist_store import MacListStore
 
 
@@ -243,7 +244,7 @@ def _build_debug_payload(
         }
         for mac in sorted(switch_macs - maclist_keys)
     ]
-    correlation_trace = []
+    correlation_trace: list[dict[str, object]] = []
     for row in endpoint_rows:
         correlation_trace.append(
             {
@@ -258,8 +259,8 @@ def _build_debug_payload(
             }
         )
 
-    port_debug = []
-    anomalies = []
+    port_debug: list[dict[str, object]] = []
+    anomalies: list[dict[str, object]] = []
     for switch in switches:
         for port in switch.ports:
             mac_count = len(port.macs)
@@ -276,6 +277,10 @@ def _build_debug_payload(
                 "duplex": port.duplex or "",
                 "speed": port.speed,
                 "media": port.media or "",
+                "transceiver_model": port.transceiver_model or "",
+                "transceiver_tx_power_dbm": port.transceiver_tx_power_dbm,
+                "transceiver_rx_power_dbm": port.transceiver_rx_power_dbm,
+                "transceiver_current_ma": port.transceiver_current_ma,
                 "last_change": port.last_change or "",
                 "switchport_mode": port.switchport_mode or "",
                 "access_vlan": port.access_vlan or "",
@@ -302,7 +307,7 @@ def _build_debug_payload(
                 anomalies.append({"severity": "info", "type": "uncorrelated switch MACs", **row})
 
     switch_debug = []
-    collector_diagnostics = []
+    collector_diagnostics: list[dict[str, object]] = []
     for switch in switches:
         switch_ports = switch.ports
         diagnostics = artifact_diagnostics.get(switch.name, {})
@@ -322,12 +327,12 @@ def _build_debug_payload(
                 "management_ip": switch.management_ip,
                 "vendor": switch.vendor,
                 "parser_profile": _parser_profile_for_vendor(switch.vendor),
-                "collection_methods": ", ".join(diagnostics.get("methods", [])),
+                "collection_methods": ", ".join(_string_list(diagnostics.get("methods", []))),
                 "artifact_count": diagnostics.get("artifact_count", 0),
                 "successful_artifacts": diagnostics.get("successful_artifacts", 0),
                 "error_artifacts": diagnostics.get("error_artifacts", 0),
                 "unsupported_artifacts": diagnostics.get("unsupported_artifacts", 0),
-                "commands": ", ".join(diagnostics.get("commands", [])),
+                "commands": ", ".join(_string_list(diagnostics.get("commands", []))),
                 "platform": switch.platform,
                 "serial_number": switch.serial_number,
                 "os_version": switch.os_version,
@@ -383,8 +388,36 @@ def _parser_profile_for_vendor(vendor: str) -> str:
     return "cisco_like"
 
 
+def _object_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def _string_list(value: object) -> list[str]:
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def _int_value(value: object) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    if value is None:
+        return 0
+    try:
+        return int(str(value))
+    except ValueError:
+        return 0
+
+
 def _build_artifact_diagnostics(artifacts: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    diagnostics: dict[str, dict[str, object]] = {}
+    diagnostics: dict[str, dict[str, Any]] = {}
     for artifact in artifacts:
         switch_name = str(artifact.get("switch") or "")
         if not switch_name:
@@ -415,7 +448,7 @@ def _build_artifact_diagnostics(artifacts: list[dict[str, object]]) -> dict[str,
         text = " ".join(str(artifact.get(key) or "").lower() for key in ("status", "name", "relative_path"))
         if "unsupported" in text or "no such" in text or "invalid" in text or "parse error" in text:
             record["unsupported_artifacts"] += 1
-    normalized = {}
+    normalized: dict[str, dict[str, object]] = {}
     for switch_name, record in diagnostics.items():
         normalized[switch_name] = {
             **record,
@@ -447,7 +480,7 @@ def _build_snmp_fdb_diagnostics(
         by_switch.setdefault(switch_name, {})[name] = artifact
 
     switch_names = sorted(set(by_switch) | set(failed_switch_reasons))
-    diagnostics = []
+    diagnostics: list[dict[str, object]] = []
     for switch_name in switch_names:
         records = by_switch.get(switch_name, {})
         qbridge_ports = records.get("1.3.6.1.2.1.17.7.1.2.2.1.2")
@@ -462,7 +495,7 @@ def _build_snmp_fdb_diagnostics(
 
         if qbridge_ports is not None:
             qbridge_status = str(qbridge_ports.get("status") or "").lower()
-            qbridge_rows = int(qbridge_ports.get("rows") or 0)
+            qbridge_rows = _int_value(qbridge_ports.get("rows"))
             if qbridge_status == "error":
                 labels.append("Q-BRIDGE unavailable")
                 detail.append("Q-BRIDGE VLAN FDB table collection failed")
@@ -475,7 +508,7 @@ def _build_snmp_fdb_diagnostics(
 
         if bridge_ports is not None:
             bridge_status = str(bridge_ports.get("status") or "").lower()
-            bridge_rows = int(bridge_ports.get("rows") or 0)
+            bridge_rows = _int_value(bridge_ports.get("rows"))
             if bridge_status == "error":
                 labels.append("BRIDGE FDB unavailable")
                 detail.append("BRIDGE-MIB FDB table collection failed")
@@ -487,8 +520,8 @@ def _build_snmp_fdb_diagnostics(
                 detail.append(f"BRIDGE-MIB FDB rows: {bridge_rows}")
 
         if qbridge_ports is not None and bridge_ports is not None:
-            qbridge_rows = int(qbridge_ports.get("rows") or 0)
-            bridge_rows = int(bridge_ports.get("rows") or 0)
+            qbridge_rows = _int_value(qbridge_ports.get("rows"))
+            bridge_rows = _int_value(bridge_ports.get("rows"))
             if qbridge_rows == 0 and bridge_rows > 0:
                 labels.append("VLAN-indexed community may be required")
                 detail.append("Legacy FDB has MACs but VLAN-aware Q-BRIDGE data is empty")
@@ -508,7 +541,7 @@ def _build_snmp_fdb_diagnostics(
 def _build_artifact_summary(artifacts_dir: Path | None) -> list[dict[str, object]]:
     if artifacts_dir is None or not artifacts_dir.exists():
         return []
-    records = []
+    records: list[dict[str, object]] = []
     for index_path in sorted(artifacts_dir.glob("*/index.json")):
         try:
             loaded = json.loads(index_path.read_text(encoding="utf-8"))
@@ -540,20 +573,24 @@ def _port_key(row: dict[str, object]) -> tuple[str, str]:
 
 
 def _port_rows(payload: dict[str, object]) -> list[dict[str, object]]:
-    rows = []
-    for switch in payload.get("switches", []):
+    rows: list[dict[str, object]] = []
+    for switch in _object_list(payload.get("switches", [])):
         if not isinstance(switch, dict):
             continue
-        for port in switch.get("ports", []):
+        switch_payload = cast(dict[str, object], switch)
+        for port in _object_list(switch_payload.get("ports", [])):
             if not isinstance(port, dict):
                 continue
-            rows.append({"switch": switch.get("name", ""), "port": port.get("name", ""), **port})
+            port_payload = cast(dict[str, object], port)
+            rows.append(
+                {"switch": switch_payload.get("name", ""), "port": port_payload.get("name", ""), **port_payload}
+            )
     return rows
 
 
 def _switch_payload(switch: Switch) -> dict[str, object]:
     payload = asdict(switch)
-    for port_payload, port in zip(payload["ports"], switch.ports):
+    for port_payload, port in zip(_object_list(payload.get("ports", [])), switch.ports):
         if isinstance(port_payload, dict):
             port_payload["role"] = port.role
             port_payload["role_confidence"] = port.role_confidence
@@ -584,10 +621,14 @@ def _build_history_diff(current: dict[str, object], previous: dict[str, object] 
             "port_changes": [],
         }
     current_endpoints = {
-        _endpoint_key(row): row for row in current.get("endpoint_correlations", []) if isinstance(row, dict)
+        _endpoint_key(cast(dict[str, object], row)): cast(dict[str, object], row)
+        for row in _object_list(current.get("endpoint_correlations", []))
+        if isinstance(row, dict)
     }
     previous_endpoints = {
-        _endpoint_key(row): row for row in previous.get("endpoint_correlations", []) if isinstance(row, dict)
+        _endpoint_key(cast(dict[str, object], row)): cast(dict[str, object], row)
+        for row in _object_list(previous.get("endpoint_correlations", []))
+        if isinstance(row, dict)
     }
     added = [current_endpoints[key] for key in sorted(set(current_endpoints) - set(previous_endpoints))]
     removed = [previous_endpoints[key] for key in sorted(set(previous_endpoints) - set(current_endpoints))]
@@ -612,6 +653,10 @@ def _build_history_diff(current: dict[str, object], previous: dict[str, object] 
         "descr",
         "duplex",
         "media",
+        "transceiver_model",
+        "transceiver_tx_power_dbm",
+        "transceiver_rx_power_dbm",
+        "transceiver_current_ma",
         "last_change",
         "switchport_mode",
         "access_vlan",
@@ -645,7 +690,7 @@ def _to_utc(value: datetime) -> datetime:
 
 def _build_unused_ports(
     *,
-    idle_states_by_switch: dict[str, dict[str, object]],
+    idle_states_by_switch: dict[str, dict[str, PortIdleState]],
     build_date: datetime,
     unused_after_days: int,
 ) -> dict[str, set[str]]:
@@ -780,7 +825,7 @@ def build_site(
     debug_html_payload = {
         **debug_payload,
         "build": {
-            **debug_payload["build"],
+            **_object_dict(debug_payload.get("build", {})),
             "output_directory": str(output_dir),
             "history_directory": str(history_dir) if history_dir is not None else "",
         },
@@ -803,7 +848,7 @@ def build_site(
     # of __dict__ to maintain consistency with the Switch serialization approach.
     # The sort_keys=True ensures deterministic, reproducible JSON output.
     # The ensure_ascii=False preserves UTF-8 characters in output (instead of \uXXXX escapes).
-    search_payload = {
+    search_payload: dict[str, object] = {
         "generated_at": build_date.isoformat(),
         "switches": [_switch_payload(switch) for switch in switches],
         "maclist": [asdict(entry) for entry in maclist],

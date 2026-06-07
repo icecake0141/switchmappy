@@ -345,6 +345,10 @@ Review required for correctness, security, and licensing.
             <th>Duplex</th>
             <th>Speed</th>
             <th>Media</th>
+            <th>Optic</th>
+            <th>Tx dBm</th>
+            <th>Rx dBm</th>
+            <th>Current mA</th>
             <th>Last Change</th>
             <th>MACs</th>
             <th>Endpoints</th>
@@ -359,7 +363,7 @@ Review required for correctness, security, and licensing.
         </thead>
         <tbody>
           {% for row in debug.ports %}
-          <tr data-debug-section="port" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan, row.switchport_mode, row.access_vlan, row.voice_vlan, row.native_vlan, row.allowed_vlans, row.role, row.role_evidence] | join(' ') | lower }}">
+          <tr data-debug-section="port" data-debug-role="{{ row.role }}" data-debug-filter="{{ [row.switch, row.port, row.description, row.admin_status, row.oper_status, row.vlan, row.switchport_mode, row.access_vlan, row.voice_vlan, row.native_vlan, row.allowed_vlans, row.media, row.transceiver_model, row.transceiver_tx_power_dbm, row.transceiver_rx_power_dbm, row.transceiver_current_ma, row.role, row.role_evidence] | join(' ') | lower }}">
             <td>{{ row.switch }}</td>
             <td>{{ row.port }}</td>
             <td>{{ row.description }}</td>
@@ -374,6 +378,10 @@ Review required for correctness, security, and licensing.
             <td>{{ row.duplex }}</td>
             <td>{{ row.speed or '' }}</td>
             <td>{{ row.media }}</td>
+            <td>{{ row.transceiver_model }}</td>
+            <td>{{ row.transceiver_tx_power_dbm if row.transceiver_tx_power_dbm is not none else '' }}</td>
+            <td>{{ row.transceiver_rx_power_dbm if row.transceiver_rx_power_dbm is not none else '' }}</td>
+            <td>{{ row.transceiver_current_ma if row.transceiver_current_ma is not none else '' }}</td>
             <td>{{ row.last_change }}</td>
             <td>{{ row.mac_count }}</td>
             <td>{{ row.correlated_endpoint_count }}</td>

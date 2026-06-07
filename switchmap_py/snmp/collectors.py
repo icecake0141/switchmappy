@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Any, Mapping
 
 from switchmap_py.artifacts import CollectorArtifactRecorder
 from switchmap_py.config import SwitchConfig
@@ -63,7 +63,7 @@ def build_session(switch: SwitchConfig, timeout: int, retries: int) -> SnmpSessi
     return SnmpSession(
         SnmpConfig(
             hostname=switch.management_ip,
-            version=switch.snmp_version,
+            version=str(switch.snmp_version),
             community=switch.community,
             username=switch.username,
             security_level=switch.security_level,
@@ -425,7 +425,7 @@ def _parse_lldp_capabilities(value: str) -> list[str]:
 
 
 def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artifact_dir: Path | None = None) -> Switch:
-    session = build_session(switch, timeout, retries)
+    session: Any = build_session(switch, timeout, retries)
     if artifact_dir is not None:
         session = RecordingSnmpSession(session, CollectorArtifactRecorder(artifact_dir, switch.name, "snmp"))
     names = session.get_table(mibs.IF_NAME)
@@ -479,13 +479,13 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
 
     macs_by_ifindex, vlan_ids_by_ifindex, diagnostics = _collect_macs(session)
     for ifindex, macs in macs_by_ifindex.items():
-        port = ports_by_ifindex.get(ifindex)
-        if port:
-            port.macs = sorted(macs)
+        mapped_port = ports_by_ifindex.get(ifindex)
+        if mapped_port:
+            mapped_port.macs = sorted(macs)
     for ifindex, vlan_ids in vlan_ids_by_ifindex.items():
-        port = ports_by_ifindex.get(ifindex)
-        if port and vlan_ids:
-            port.vlan = ",".join(sorted(vlan_ids, key=_vlan_sort_key))
+        mapped_port = ports_by_ifindex.get(ifindex)
+        if mapped_port and vlan_ids:
+            mapped_port.vlan = ",".join(sorted(vlan_ids, key=_vlan_sort_key))
     _collect_lldp_neighbors(session, ports_by_ifindex)
     _collect_error_counters(session, ports_by_ifindex)
     _collect_poe_status(session, ports_by_ifindex)
@@ -497,11 +497,11 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, retries: int, artif
         vlan_names = {}
     vlan_to_ports: dict[str, set[str]] = {}
     for ifindex, vlan_ids in vlan_ids_by_ifindex.items():
-        port = ports_by_ifindex.get(ifindex)
-        if not port:
+        mapped_port = ports_by_ifindex.get(ifindex)
+        if not mapped_port:
             continue
         for vlan_id in vlan_ids:
-            vlan_to_ports.setdefault(vlan_id, set()).add(port.name)
+            vlan_to_ports.setdefault(vlan_id, set()).add(mapped_port.name)
 
     known_vlan_ids: set[str] = set()
     for oid, vlan_name in vlan_names.items():

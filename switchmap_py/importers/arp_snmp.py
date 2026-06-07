@@ -86,7 +86,7 @@ def _build_session(router: RouterConfig, timeout: int, retries: int) -> SnmpSess
     return SnmpSession(
         SnmpConfig(
             hostname=router.management_ip,
-            version=router.snmp_version,
+            version=str(router.snmp_version),
             community=router.community,
             username=router.username,
             security_level=router.security_level,

@@ -77,6 +77,15 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
                 "Voice VLAN: none\n"
             ),
             "show lldp neighbors detail": "Local Intf: Gi1/0/1\nSystem Name: dist-sw1\n",
+            "show interfaces transceiver": (
+                "Port Temperature Voltage Current Tx Power Rx Power\n"
+                "Gi1/0/1 31.2 3.29 6.8 -2.1 -3.4\n"
+                "Port: Gi1/0/1\n"
+                "Name: SFP-10G-SR\n"
+                "Transmit Power: -2.1 dBm\n"
+                "Receive Power: -3.4 dBm\n"
+                "Current: 6.8 mA\n"
+            ),
             "show interfaces counters errors": "Gi1/0/1 0 0 5 7 0 0",
             "show power inline": "Gi1/0/1 auto on 15.4 30.0",
             "show version": (
@@ -96,6 +105,7 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
         "show vlan brief",
         "show interfaces switchport",
         "show lldp neighbors detail",
+        "show interfaces transceiver",
         "show interfaces counters errors",
         "show power inline",
         "show version",
@@ -113,6 +123,10 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
     assert state.ports[0].duplex == "a-full"
     assert state.ports[0].speed == 1000
     assert state.ports[0].media == "10/100/1000-TX"
+    assert state.ports[0].transceiver_model == "SFP-10G-SR"
+    assert state.ports[0].transceiver_tx_power_dbm == -2.1
+    assert state.ports[0].transceiver_rx_power_dbm == -3.4
+    assert state.ports[0].transceiver_current_ma == 6.8
     assert state.ports[0].switchport_mode == "trunk"
     assert state.ports[0].native_vlan == "1 (default)"
     assert state.ports[0].allowed_vlans == "10,20"
@@ -186,6 +200,31 @@ def test_parse_cisco_switchport_extracts_operational_vlan_details():
     assert details["gi1/0/2"].mode == "access"
     assert details["gi1/0/2"].access_vlan == "20 (Users)"
     assert details["gi1/0/2"].voice_vlan == "30 (Voice)"
+
+
+def test_parse_cisco_transceivers_extracts_optic_levels_model_and_current():
+    output = "\n".join(
+        [
+            "Port Temperature Voltage Current Tx Power Rx Power",
+            "Gi1/0/1 31.2 3.29 6.8 -2.1 -3.4",
+            "Te1/0/2 QSFP28-LR",
+            "Port: Te1/0/2",
+            "Part Number: QSFP28-LR",
+            "Transmit Power: -1.0 dBm",
+            "Receive Power: -5.2 dBm",
+            "Bias Current: 33.5 mA",
+        ]
+    )
+
+    details = collectors._parse_cisco_transceivers(output)
+
+    assert details["gi1/0/1"].current_ma == 6.8
+    assert details["gi1/0/1"].tx_power_dbm == -2.1
+    assert details["gi1/0/1"].rx_power_dbm == -3.4
+    assert details["te1/0/2"].model == "QSFP28-LR"
+    assert details["te1/0/2"].tx_power_dbm == -1.0
+    assert details["te1/0/2"].rx_power_dbm == -5.2
+    assert details["te1/0/2"].current_ma == 33.5
 
 
 def test_parse_cisco_show_version_extracts_inventory():
@@ -321,6 +360,7 @@ def test_collect_switch_state_keeps_ports_when_mac_command_fails(monkeypatch):
         "show interfaces switchport",
         "show lldp neighbors detail",
         "show cdp neighbors detail",
+        "show interfaces transceiver",
         "show interfaces counters errors",
         "show power inline",
         "show version",
@@ -415,6 +455,7 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
                 "Name: Et1\nOperational Mode: trunk\nTrunking Native Mode VLAN: 1\nTrunking VLANs Enabled: 10\n"
             ),
             "show lldp neighbors detail": "Local Intf: Et1\nSystem Name: leaf-1\n",
+            "show interfaces transceiver": "Et1 35.0 3.30 7.5 -2.0 -3.0\nEt1 SFP-10G-SR\n",
             "show interfaces counters errors": "Et1 0 0 9 4 0 0",
             "show power inline": "Et1 auto on 3.5 30.0",
             "show version": "Cisco vEOS, Version 4.31.1F\nProcessor board ID JPE00000000\n",
@@ -429,6 +470,7 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
         "show vlan brief",
         "show interfaces switchport",
         "show lldp neighbors detail",
+        "show interfaces transceiver",
         "show interfaces counters errors",
         "show power inline",
         "show version",
@@ -443,6 +485,10 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
     assert state.ports[0].poe_status == "on"
     assert state.ports[0].poe_power_w == 3.5
     assert state.ports[0].media == "10Gbase-SR"
+    assert state.ports[0].transceiver_model == "SFP-10G-SR"
+    assert state.ports[0].transceiver_tx_power_dbm == -2.0
+    assert state.ports[0].transceiver_rx_power_dbm == -3.0
+    assert state.ports[0].transceiver_current_ma == 7.5
     assert state.ports[0].switchport_mode == "trunk"
     assert state.ports[0].native_vlan == "1"
     assert state.ports[0].allowed_vlans == "10"
@@ -657,6 +703,8 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
                 raise SshError("lldp unsupported")
             if command == "show cdp neighbors detail":
                 return "Device ID: cdp-edge-1\nInterface: Gi1/0/1, Port ID (outgoing port): Gi0/1\n"
+            if command == "show interfaces transceiver":
+                return ""
             if command == "show interfaces counters errors":
                 return "Gi1/0/1 0 0 4 6 0 0"
             if command == "show power inline":
@@ -676,6 +724,7 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
         "show interfaces switchport",
         "show lldp neighbors detail",
         "show cdp neighbors detail",
+        "show interfaces transceiver",
         "show interfaces counters errors",
         "show power inline",
         "show version",

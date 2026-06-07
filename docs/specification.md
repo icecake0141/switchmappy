@@ -49,8 +49,10 @@ For Cisco-like SSH collection, `show interfaces switchport` is used when
 available to expose operational mode, access VLAN, voice VLAN, native VLAN, and
 allowed VLANs. Speed and media/type evidence, such as SFP/QSFP optics labels
 when collectors expose them, are rendered in switch, ports, search, and debug
-views. These values are evidence fields in reports and search output;
-they do not override explicit `trunk_ports` role assignment.
+views. Cisco-like SSH also collects `show interfaces transceiver` when
+available and renders optic model, Tx/Rx optical power in dBm, and bias current
+in mA. These values are evidence fields in reports and search output; they do
+not override explicit `trunk_ports` role assignment.
 
 ## Neighbor Capabilities
 
