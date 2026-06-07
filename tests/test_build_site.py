@@ -931,10 +931,10 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert "<th>Type</th>" in search_html
     assert "<th>Status</th>" in search_html
     assert "<th>Media</th>" in search_html
-    assert "<th>Optic</th>" in search_html
-    assert "<th>Tx dBm</th>" in search_html
-    assert "<th>Rx dBm</th>" in search_html
-    assert "<th>Current mA</th>" in search_html
+    assert "<th>Optic</th>" not in search_html
+    assert "<th>Tx dBm</th>" not in search_html
+    assert "<th>Rx dBm</th>" not in search_html
+    assert "<th>Current mA</th>" not in search_html
     assert "port.media" in search_html
     assert "port.transceiver_model" in search_html
     assert "entry.transceiver_model" in search_html

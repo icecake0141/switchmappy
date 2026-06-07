@@ -26,7 +26,6 @@ class SearchServer:
     def build_app(self):
         try:
             from fastapi import FastAPI  # type: ignore[import-not-found]
-            from fastapi.responses import RedirectResponse  # type: ignore[import-not-found]
             from fastapi.staticfiles import StaticFiles  # type: ignore[import-not-found]
         except ModuleNotFoundError as exc:
             raise RuntimeError(
@@ -34,11 +33,6 @@ class SearchServer:
             ) from exc
 
         app = FastAPI(title="switchmappy-search", docs_url=None, redoc_url=None)
-
-        @app.get("/", include_in_schema=False)
-        def redirect_to_search() -> RedirectResponse:
-            return RedirectResponse(url="/search/")
-
         app.mount(
             "/",
             StaticFiles(directory=str(self.output_dir), html=True),

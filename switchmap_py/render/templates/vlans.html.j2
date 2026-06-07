@@ -19,15 +19,20 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header>
     <h1>VLANs</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
-  <label for="vlanFilter">Filter VLAN ID/Name:</label>
-  <input id="vlanFilter" type="text" placeholder="e.g. 10 or users" />
+  {{ report_nav('vlans') }}
+  <div class="filter-row">
+    <label for="vlanFilter">Filter VLAN ID/Name:</label>
+    <input id="vlanFilter" type="text" placeholder="e.g. 10 or users" />
+  </div>
   {% for switch in switches %}
   <section>
     <h2><a href="/switches/{{ switch.name }}.html">{{ switch.name }}</a></h2>
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -57,6 +62,7 @@ Review required for correctness, security, and licensing.
       {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
   {% endfor %}
   <script>

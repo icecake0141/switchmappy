@@ -30,6 +30,18 @@ Optional features:
 pip install -e .[snmp,search]
 ```
 
+Try the built-in demo without a `site.yml` or network devices:
+
+```bash
+switchmap demo
+```
+
+For static output only:
+
+```bash
+switchmap demo --no-serve
+```
+
 Development dependencies:
 
 ```bash

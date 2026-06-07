@@ -18,12 +18,27 @@ Review required for correctness, security, and licensing.
 
 ## Common Options
 
-All commands support:
+Operational commands support:
 
 - `--config <path>`
 - `--debug | --info | --warn`
 - `--logfile <path>`
 - `--log-format text|json`
+
+## `demo`
+
+- Purpose: generate a full sample report without `site.yml` or network devices.
+- Options:
+  - `--output <path>` (default: `demo-output`)
+  - `--host` (default: `127.0.0.1`)
+  - `--port` (default: `8000`)
+  - `--no-serve`: generate static output only
+  - `--date <ISO datetime>` for deterministic output
+- Behavior:
+  - writes report output plus demo state under `<output>/.demo-state`,
+  - includes a dedicated Transceivers page with sample optic diagnostics,
+  - starts a local server by default,
+  - use `--no-serve` if search extras are not installed.
 
 ## `scan-switch`
 
@@ -62,6 +77,7 @@ All commands support:
   - records failed switch reasons in output index.
   - writes a JSON history snapshot to `history_directory`.
   - generates `/debug/index.html` with collection and correlation diagnostics.
+  - generates `/transceivers/index.html` with collected optic diagnostics.
   - generates `/history/index.html` with previous-snapshot differences.
   - stores collector artifacts under `collection_artifacts_directory`.
 

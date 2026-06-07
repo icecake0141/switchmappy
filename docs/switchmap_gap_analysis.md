@@ -31,7 +31,7 @@ used by `SwitchMap.pl`, `ScanSwitch.pl`, `GetArp.pl`, `FindOffice.pl`,
 
 | Area | Status | switchmappy Support | Remaining Work |
 | --- | --- | --- | --- |
-| Static switch map generation | Implemented | `switchmap build-html` renders index, switch, ports, VLAN, endpoint, search, history, and debug pages. | Legacy HTML layout parity is not a goal unless explicitly required. |
+| Static switch map generation | Implemented | `switchmap build-html` renders index, switch, ports, transceiver, VLAN, endpoint, search, history, and debug pages. | Legacy HTML layout parity is not a goal unless explicitly required. |
 | Idle-since tracking | Implemented | `scan-switch` updates per-switch idle state. | Broaden device fixtures if more vendors are added. |
 | ARP import | Implemented | CSV and SNMP router ARP import are supported. | Add more router-family fixtures if needed. |
 | MAC/IP/hostname correlation | Implemented | MAC list, ARP data, hostname import, reverse DNS, and OUI display are supported. | Keep SSH endpoint correlation covered by repeatable fixtures and integration tests. |

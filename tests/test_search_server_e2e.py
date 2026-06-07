@@ -24,6 +24,7 @@ def test_search_server_serves_search_assets_via_fastapi(tmp_path):
     testclient_mod = pytest.importorskip("fastapi.testclient")
     assert fastapi is not None
 
+    (tmp_path / "index.html").write_text("<h1>Dashboard</h1>", encoding="utf-8")
     (tmp_path / "search").mkdir()
     (tmp_path / "search" / "index.html").write_text("<h1>Search</h1>", encoding="utf-8")
     (tmp_path / "search" / "index.json").write_text(
@@ -33,9 +34,9 @@ def test_search_server_serves_search_assets_via_fastapi(tmp_path):
     app = SearchServer(output_dir=tmp_path, host="127.0.0.1", port=8000).build_app()
     client = testclient_mod.TestClient(app)
 
-    root_response = client.get("/", follow_redirects=False)
-    assert root_response.status_code in {302, 307}
-    assert root_response.headers["location"] == "/search/"
+    root_response = client.get("/")
+    assert root_response.status_code == 200
+    assert "Dashboard" in root_response.text
 
     html_response = client.get("/search/index.html")
     assert html_response.status_code == 200

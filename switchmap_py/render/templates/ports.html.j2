@@ -19,11 +19,13 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header>
     <h1>Ports</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
-  <div>
+  {{ report_nav('ports') }}
+  <div class="filter-row">
     <label for="statusFilter">Status:</label>
     <select id="statusFilter">
       <option value="">All</option>
@@ -52,6 +54,7 @@ Review required for correctness, security, and licensing.
   {% for switch in switches %}
   <section>
     <h2>{{ switch.name }}</h2>
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -62,10 +65,6 @@ Review required for correctness, security, and licensing.
           <th>Speed</th>
           <th>Duplex</th>
           <th>Media</th>
-          <th>Optic</th>
-          <th>Tx dBm</th>
-          <th>Rx dBm</th>
-          <th>Current mA</th>
           <th>Last Change</th>
           <th>Neighbor</th>
           <th>Mode</th>
@@ -132,10 +131,6 @@ Review required for correctness, security, and licensing.
           <td>{{ port.speed or '' }}</td>
           <td>{{ port.duplex or '' }}</td>
           <td>{{ port.media or '' }}</td>
-          <td>{{ port.transceiver_model or '' }}</td>
-          <td>{{ port.transceiver_tx_power_dbm if port.transceiver_tx_power_dbm is not none else '' }}</td>
-          <td>{{ port.transceiver_rx_power_dbm if port.transceiver_rx_power_dbm is not none else '' }}</td>
-          <td>{{ port.transceiver_current_ma if port.transceiver_current_ma is not none else '' }}</td>
           <td>{{ port.last_change or '' }}</td>
           <td>
             {% for neighbor in port.neighbors %}
@@ -185,6 +180,7 @@ Review required for correctness, security, and licensing.
       {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
   {% endfor %}
   <script>
