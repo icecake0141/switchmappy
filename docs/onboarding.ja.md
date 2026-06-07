@@ -15,7 +15,8 @@ Review required for correctness, security, and licensing.
 # クイックスタートとユーザツアー
 
 - English original: [onboarding.md](onboarding.md)
-- 静的な英日UI: [index.html](index.html)
+- 静的な英日UI: <https://icecake0141.github.io/switchmappy/>
+- 公開手順: [GitHub Pages ドキュメント](pages.ja.md)
 
 ## クイックスタート
 

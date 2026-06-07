@@ -18,8 +18,9 @@ Review required for correctness, security, and licensing.
 
 ## Sections
 
-- [Onboarding Documentation UI](index.html)
+- [Onboarding Documentation UI](https://icecake0141.github.io/switchmappy/) (GitHub Pages)
 - [Quick Start and User Tour](onboarding.md)
+- [GitHub Pages Documentation](pages.md)
 - [Specification](specification.md)
 - [Configuration](configuration.md)
 - [Commands](commands.md)
