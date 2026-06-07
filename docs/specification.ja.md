@@ -48,6 +48,8 @@ Cisco 系 SSH collection では、利用可能な場合に `show interfaces swit
 を使い、operational mode、access VLAN、voice VLAN、native VLAN、allowed VLANs
 を表示します。collector が公開する場合は SFP/QSFP optic label などの
 speed/media type も switch、ports、search、debug view に表示します。
+Cisco 系 SSH では利用可能な場合に `show interfaces transceiver` も取得し、
+optic model、Tx/Rx optical power (dBm)、bias current (mA) を表示します。
 これらはレポートと検索で確認するための根拠情報であり、明示的な
 `trunk_ports` role assignment を上書きしません。
 

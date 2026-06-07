@@ -42,7 +42,7 @@ Review required for correctness, security, and licensing.
 | LLDP/CDP neighbors | Implemented | SSH LLDP/CDP と SNMP LLDP neighbor を表示。 | vendor固有出力のcapability fixtureを追加。 |
 | Neighbor capabilities | Partial | CDP capability と SNMP LLDP capability bitmap を保持。 | capability field を省略または変化させる device fixture を追加する。 |
 | Trunk/uplink 表示 | Intentionally different | role は明示 `trunk_ports` または LLDP/CDP neighbor 根拠で決定。 | MAC数やendpoint数をrole根拠に使わない。 |
-| Operational switchport evidence | Implemented | Cisco系SSHで mode、access VLAN、voice VLAN、native VLAN、allowed VLANs、speed、media/type label を取得。FortiSwitch SSHでは VLAN membership に加えて `show switch interface` 由来の description、mode、native VLAN、allowed VLANs、FortiLink hint を取得。SNMPでは speed と IF-MIB interface type を表示。 | vendor がより詳細な optic diagnostics を公開する場合は transceiver-detail fixture を追加。 |
+| Operational switchport evidence | Implemented | Cisco系SSHで mode、access VLAN、voice VLAN、native VLAN、allowed VLANs、speed、media/type label に加え、`show interfaces transceiver` が利用可能な場合は transceiver model、Tx/Rx optical power、current を取得。FortiSwitch SSHでは VLAN membership に加えて `show switch interface` 由来の description、mode、native VLAN、allowed VLANs、FortiLink hint を取得。SNMPでは speed と IF-MIB interface type を表示。 | platform ごとに transceiver command の形式が異なる場合は vendor 固有 fixture を追加。 |
 | Switch inventory | Partial | SSH `show version` と SNMP `sysDescr`/`sysUpTime` を表示。 | platform別のmodel/serial/version OIDを追加。 |
 | PoE/error counters | Partial | 対応profileでSSH PoE status/power と input/output errors を表示。SNMP collector は IF-MIB error counter と基本的な POWER-ETHERNET-MIB PoE status/power を取得。 | 標準MIBが不十分な場合の vendor 固有 PoE/error OID を追加。 |
 | History/diffs | Implemented | history snapshot と差分ページを生成。 | 出力増加時はretention制御を検討。 |

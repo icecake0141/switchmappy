@@ -354,7 +354,7 @@ def import_hostnames(
     updated = []
     changes = 0
     for entry in entries:
-        record = by_mac.get(entry.mac.lower()) or by_ip.get(entry.ip)
+        record = by_mac.get(entry.mac.lower()) or (by_ip.get(entry.ip) if entry.ip else None)
         if record and record.hostname and (overwrite or not entry.hostname):
             if entry.hostname != record.hostname:
                 changes += 1

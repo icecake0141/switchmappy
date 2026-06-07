@@ -29,6 +29,10 @@ class Port:
     vlan: Optional[str]
     duplex: Optional[str] = None
     media: Optional[str] = None
+    transceiver_model: Optional[str] = None
+    transceiver_tx_power_dbm: Optional[float] = None
+    transceiver_rx_power_dbm: Optional[float] = None
+    transceiver_current_ma: Optional[float] = None
     last_change: Optional[str] = None
     macs: list[str] = field(default_factory=list)
     neighbors: list[Neighbor] = field(default_factory=list)

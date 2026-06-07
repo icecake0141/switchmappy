@@ -180,6 +180,10 @@ def test_build_site_writes_history_snapshot(tmp_path):
                         vlan="10",
                         duplex="full",
                         media="SFP-10G-SR",
+                        transceiver_model="SFP-10G-SR",
+                        transceiver_tx_power_dbm=-2.1,
+                        transceiver_rx_power_dbm=-3.4,
+                        transceiver_current_ma=6.8,
                     )
                 ],
             )
@@ -199,6 +203,10 @@ def test_build_site_writes_history_snapshot(tmp_path):
     data = json.loads(snapshot.read_text(encoding="utf-8"))
     assert data["switches"][0]["ports"][0]["duplex"] == "full"
     assert data["switches"][0]["ports"][0]["media"] == "SFP-10G-SR"
+    assert data["switches"][0]["ports"][0]["transceiver_model"] == "SFP-10G-SR"
+    assert data["switches"][0]["ports"][0]["transceiver_tx_power_dbm"] == -2.1
+    assert data["switches"][0]["ports"][0]["transceiver_rx_power_dbm"] == -3.4
+    assert data["switches"][0]["ports"][0]["transceiver_current_ma"] == 6.8
 
 
 def test_build_site_renders_debug_page_and_payload(tmp_path):
@@ -291,6 +299,10 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
                         vlan="10",
                         duplex="full",
                         media="SFP-10G-LR",
+                        transceiver_model="SFP-10G-LR",
+                        transceiver_tx_power_dbm=-1.2,
+                        transceiver_rx_power_dbm=-4.8,
+                        transceiver_current_ma=7.1,
                         macs=["00:11:22:33:44:55", "00:11:22:33:44:77"],
                         is_trunk=True,
                     )
@@ -330,7 +342,12 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert debug["switches"][0]["error_artifacts"] == 1
     assert debug["switches"][0]["unsupported_artifacts"] == 1
     assert debug["ports"][0]["media"] == "SFP-10G-LR"
+    assert debug["ports"][0]["transceiver_model"] == "SFP-10G-LR"
+    assert debug["ports"][0]["transceiver_tx_power_dbm"] == -1.2
+    assert debug["ports"][0]["transceiver_rx_power_dbm"] == -4.8
+    assert debug["ports"][0]["transceiver_current_ma"] == 7.1
     assert "SFP-10G-LR" in debug_html
+    assert "-4.8" in debug_html
     assert debug["snmp_fdb_diagnostics"][0]["switch"] == "sw-bad"
     assert "collection error" in debug["snmp_fdb_diagnostics"][0]["labels"]
     assert debug["snmp_fdb_diagnostics"][1]["switch"] == "sw1"
@@ -437,6 +454,10 @@ def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
     previous["switches"][0]["ports"][0]["descr"] = "New"
     previous["switches"][0]["ports"][0]["vlan"] = "20"
     previous["switches"][0]["ports"][0]["media"] = "SFP-10G-SR"
+    previous["switches"][0]["ports"][0]["transceiver_model"] = "SFP-10G-SR"
+    previous["switches"][0]["ports"][0]["transceiver_tx_power_dbm"] = -2.0
+    previous["switches"][0]["ports"][0]["transceiver_rx_power_dbm"] = -3.0
+    previous["switches"][0]["ports"][0]["transceiver_current_ma"] = 6.0
     previous["switches"][0]["ports"][0]["name"] = "Gi1/0/2"
     (history_dir / "20240102T120000Z.json").write_text(json.dumps(previous), encoding="utf-8")
     build_site(
@@ -453,6 +474,10 @@ def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
                         oper_status="up",
                         speed=1000,
                         media="SFP-10G-LR",
+                        transceiver_model="SFP-10G-LR",
+                        transceiver_tx_power_dbm=-1.0,
+                        transceiver_rx_power_dbm=-4.0,
+                        transceiver_current_ma=7.0,
                         vlan="20",
                         macs=["00:11:22:33:44:55"],
                     )
@@ -473,6 +498,11 @@ def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
     )
     media_change = media_search_index["history_diff"]["port_changes"][0]["changes"]["media"]
     assert media_change == {"previous": "SFP-10G-SR", "current": "SFP-10G-LR"}
+    transceiver_changes = media_search_index["history_diff"]["port_changes"][0]["changes"]
+    assert transceiver_changes["transceiver_model"] == {"previous": "SFP-10G-SR", "current": "SFP-10G-LR"}
+    assert transceiver_changes["transceiver_tx_power_dbm"] == {"previous": -2.0, "current": -1.0}
+    assert transceiver_changes["transceiver_rx_power_dbm"] == {"previous": -3.0, "current": -4.0}
+    assert transceiver_changes["transceiver_current_ma"] == {"previous": 6.0, "current": 7.0}
 
 
 def test_build_site_escapes_xss_in_user_controlled_data(tmp_path):
@@ -877,6 +907,10 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
                         speed=1000,
                         vlan="10",
                         media="QSFP28-LR",
+                        transceiver_model="QSFP28-LR",
+                        transceiver_tx_power_dbm=-1.1,
+                        transceiver_rx_power_dbm=-5.5,
+                        transceiver_current_ma=31.2,
                         macs=["00:11:22:33:44:55"],
                         neighbors=[Neighbor(device="dist-sw1", protocol="cdp", port="Gi1/0/48")],
                     )
@@ -897,7 +931,14 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert "<th>Type</th>" in search_html
     assert "<th>Status</th>" in search_html
     assert "<th>Media</th>" in search_html
+    assert "<th>Optic</th>" in search_html
+    assert "<th>Tx dBm</th>" in search_html
+    assert "<th>Rx dBm</th>" in search_html
+    assert "<th>Current mA</th>" in search_html
     assert "port.media" in search_html
+    assert "port.transceiver_model" in search_html
+    assert "entry.transceiver_model" in search_html
+    assert "entry.transceiver_current_ma" in search_html
     assert "<th>VLAN</th>" in search_html
     assert "<th>Neighbor</th>" in search_html
     assert "<th>In Err</th>" in search_html

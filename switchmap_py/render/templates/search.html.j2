@@ -76,6 +76,10 @@ Review required for correctness, security, and licensing.
         <th>Speed</th>
         <th>Duplex</th>
         <th>Media</th>
+        <th>Optic</th>
+        <th>Tx dBm</th>
+        <th>Rx dBm</th>
+        <th>Current mA</th>
         <th>Mode</th>
         <th>Access</th>
         <th>Voice</th>
@@ -110,6 +114,10 @@ Review required for correctness, security, and licensing.
         entry.speed,
         entry.duplex,
         entry.media,
+        entry.transceiver_model,
+        entry.transceiver_tx_power_dbm,
+        entry.transceiver_rx_power_dbm,
+        entry.transceiver_current_ma,
         entry.switchport_mode,
         entry.access_vlan,
         entry.voice_vlan,
@@ -260,6 +268,10 @@ Review required for correctness, security, and licensing.
             speed: port.speed ?? '',
             duplex: port.duplex ?? '',
             media: port.media ?? '',
+            transceiver_model: port.transceiver_model ?? '',
+            transceiver_tx_power_dbm: port.transceiver_tx_power_dbm ?? '',
+            transceiver_rx_power_dbm: port.transceiver_rx_power_dbm ?? '',
+            transceiver_current_ma: port.transceiver_current_ma ?? '',
             switchport_mode: port.switchport_mode ?? '',
             access_vlan: port.access_vlan ?? '',
             voice_vlan: port.voice_vlan ?? '',
@@ -306,6 +318,10 @@ Review required for correctness, security, and licensing.
           entry.speed ?? '',
           entry.duplex ?? '',
           entry.media ?? '',
+          entry.transceiver_model ?? '',
+          entry.transceiver_tx_power_dbm ?? '',
+          entry.transceiver_rx_power_dbm ?? '',
+          entry.transceiver_current_ma ?? '',
           entry.switchport_mode ?? '',
           entry.access_vlan ?? '',
           entry.voice_vlan ?? '',

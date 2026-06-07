@@ -41,7 +41,7 @@ class SshSession:
 
     def _run_with_password(self, command: str, timeout: int) -> str:
         try:
-            import paramiko  # type: ignore[import-not-found]
+            import paramiko  # type: ignore[import-not-found, import-untyped]
         except ModuleNotFoundError as exc:
             raise SshError("paramiko is required for password SSH operations") from exc
 

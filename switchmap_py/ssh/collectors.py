@@ -16,6 +16,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from switchmap_py.artifacts import CollectorArtifactRecorder
 from switchmap_py.config import SwitchConfig
@@ -104,6 +105,14 @@ class SwitchportInfo:
     allowed_vlans: str = ""
     description: str = ""
     fortilink: bool = False
+
+
+@dataclass
+class TransceiverInfo:
+    model: str = ""
+    tx_power_dbm: float | None = None
+    rx_power_dbm: float | None = None
+    current_ma: float | None = None
 
 
 def _normalize_oper_status(status: str) -> str:
@@ -748,6 +757,68 @@ def _parse_switchport_mode_line(value: str) -> str:
     return cleaned
 
 
+def _parse_float(value: str) -> float | None:
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _set_transceiver_value(info: TransceiverInfo, label: str, value: str) -> None:
+    numeric_match = re.search(r"(-?\d+(?:\.\d+)?)", value)
+    numeric_value = _parse_float(numeric_match.group(1)) if numeric_match else None
+    lower = label.lower()
+    if "part" in lower or "model" in lower or lower == "name":
+        info.model = value.strip()
+    elif "tx" in lower or "transmit" in lower:
+        info.tx_power_dbm = numeric_value
+    elif "rx" in lower or "receive" in lower:
+        info.rx_power_dbm = numeric_value
+    elif "current" in lower or "bias" in lower:
+        info.current_ma = numeric_value
+
+
+def _parse_cisco_transceivers(text: str) -> dict[str, TransceiverInfo]:
+    details: dict[str, TransceiverInfo] = {}
+    current_port: str | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("port ", "interface ", "---", "temperature ", "name ")):
+            continue
+        port_match = re.match(r"^(?:port|interface)\s*:\s*(\S+)", line, flags=re.IGNORECASE)
+        if port_match:
+            current_port = _canonical_port_name(port_match.group(1))
+            details.setdefault(current_port, TransceiverInfo())
+            continue
+        key_value_match = re.match(
+            r"^(name|model|part(?:\s+number)?|tx\s+power|transmit\s+power|rx\s+power|receive\s+power|current|bias(?:\s+current)?)\s*:\s*(.+)$",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if key_value_match and current_port:
+            _set_transceiver_value(
+                details.setdefault(current_port, TransceiverInfo()), key_value_match.group(1), key_value_match.group(2)
+            )
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) >= 2 and _PORT_HINT_RE.match(tokens[0]):
+            port_key = _canonical_port_name(tokens[0])
+            info = details.setdefault(port_key, TransceiverInfo())
+            numeric_tokens = [_parse_float(token) for token in tokens[1:]]
+            numeric_values = [value for value in numeric_tokens if value is not None]
+            if len(numeric_values) >= 5:
+                info.current_ma = numeric_values[-3]
+                info.tx_power_dbm = numeric_values[-2]
+                info.rx_power_dbm = numeric_values[-1]
+                continue
+            if len(tokens) == 2 and _parse_float(tokens[1]) is None:
+                info.model = tokens[1]
+    return details
+
+
 def _parse_cisco_switchport(text: str) -> dict[str, SwitchportInfo]:
     details: dict[str, SwitchportInfo] = {}
     current_port: str | None = None
@@ -1136,6 +1207,14 @@ def _collect_switchport_details(session: SshSession, switch: SwitchConfig, timeo
     return _parse_cisco_switchport(output)
 
 
+def _collect_transceiver_details(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, TransceiverInfo]:
+    profile = _vendor_profile(switch.vendor)
+    if profile not in {"cisco_like", "arista"}:
+        return {}
+    output = _run_command(session, "show interfaces transceiver", timeout=timeout * _SLOW_COMMAND_TIMEOUT_FACTOR)
+    return _parse_cisco_transceivers(output)
+
+
 def _collect_inventory(session: SshSession, switch: SwitchConfig, timeout: int) -> SwitchInventory:
     profile = _vendor_profile(switch.vendor)
     if profile == "fortiswitch":
@@ -1148,7 +1227,7 @@ def _collect_inventory(session: SshSession, switch: SwitchConfig, timeout: int) 
 
 
 def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path | None = None) -> Switch:
-    session = build_session(switch, timeout=timeout)
+    session: Any = build_session(switch, timeout=timeout)
     if artifact_dir is not None:
         session = RecordingSshSession(session, CollectorArtifactRecorder(artifact_dir, switch.name, "ssh"))
     ports: list[Port] = []
@@ -1239,6 +1318,28 @@ def collect_switch_state(switch: SwitchConfig, timeout: int, artifact_dir: Path 
                 switch.name,
                 exc_info=True,
             )
+        try:
+            transceiver_by_port = _collect_transceiver_details(session, switch, timeout=timeout)
+            for port in ports:
+                transceiver_details = transceiver_by_port.get(_canonical_port_name(port.name))
+                if not transceiver_details:
+                    continue
+                port.transceiver_model = transceiver_details.model or port.transceiver_model
+                port.transceiver_tx_power_dbm = transceiver_details.tx_power_dbm
+                port.transceiver_rx_power_dbm = transceiver_details.rx_power_dbm
+                port.transceiver_current_ma = transceiver_details.current_ma
+        except SshError as exc:
+            if _is_unsupported_optional_command(exc):
+                logger.debug(
+                    "SSH transceiver detail command is unsupported on switch %s; continuing without transceiver data.",
+                    switch.name,
+                )
+            else:
+                logger.warning(
+                    "SSH transceiver detail command failed for switch %s; continuing without transceiver data.",
+                    switch.name,
+                    exc_info=True,
+                )
         try:
             errors_by_port = _collect_error_counters(session, switch, timeout=timeout)
             for port in ports:
