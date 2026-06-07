@@ -81,99 +81,270 @@ def _port(
     )
 
 
+def _access_switch(name: str, number: int, dist_switch: str, dist_port: str) -> Switch:
+    phone_mac = f"02:00:00:00:20:{number:02x}"
+    workstation_mac = f"02:00:00:00:21:{number:02x}"
+    camera_mac = f"02:00:00:00:40:{number:02x}"
+    return Switch(
+        name=name,
+        management_ip=f"192.0.2.{20 + number}",
+        vendor="generic",
+        platform="DemoSwitch Access 48P",
+        serial_number=f"DEMOACCESS{number:03d}",
+        os_version="demo-os access 3.2",
+        uptime=f"{30 + number} days",
+        ports=[
+            _port(
+                "Gi1/0/1",
+                f"Desk phone {number}",
+                "up",
+                "20",
+                [phone_mac],
+                poe_status="delivering",
+                poe_power_w=5.0 + number / 10,
+            ),
+            _port("Gi1/0/2", f"Workstation {number}", "up", "20", [workstation_mac]),
+            _port("Gi1/0/3", f"Conference display {number}", "up", "30", [f"02:00:00:00:30:{number:02x}"]),
+            _port(
+                "Gi1/0/4",
+                f"Security camera {number}",
+                "up",
+                "40",
+                [camera_mac],
+                poe_status="delivering",
+                poe_power_w=7.0 + number / 10,
+            ),
+            _port("Gi1/0/5", "", "up", "20", [f"02:00:00:00:22:{number:02x}"], input_errors=number),
+            _port("Gi1/0/6", "Spare desk", "down", "20", []),
+            _port(
+                "Gi1/0/48",
+                f"Uplink to {dist_switch}",
+                "up",
+                None,
+                [f"02:00:00:00:ff:{number:02x}"],
+                speed=10000,
+                neighbor=Neighbor(device=dist_switch, protocol="lldp", port=dist_port, capabilities=["bridge"]),
+                role="network",
+                is_trunk=True,
+            ),
+        ],
+        vlans=[
+            Vlan(vlan_id="20", name="users", ports=["Gi1/0/1", "Gi1/0/2", "Gi1/0/5", "Gi1/0/48"]),
+            Vlan(vlan_id="30", name="conference", ports=["Gi1/0/3", "Gi1/0/48"]),
+            Vlan(vlan_id="40", name="security", ports=["Gi1/0/4", "Gi1/0/48"]),
+        ],
+        diagnostics=[{"collector": "demo", "status": "success", "message": "Synthetic onboarding data"}],
+    )
+
+
+def _distribution_switch(name: str, number: int, access_names: list[str]) -> Switch:
+    ports: list[Port] = []
+    vlan_ports: list[str] = []
+    for index, access_name in enumerate(access_names, start=1):
+        port_name = f"Te1/1/{index}"
+        vlan_ports.append(port_name)
+        ports.append(
+            _port(
+                port_name,
+                f"Downlink to {access_name}",
+                "up",
+                None,
+                [f"02:00:00:10:{number:02x}:{index:02x}"],
+                speed=10000,
+                neighbor=Neighbor(device=access_name, protocol="lldp", port="Gi1/0/48", capabilities=["bridge"]),
+                role="network",
+                is_trunk=True,
+            )
+        )
+    ports.extend(
+        [
+            _port(
+                "Te1/1/47",
+                "Core uplink A",
+                "up",
+                None,
+                [f"02:00:00:10:{number:02x}:47"],
+                speed=10000,
+                neighbor=Neighbor(device="core-sw1", protocol="lldp", port=f"Et1/{number}", capabilities=["bridge"]),
+                role="network",
+                output_errors=number,
+                is_trunk=True,
+            ),
+            _port(
+                "Te1/1/48",
+                "Core uplink B",
+                "up",
+                None,
+                [f"02:00:00:10:{number:02x}:48"],
+                speed=10000,
+                neighbor=Neighbor(device="core-sw2", protocol="lldp", port=f"Et1/{number}", capabilities=["bridge"]),
+                role="network",
+                is_trunk=True,
+            ),
+            _port("Gi1/0/10", f"Build server {number}", "up", "10", [f"02:00:00:00:10:{number:02x}"]),
+        ]
+    )
+    return Switch(
+        name=name,
+        management_ip=f"192.0.2.{10 + number}",
+        vendor="generic",
+        platform="DemoSwitch Distribution 10G",
+        serial_number=f"DEMODIST{number:03d}",
+        os_version="demo-os distribution 4.1",
+        uptime=f"{100 + number} days",
+        ports=ports,
+        vlans=[
+            Vlan(vlan_id="10", name="servers", ports=["Gi1/0/10", "Te1/1/47", "Te1/1/48"]),
+            Vlan(vlan_id="20", name="users", ports=vlan_ports + ["Te1/1/47", "Te1/1/48"]),
+            Vlan(vlan_id="30", name="conference", ports=vlan_ports + ["Te1/1/47", "Te1/1/48"]),
+            Vlan(vlan_id="40", name="security", ports=vlan_ports + ["Te1/1/47", "Te1/1/48"]),
+        ],
+        diagnostics=[{"collector": "demo", "status": "success", "message": "Synthetic onboarding data"}],
+    )
+
+
+def _core_switch(name: str, number: int, dist_names: list[str]) -> Switch:
+    ports: list[Port] = []
+    for index, dist_name in enumerate(dist_names, start=1):
+        ports.append(
+            _port(
+                f"Et1/{index}",
+                f"Distribution link to {dist_name}",
+                "up",
+                None,
+                [f"02:00:00:ff:{number:02x}:{index:02x}"],
+                speed=10000,
+                neighbor=Neighbor(
+                    device=dist_name,
+                    protocol="lldp",
+                    port=f"Te1/1/{46 + number}",
+                    capabilities=["bridge"],
+                ),
+                role="network",
+                is_trunk=True,
+            )
+        )
+    ports.extend(
+        [
+            _port(
+                "Et1/47",
+                "Core peer link",
+                "up",
+                None,
+                [f"02:00:00:ff:{number:02x}:47"],
+                speed=10000,
+                neighbor=Neighbor(
+                    device="core-sw2" if name == "core-sw1" else "core-sw1",
+                    protocol="lldp",
+                    port="Et1/47",
+                    capabilities=["bridge"],
+                ),
+                role="network",
+                is_trunk=True,
+            ),
+            _port(
+                "Et1/48",
+                "Router handoff",
+                "up",
+                None,
+                [f"02:00:00:ff:{number:02x}:48"],
+                speed=10000,
+                neighbor=Neighbor(device="edge-router1", protocol="cdp", port=f"Gi0/{number}", capabilities=["router"]),
+                role="network",
+                is_trunk=True,
+            ),
+        ]
+    )
+    return Switch(
+        name=name,
+        management_ip=f"192.0.2.{number}",
+        vendor="generic",
+        platform="DemoSwitch Core 40G",
+        serial_number=f"DEMOCORE{number:03d}",
+        os_version="demo-os core 5.0",
+        uptime=f"{200 + number} days",
+        ports=ports,
+        vlans=[
+            Vlan(vlan_id="10", name="servers", ports=[port.name for port in ports]),
+            Vlan(vlan_id="20", name="users", ports=[port.name for port in ports]),
+            Vlan(vlan_id="30", name="conference", ports=[port.name for port in ports]),
+            Vlan(vlan_id="40", name="security", ports=[port.name for port in ports]),
+        ],
+        diagnostics=[{"collector": "demo", "status": "success", "message": "Synthetic onboarding data"}],
+    )
+
+
 def _switches() -> list[Switch]:
-    access_neighbor = Neighbor(device="dist-sw1", protocol="lldp", port="Te1/1/1", capabilities=["bridge"])
-    core_neighbor = Neighbor(device="edge-router1", protocol="cdp", port="Gi0/0", capabilities=["router"])
-    return [
-        Switch(
-            name="access-sw1",
-            management_ip="192.0.2.20",
-            vendor="generic",
-            platform="DemoSwitch 24P",
-            serial_number="DEMOACCESS001",
-            os_version="demo-os 1.0",
-            uptime="45 days",
-            ports=[
-                _port(
-                    "Gi1/0/1",
-                    "Front desk phone",
-                    "up",
-                    "20",
-                    ["02:00:00:00:20:01"],
-                    poe_status="delivering",
-                    poe_power_w=5.4,
-                ),
-                _port("Gi1/0/2", "Conference display", "up", "30", ["02:00:00:00:30:02"]),
-                _port("Gi1/0/3", "", "up", "20", ["02:00:00:00:20:03"], input_errors=3),
-                _port("Gi1/0/4", "Spare desk", "down", "20", []),
-                _port(
-                    "Gi1/0/24",
-                    "Uplink to distribution",
-                    "up",
-                    None,
-                    ["02:00:00:00:ff:24"],
-                    neighbor=access_neighbor,
-                    role="network",
-                    is_trunk=True,
-                ),
-            ],
-            vlans=[
-                Vlan(vlan_id="20", name="users", ports=["Gi1/0/1", "Gi1/0/3"]),
-                Vlan(vlan_id="30", name="conference", ports=["Gi1/0/2"]),
-            ],
-            diagnostics=[{"collector": "demo", "status": "success", "message": "Synthetic onboarding data"}],
-        ),
-        Switch(
-            name="dist-sw1",
-            management_ip="192.0.2.10",
-            vendor="generic",
-            platform="DemoSwitch 10G",
-            serial_number="DEMODIST001",
-            os_version="demo-os 1.0",
-            uptime="120 days",
-            ports=[
-                _port(
-                    "Te1/1/1",
-                    "Downlink to access-sw1",
-                    "up",
-                    None,
-                    ["02:00:00:00:ff:11"],
-                    speed=10000,
-                    neighbor=Neighbor(device="access-sw1", protocol="lldp", port="Gi1/0/24", capabilities=["bridge"]),
-                    role="network",
-                    is_trunk=True,
-                ),
-                _port(
-                    "Te1/1/2",
-                    "Router handoff",
-                    "up",
-                    None,
-                    ["02:00:00:00:ff:12"],
-                    speed=10000,
-                    neighbor=core_neighbor,
-                    role="network",
-                    output_errors=2,
-                    is_trunk=True,
-                ),
-                _port("Gi1/0/10", "Build server", "up", "10", ["02:00:00:00:10:10"]),
-            ],
-            vlans=[
-                Vlan(vlan_id="10", name="servers", ports=["Gi1/0/10"]),
-                Vlan(vlan_id="20", name="users", ports=["Te1/1/1"]),
-                Vlan(vlan_id="30", name="conference", ports=["Te1/1/1"]),
-            ],
-            diagnostics=[{"collector": "demo", "status": "success", "message": "Synthetic onboarding data"}],
-        ),
+    access_groups = {
+        "dist-sw1": ["access-sw1", "access-sw2"],
+        "dist-sw2": ["access-sw3", "access-sw4"],
+        "dist-sw3": ["access-sw5"],
+    }
+    switches: list[Switch] = [
+        _core_switch("core-sw1", 1, list(access_groups)),
+        _core_switch("core-sw2", 2, list(access_groups)),
     ]
+    for index, (dist_name, access_names) in enumerate(access_groups.items(), start=1):
+        switches.append(_distribution_switch(dist_name, index, access_names))
+        for access_index, access_name in enumerate(access_names, start=1):
+            switches.append(_access_switch(access_name, index * 10 + access_index, dist_name, f"Te1/1/{access_index}"))
+    return switches
 
 
 def _mac_entries() -> list[MacEntry]:
-    return [
-        MacEntry("02:00:00:00:20:01", "198.51.100.21", "front-desk-phone.example.test", "access-sw1", "Gi1/0/1"),
-        MacEntry("02:00:00:00:30:02", "198.51.100.32", "conference-display.example.test", "access-sw1", "Gi1/0/2"),
-        MacEntry("02:00:00:00:20:03", "198.51.100.23", "unlabeled-workstation.example.test", "access-sw1", "Gi1/0/3"),
-        MacEntry("02:00:00:00:10:10", "198.51.100.110", "build-server.example.test", "dist-sw1", "Gi1/0/10"),
-    ]
+    entries: list[MacEntry] = []
+    for number in [11, 12, 21, 22, 31]:
+        switch_name = f"access-sw{len(entries) // 5 + 1}"
+        entries.extend(
+            [
+                MacEntry(
+                    f"02:00:00:00:20:{number:02x}",
+                    f"198.51.100.{20 + number}",
+                    f"desk-phone-{number}.example.test",
+                    switch_name,
+                    "Gi1/0/1",
+                ),
+                MacEntry(
+                    f"02:00:00:00:21:{number:02x}",
+                    f"198.51.100.{40 + number}",
+                    f"workstation-{number}.example.test",
+                    switch_name,
+                    "Gi1/0/2",
+                ),
+                MacEntry(
+                    f"02:00:00:00:30:{number:02x}",
+                    f"198.51.100.{60 + number}",
+                    f"conference-display-{number}.example.test",
+                    switch_name,
+                    "Gi1/0/3",
+                ),
+                MacEntry(
+                    f"02:00:00:00:40:{number:02x}",
+                    f"198.51.100.{80 + number}",
+                    f"security-camera-{number}.example.test",
+                    switch_name,
+                    "Gi1/0/4",
+                ),
+                MacEntry(
+                    f"02:00:00:00:22:{number:02x}",
+                    f"198.51.100.{100 + number}",
+                    f"unlabeled-workstation-{number}.example.test",
+                    switch_name,
+                    "Gi1/0/5",
+                ),
+            ]
+        )
+    for number in [1, 2, 3]:
+        entries.append(
+            MacEntry(
+                f"02:00:00:00:10:{number:02x}",
+                f"198.51.100.{10 + number}",
+                f"build-server-{number}.example.test",
+                f"dist-sw{number}",
+                "Gi1/0/10",
+            )
+        )
+    return entries
 
 
 def _write_config() -> None:
@@ -193,6 +364,7 @@ def _write_config() -> None:
                 "# Review required for correctness, security, and licensing.",
                 "",
                 "# Synthetic SwitchMappy onboarding demo configuration.",
+                "# The fixture renders 10 switches across core, distribution, and access platforms.",
                 "destination_directory: docs/assets/onboarding/demo/output",
                 "idlesince_directory: docs/assets/onboarding/demo/idlesince",
                 "maclist_file: docs/assets/onboarding/demo/maclist.json",
@@ -200,11 +372,35 @@ def _write_config() -> None:
                 "collection_artifacts_directory: docs/assets/onboarding/demo/artifacts",
                 "unused_after_days: 30",
                 "switches:",
-                "  - name: access-sw1",
-                "    management_ip: 192.0.2.20",
+                "  - name: core-sw1",
+                "    management_ip: 192.0.2.1",
+                "    community: public",
+                "  - name: core-sw2",
+                "    management_ip: 192.0.2.2",
                 "    community: public",
                 "  - name: dist-sw1",
-                "    management_ip: 192.0.2.10",
+                "    management_ip: 192.0.2.11",
+                "    community: public",
+                "  - name: dist-sw2",
+                "    management_ip: 192.0.2.12",
+                "    community: public",
+                "  - name: dist-sw3",
+                "    management_ip: 192.0.2.13",
+                "    community: public",
+                "  - name: access-sw1",
+                "    management_ip: 192.0.2.31",
+                "    community: public",
+                "  - name: access-sw2",
+                "    management_ip: 192.0.2.32",
+                "    community: public",
+                "  - name: access-sw3",
+                "    management_ip: 192.0.2.41",
+                "    community: public",
+                "  - name: access-sw4",
+                "    management_ip: 192.0.2.42",
+                "    community: public",
+                "  - name: access-sw5",
+                "    management_ip: 192.0.2.51",
                 "    community: public",
                 "",
             ]

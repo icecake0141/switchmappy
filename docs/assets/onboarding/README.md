@@ -18,3 +18,8 @@ The screenshots in this directory are generated from synthetic demo data by
 `scripts/generate_onboarding_demo.py`. They must not be replaced with output
 from private labs, real network devices, private IP allocations, node
 inventories, or local operational notes.
+
+The fixture renders ten synthetic switches across core, distribution, and
+access platform families. The onboarding tour emphasizes the generated Ports,
+Transceivers, and VLANs screenshots because those pages carry the strongest
+operational signal for switch-port inventory users.
