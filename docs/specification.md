@@ -50,14 +50,16 @@ available to expose operational mode, access VLAN, voice VLAN, native VLAN, and
 allowed VLANs. Speed and media/type evidence, such as SFP/QSFP optics labels
 when collectors expose them, are rendered in switch, ports, search, and debug
 views. Cisco-like SSH also collects `show interfaces transceiver` when
-available and renders optic model, Tx/Rx optical power in dBm, and bias current
+available and records optic model, Tx/Rx optical power in dBm, and bias current
 in mA. Juniper SSH collects `show interfaces diagnostics optics` when available
-and renders Tx/Rx optical power and laser bias current. FortiSwitch SSH collects
-module summary/status output when available to render module part numbers and
-DMI optical levels. For multi-lane modules, single-value report fields use the
+and records Tx/Rx optical power and laser bias current. FortiSwitch SSH collects
+module summary/status output when available to record module part numbers and
+DMI optical levels. Detailed transceiver diagnostics are rendered on the
+Transceivers page and in Debug payloads while remaining searchable through the
+search index. For multi-lane modules, single-value report fields use the
 weakest Tx/Rx dBm lane and the highest bias current lane so degraded lanes are
 not hidden by averaging. These values are evidence fields in reports and search
-output; they do not override explicit `trunk_ports` role assignment.
+data; they do not override explicit `trunk_ports` role assignment.
 
 ## Neighbor Capabilities
 
