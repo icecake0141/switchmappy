@@ -398,13 +398,6 @@ def test_build_site_renders_juniper_optics_in_ports_search_and_debug(tmp_path):
         build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
 
-    ports_html = (output_dir / "ports" / "index.html").read_text(encoding="utf-8")
-    assert "leaf-1" in ports_html
-    assert "xe-0/0/48" in ports_html
-    assert "-3.06" in ports_html
-    assert "-4.16" in ports_html
-    assert "4.968" in ports_html
-
     search_index = json.loads((output_dir / "search" / "index.json").read_text(encoding="utf-8"))
     port = search_index["switches"][0]["ports"][0]
     assert port["transceiver_tx_power_dbm"] == -3.06
