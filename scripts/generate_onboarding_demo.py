@@ -25,7 +25,6 @@ from switchmap_py.render.build import build_site
 from switchmap_py.storage.idlesince_store import IdleSinceStore
 from switchmap_py.storage.maclist_store import MacListStore
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_ROOT = ROOT / "docs" / "assets" / "onboarding" / "demo"
 OUTPUT_DIR = DEMO_ROOT / "output"
@@ -184,7 +183,7 @@ def _write_config() -> None:
                 "# Copyright 2026 switchmappy",
                 "# SPDX-License-Identifier: Apache-2.0",
                 "#",
-                "# Licensed under the Apache License, Version 2.0 (the \"License\");",
+                '# Licensed under the Apache License, Version 2.0 (the "License");',
                 "# you may not use this file except in compliance with the License.",
                 "# You may obtain a copy of the License at",
                 "#",
