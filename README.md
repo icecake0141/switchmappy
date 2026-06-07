@@ -69,11 +69,12 @@ pip install -e .[dev]
 
 ## Documentation
 
-- [Onboarding Documentation UI](docs/index.html)
+- [Onboarding Documentation UI](https://icecake0141.github.io/switchmappy/) (GitHub Pages)
 - [Quick Start and User Tour](docs/onboarding.md)
 - [Configuration Reference](docs/configuration.md)
 - [Command Reference](docs/commands.md)
 - [Testing](docs/testing.md)
+- [GitHub Pages publishing notes](docs/pages.md)
 
 ### English
 

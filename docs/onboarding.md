@@ -15,7 +15,8 @@ Review required for correctness, security, and licensing.
 # Quick Start and User Tour
 
 - Japanese translation: [onboarding.ja.md](onboarding.ja.md)
-- Static bilingual UI: [index.html](index.html)
+- Static bilingual UI: <https://icecake0141.github.io/switchmappy/>
+- Publishing notes: [GitHub Pages Documentation](pages.md)
 
 ## Quick Start
 

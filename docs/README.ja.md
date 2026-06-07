@@ -18,8 +18,9 @@ Review required for correctness, security, and licensing.
 
 ## セクション
 
-- [オンボーディングドキュメントUI](index.html)
+- [オンボーディングドキュメントUI](https://icecake0141.github.io/switchmappy/) (GitHub Pages)
 - [クイックスタートとユーザツアー](onboarding.ja.md)
+- [GitHub Pages ドキュメント](pages.ja.md)
 - [仕様](specification.ja.md)
 - [設定](configuration.ja.md)
 - [コマンド](commands.ja.md)
