@@ -24,6 +24,7 @@ import yaml
 
 from switchmap_py.collectors import collect_port_snapshots, collect_switch_state
 from switchmap_py.config import SiteConfig, default_config_path
+from switchmap_py.demo import build_demo_report
 from switchmap_py.importers.arp_csv import load_arp_csv
 from switchmap_py.importers.arp_snmp import load_arp_snmp
 from switchmap_py.importers.hostname_csv import load_hostname_csv
@@ -464,6 +465,33 @@ def build_html(
         history_dir=site.history_directory,
         artifacts_dir=artifact_dir,
     )
+
+
+@app.command("demo")
+def demo(
+    output: Path = typer.Option(Path("demo-output"), "--output"),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8000, "--port"),
+    serve: bool = typer.Option(True, "--serve/--no-serve"),
+    date: Optional[str] = typer.Option(None, "--date"),
+    debug: bool = typer.Option(False, "--debug"),
+    info: bool = typer.Option(False, "--info"),
+    warn: bool = typer.Option(False, "--warn"),
+    logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    log_format: str = typer.Option("text", "--log-format"),
+) -> None:
+    """Generate a full demo report from built-in sample data."""
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
+    build_date = datetime.fromisoformat(date) if date else datetime.now(timezone.utc)
+    build_demo_report(output_dir=output, build_date=build_date)
+    index_path = output / "index.html"
+    url = f"http://{host}:{port}/"
+    typer.echo(f"Demo report generated: {index_path}")
+    if serve:
+        typer.echo(f"Serving demo report: {url}")
+        SearchServer(output, host, port).serve()
+    else:
+        typer.echo(f"Run `switchmap serve-search --host {host} --port {port}` or open {index_path}.")
 
 
 @app.command("serve-search")

@@ -19,10 +19,12 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header>
     <h1>VLANs</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
+  {{ report_nav('vlans') }}
   <label for="vlanFilter">Filter VLAN ID/Name:</label>
   <input id="vlanFilter" type="text" placeholder="e.g. 10 or users" />
   {% for switch in switches %}

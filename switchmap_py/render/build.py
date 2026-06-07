@@ -724,13 +724,14 @@ def build_site(
 ) -> None:
     failed_switch_reasons = failed_switch_reasons or {}
     output_dir.mkdir(parents=True, exist_ok=True)
-    for subdir in ["debug", "endpoints", "history", "ports", "vlans", "switches", "search"]:
+    for subdir in ["debug", "endpoints", "history", "ports", "transceivers", "vlans", "switches", "search"]:
         (output_dir / subdir).mkdir(parents=True, exist_ok=True)
 
     env = build_environment(template_dir)
     index_template = env.get_template("index.html.j2")
     switch_template = env.get_template("switch.html.j2")
     port_template = env.get_template("ports.html.j2")
+    transceiver_template = env.get_template("transceivers.html.j2")
     vlan_template = env.get_template("vlans.html.j2")
     endpoint_template = env.get_template("endpoints.html.j2")
     debug_template = env.get_template("debug.html.j2")
@@ -796,6 +797,9 @@ def build_site(
         build_date=build_date,
     )
     (output_dir / "ports" / "index.html").write_text(port_html, encoding="utf-8")
+
+    transceiver_html = transceiver_template.render(switches=switches, build_date=build_date)
+    (output_dir / "transceivers" / "index.html").write_text(transceiver_html, encoding="utf-8")
 
     vlan_html = vlan_template.render(switches=switches, vlan_summary=vlan_summary, build_date=build_date)
     (output_dir / "vlans" / "index.html").write_text(vlan_html, encoding="utf-8")

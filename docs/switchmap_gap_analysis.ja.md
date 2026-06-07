@@ -31,7 +31,7 @@ Review required for correctness, security, and licensing.
 
 | 領域 | ステータス | switchmappy の対応 | 残作業 |
 | --- | --- | --- | --- |
-| 静的 switch map 生成 | Implemented | `switchmap build-html` が index、switch、ports、VLAN、endpoint、search、history、debug を生成。 | 従来HTMLレイアウト完全一致は明示要求がない限り目標にしない。 |
+| 静的 switch map 生成 | Implemented | `switchmap build-html` が index、switch、ports、transceiver、VLAN、endpoint、search、history、debug を生成。 | 従来HTMLレイアウト完全一致は明示要求がない限り目標にしない。 |
 | idle-since tracking | Implemented | `scan-switch` がスイッチ単位の idle state を更新。 | vendor追加時にfixtureを拡張。 |
 | ARP import | Implemented | CSV と SNMP router ARP import をサポート。 | 必要に応じてrouter-family fixtureを追加。 |
 | MAC/IP/hostname 相関 | Implemented | MAC list、ARP data、hostname import、reverse DNS、OUI表示に対応。 | SSH endpoint 相関は再現可能な fixture と integration test で維持する。 |

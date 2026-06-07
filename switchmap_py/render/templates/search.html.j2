@@ -19,9 +19,11 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header>
     <h1>Search</h1>
   </header>
+  {{ report_nav('search') }}
   <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, neighbor, IP, MAC, host" />
   <div>
     <label for="typeFilter">Type:</label>
@@ -76,10 +78,6 @@ Review required for correctness, security, and licensing.
         <th>Speed</th>
         <th>Duplex</th>
         <th>Media</th>
-        <th>Optic</th>
-        <th>Tx dBm</th>
-        <th>Rx dBm</th>
-        <th>Current mA</th>
         <th>Mode</th>
         <th>Access</th>
         <th>Voice</th>
@@ -318,10 +316,6 @@ Review required for correctness, security, and licensing.
           entry.speed ?? '',
           entry.duplex ?? '',
           entry.media ?? '',
-          entry.transceiver_model ?? '',
-          entry.transceiver_tx_power_dbm ?? '',
-          entry.transceiver_rx_power_dbm ?? '',
-          entry.transceiver_current_ma ?? '',
           entry.switchport_mode ?? '',
           entry.access_vlan ?? '',
           entry.voice_vlan ?? '',

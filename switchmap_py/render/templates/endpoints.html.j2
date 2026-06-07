@@ -19,10 +19,12 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header>
     <h1>Endpoints</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
+  {{ report_nav('endpoints') }}
   <div class="filter-row">
     <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, role, warning" />
     <select id="endpointRoleFilter">

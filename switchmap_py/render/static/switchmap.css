@@ -9,6 +9,37 @@ header {
   margin-bottom: 1.5rem;
 }
 
+.report-nav {
+  background: #ffffff;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1.5rem;
+  padding: 0.45rem;
+  position: sticky;
+  top: 0.5rem;
+  z-index: 10;
+}
+
+.report-nav a {
+  border-radius: 6px;
+  color: #0f172a;
+  font-weight: 600;
+  padding: 0.55rem 0.75rem;
+  text-decoration: none;
+}
+
+.report-nav a:hover {
+  background: #eef2f7;
+}
+
+.report-nav a[aria-current="page"] {
+  background: #1f2937;
+  color: #ffffff;
+}
+
 .page-header {
   align-items: flex-start;
   background: #ffffff;

@@ -19,6 +19,7 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header class="page-header">
     <div>
       <h1>SwitchMappy</h1>
@@ -55,16 +56,7 @@ Review required for correctness, security, and licensing.
       </div>
     </div>
   </header>
-  <nav class="quick-links" aria-label="Report sections">
-    <ul>
-      <li><a href="/ports/index.html">Ports</a></li>
-      <li><a href="/endpoints/index.html">Endpoints</a></li>
-      <li><a href="/history/index.html">History</a></li>
-      <li><a href="/vlans/index.html">VLANs</a></li>
-      <li><a href="/search/index.html">Search</a></li>
-      <li><a href="/debug/index.html">Debug</a></li>
-    </ul>
-  </nav>
+  {{ report_nav('dashboard') }}
   <section class="panel">
     <h2>Switches</h2>
     <ul class="switch-list">
