@@ -12,9 +12,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from switchmap_py.config import SwitchConfig
 from switchmap_py.ssh import collectors
 from switchmap_py.ssh.session import SshError
+
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "synthetic"
 
 
 class StubSession:
@@ -37,6 +41,10 @@ def _neighbor_devices(port) -> list[str]:
 
 def _neighbor_protocols(port) -> list[str]:
     return [neighbor.protocol for neighbor in port.neighbors]
+
+
+def _fixture(name: str) -> str:
+    return (FIXTURE_DIR / name).read_text(encoding="utf-8")
 
 
 def test_collect_switch_state_parses_interface_status(monkeypatch):
@@ -248,17 +256,7 @@ def test_parse_cisco_transceivers_accepts_nxos_style_detail_output():
 
 
 def test_parse_arista_dom_style_transceiver_details():
-    output = "\n".join(
-        [
-            "Ethernet1 transceiver is present",
-            "model is SFP-10G-SR",
-            "current is 7.6 mA",
-            "tx power is -2.4 dBm",
-            "rx power is -3.7 dBm",
-        ]
-    )
-
-    details = collectors._parse_cisco_transceivers(output)
+    details = collectors._parse_cisco_transceivers(_fixture("arista_dom_transceiver.txt"))
 
     assert details["et1"].model == "SFP-10G-SR"
     assert details["et1"].current_ma == 7.6
@@ -266,21 +264,31 @@ def test_parse_arista_dom_style_transceiver_details():
     assert details["et1"].rx_power_dbm == -3.7
 
 
-def test_parse_juniper_optics_extracts_power_and_current():
+def test_parse_cisco_like_transceivers_ignores_threshold_and_unsupported_lines():
     output = "\n".join(
         [
-            "Physical interface: xe-0/0/48",
-            "    Laser bias current                        :  4.968 mA",
-            "    Laser output power                        :  0.4940 mW / -3.06 dBm",
-            "    Receiver signal average optical power     :  0.3840 mW / -4.16 dBm",
-            "Physical interface: ge-0/0/1",
-            "    Laser bias current                        :  5.444 mA",
-            "    Laser output power                        :  0.3130 mW / -5.04 dBm",
-            "    Laser rx power                            :  0.0012 mW / -29.21 dBm",
+            "Port Temperature Voltage Current Tx Power Rx Power",
+            "Te1/1/1 30.0 3.30 8.2 -1.5 -4.2",
+            "Te1/1/1 high alarm threshold 90.0 3.60 20.0 1.0 1.0",
+            "Te1/1/2 transceiver is not present",
+            "Te1/1/3 unsupported transceiver",
+            "Port: Te1/1/1",
+            "Part Number: SFP-10G-LR",
         ]
     )
 
-    details = collectors._parse_juniper_optics(output)
+    details = collectors._parse_cisco_transceivers(output)
+
+    assert details["te1/1/1"].model == "SFP-10G-LR"
+    assert details["te1/1/1"].current_ma == 8.2
+    assert details["te1/1/1"].tx_power_dbm == -1.5
+    assert details["te1/1/1"].rx_power_dbm == -4.2
+    assert "te1/1/2" not in details
+    assert "te1/1/3" not in details
+
+
+def test_parse_juniper_optics_extracts_power_and_current():
+    details = collectors._parse_juniper_optics(_fixture("juniper_optics.txt"))
 
     assert details["xe-0/0/48"].current_ma == 4.968
     assert details["xe-0/0/48"].tx_power_dbm == -3.06
@@ -713,14 +721,7 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
             "show vlans": "default 10 ge-0/0/1.0",
             "show ethernet-switching interfaces": "ge-0/0/1.0 access 10\nge-0/0/2.0 trunk 10 20",
             "show lldp neighbors": "ge-0/0/1 - aa:bb:cc:dd:ee:ff ge-0/0/48 dist-junos-1",
-            "show interfaces diagnostics optics": "\n".join(
-                [
-                    "Physical interface: ge-0/0/1",
-                    "    Laser bias current                        :  5.444 mA",
-                    "    Laser output power                        :  0.3130 mW / -5.04 dBm",
-                    "    Receiver signal average optical power     :  0.3840 mW / -4.16 dBm",
-                ]
-            ),
+            "show interfaces diagnostics optics": _fixture("juniper_optics.txt"),
             'show interfaces extensive | match "Physical interface|Input errors|Output errors"': (
                 "Physical interface: ge-0/0/1, Enabled, Physical link is Up\n"
                 "Input errors: 3, Output drops: 0\n"
@@ -751,7 +752,7 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
     assert _neighbor_devices(state.ports[0]) == ["dist-junos-1"]
     assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[0].transceiver_tx_power_dbm == -5.04
-    assert state.ports[0].transceiver_rx_power_dbm == -4.16
+    assert state.ports[0].transceiver_rx_power_dbm == -29.21
     assert state.ports[0].transceiver_current_ma == 5.444
     assert state.ports[0].input_errors == 3
     assert state.ports[0].output_errors == 8
@@ -823,6 +824,43 @@ def test_collect_switch_state_uses_arista_command(monkeypatch):
     assert state.ports[0].switchport_mode == "trunk"
     assert state.ports[0].native_vlan == "1"
     assert state.ports[0].allowed_vlans == "10"
+
+
+def test_collect_switch_state_uses_arista_dom_style_transceiver_output(monkeypatch):
+    switch = SwitchConfig(
+        name="leaf-1",
+        management_ip="192.0.2.70",
+        vendor="arista",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+    )
+    session = StubSession(
+        by_command={
+            "show interfaces status": (
+                "Port Name Status Vlan Duplex Speed Type\nEt1 Uplink connected trunk full 10000 10Gbase-SR"
+            ),
+            "show mac address-table": "10 0011.2233.4466 dynamic Et1",
+            "show vlan brief": "10 default active Et1",
+            "show interfaces switchport": (
+                "Name: Et1\nOperational Mode: trunk\nTrunking Native Mode VLAN: 1\nTrunking VLANs Enabled: 10\n"
+            ),
+            "show lldp neighbors detail": "Local Intf: Et1\nSystem Name: core-1\n",
+            "show interfaces transceiver": _fixture("arista_dom_transceiver.txt"),
+            "show interfaces counters errors": "Et1 0 0 9 4 0 0",
+            "show power inline": "Et1 auto on 3.5 30.0",
+            "show version": "Arista vEOS, Version 4.31.1F\nProcessor board ID DEMO-ARISTA-0001\n",
+        }
+    )
+    monkeypatch.setattr(collectors, "build_session", lambda *_args, **_kwargs: session)
+
+    state = collectors.collect_switch_state(switch, timeout=3)
+
+    assert [port.name for port in state.ports] == ["Et1"]
+    assert state.ports[0].transceiver_model == "SFP-10G-SR"
+    assert state.ports[0].transceiver_tx_power_dbm == -2.4
+    assert state.ports[0].transceiver_rx_power_dbm == -3.7
+    assert state.ports[0].transceiver_current_ma == 7.6
 
 
 def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):

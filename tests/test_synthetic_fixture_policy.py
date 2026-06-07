@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SYNTHETIC_FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "synthetic"
 SYNTHETIC_FIXTURE_FILES = [
     REPO_ROOT / "docs" / "switch_cli_output_research.md",
     REPO_ROOT / "tests" / "test_ssh_collectors.py",
@@ -34,7 +35,9 @@ PRIVATE_DATA_PATTERNS = {
 
 
 def test_synthetic_fixture_policy_files_do_not_include_private_data():
-    for path in SYNTHETIC_FIXTURE_FILES:
+    paths = SYNTHETIC_FIXTURE_FILES + sorted(SYNTHETIC_FIXTURE_DIR.glob("*.txt"))
+    assert paths
+    for path in paths:
         text = path.read_text(encoding="utf-8")
         for label, pattern in PRIVATE_DATA_PATTERNS.items():
             assert not pattern.search(text), f"{path.relative_to(REPO_ROOT)} contains {label}"

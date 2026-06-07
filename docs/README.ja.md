@@ -18,6 +18,8 @@ Review required for correctness, security, and licensing.
 
 ## セクション
 
+- [オンボーディングドキュメントUI](index.html)
+- [クイックスタートとユーザツアー](onboarding.ja.md)
 - [仕様](specification.ja.md)
 - [設定](configuration.ja.md)
 - [コマンド](commands.ja.md)

@@ -804,6 +804,8 @@ def _parse_cisco_transceivers(text: str) -> dict[str, TransceiverInfo]:
         if not line:
             continue
         lower = line.lower()
+        if any(token in lower for token in ("threshold", "not present", "unsupported")):
+            continue
         if lower.startswith(("port ", "interface ", "---", "temperature ", "name ")):
             continue
         present_match = re.match(r"^(\S+)\s+(?:transceiver|sfp)\s+is\s+present", line, flags=re.IGNORECASE)

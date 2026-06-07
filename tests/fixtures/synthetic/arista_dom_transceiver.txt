@@ -1,0 +1,5 @@
+Ethernet1 transceiver is present
+model is SFP-10G-SR
+current is 7.6 mA
+tx power is -2.4 dBm
+rx power is -3.7 dBm

@@ -1,0 +1,8 @@
+Physical interface: xe-0/0/48
+    Laser bias current                        :  4.968 mA
+    Laser output power                        :  0.4940 mW / -3.06 dBm
+    Receiver signal average optical power     :  0.3840 mW / -4.16 dBm
+Physical interface: ge-0/0/1
+    Laser bias current                        :  5.444 mA
+    Laser output power                        :  0.3130 mW / -5.04 dBm
+    Laser rx power                            :  0.0012 mW / -29.21 dBm
