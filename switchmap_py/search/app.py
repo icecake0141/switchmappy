@@ -1,4 +1,4 @@
-# Copyright 2025 Switchmapy Authors
+# Copyright 2025 SwitchMappy Authors
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

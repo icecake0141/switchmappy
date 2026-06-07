@@ -1,4 +1,4 @@
-# Example configuration for switchmappy.
+# Example configuration for SwitchMappy.
 # Copy this file to site.yml and adjust values for your environment.
 destination_directory: output
 idlesince_directory: idlesince

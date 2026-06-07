@@ -1,5 +1,5 @@
 <!--
-Copyright 2026 switchmappy
+Copyright 2026 SwitchMappy
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,17 +20,17 @@ Review required for correctness, security, and licensing.
 
 ## Before You Begin
 
-switchmappy is based on Pete Siemsen's original
+SwitchMappy is based on Pete Siemsen's original
 [Switchmap](https://switchmap.sourceforge.net/). The original Switchmap has a
 classic web UI and is no longer actively updated, but it is still a remarkably
 complete and functional tool. Many people have tried to carry the same idea
-forward in Ruby, Python, and other modern implementations. switchmappy is one
+forward in Ruby, Python, and other modern implementations. SwitchMappy is one
 more attempt to bring that great original back into active use for today's
 network operations.
 
 ## Quick Start
 
-Install switchmappy with SNMP and search support:
+Install SwitchMappy with SNMP and search support:
 
 ```bash
 python -m venv .venv
@@ -78,7 +78,7 @@ Open `http://127.0.0.1:8000/search/`.
 
 ## Feature Tour
 
-switchmappy creates static HTML pages for daily switch-port operations:
+SwitchMappy creates static HTML pages for daily switch-port operations:
 
 - site overview with successful and failed switch collection status,
 - per-switch port inventory,
@@ -89,7 +89,7 @@ switchmappy creates static HTML pages for daily switch-port operations:
 - debug diagnostics for collection and correlation troubleshooting,
 - local search UI served from the generated `output/` directory.
 
-![Synthetic switchmappy overview](assets/onboarding/overview.png)
+![Synthetic SwitchMappy overview](assets/onboarding/overview.png)
 
 ## Configuration Tour
 
@@ -138,9 +138,9 @@ Use the report as an operational workflow:
 - check history when endpoints move or port attributes change,
 - open debug diagnostics when collection or correlation data does not match expectations.
 
-![Synthetic switchmappy search](assets/onboarding/search.png)
+![Synthetic SwitchMappy search](assets/onboarding/search.png)
 
-![Synthetic switchmappy switch detail](assets/onboarding/switch-detail.png)
+![Synthetic SwitchMappy switch detail](assets/onboarding/switch-detail.png)
 
 ## Demo Screenshot Workflow
 

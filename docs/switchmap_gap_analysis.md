@@ -1,5 +1,5 @@
 <!--
-Copyright 2026 switchmappy
+Copyright 2026 SwitchMappy
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,20 +16,20 @@ Review required for correctness, security, and licensing.
 
 - Japanese translation: [switchmap_gap_analysis.ja.md](switchmap_gap_analysis.ja.md)
 
-This page compares switchmappy with the original Perl SwitchMap tool family as
+This page compares SwitchMappy with the original Perl SwitchMap tool family as
 used by `SwitchMap.pl`, `ScanSwitch.pl`, `GetArp.pl`, `FindOffice.pl`,
 `SearchPortlists.html`, and site-specific `ThisSite.pm` logic.
 
 ## Status Legend
 
-- `Implemented`: supported by switchmappy.
+- `Implemented`: supported by SwitchMappy.
 - `Partial`: supported with known scope limits.
 - `Not yet`: not implemented.
-- `Intentionally different`: switchmappy deliberately uses a different design.
+- `Intentionally different`: SwitchMappy deliberately uses a different design.
 
 ## Capability Matrix
 
-| Area | Status | switchmappy Support | Remaining Work |
+| Area | Status | SwitchMappy Support | Remaining Work |
 | --- | --- | --- | --- |
 | Static switch map generation | Implemented | `switchmap build-html` renders index, switch, ports, transceiver, VLAN, endpoint, search, history, and debug pages. | Legacy HTML layout parity is not a goal unless explicitly required. |
 | Idle-since tracking | Implemented | `scan-switch` updates per-switch idle state. | Broaden device fixtures if more vendors are added. |

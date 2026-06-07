@@ -1,5 +1,5 @@
 <!--
-Copyright 2026 switchmappy
+Copyright 2026 SwitchMappy
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +12,9 @@ This file was created or modified with the assistance of an AI (Large Language M
 Review required for correctness, security, and licensing.
 -->
 
-# switchmappy
+# SwitchMappy
 
-`switchmappy` builds static switch-port inventory reports from SNMP or SSH
+`SwitchMappy` builds static switch-port inventory reports from SNMP or SSH
 collection data. It helps network operators find endpoints, inspect port
 status, correlate ARP/MAC data, review VLANs, and serve a local search UI.
 
@@ -23,7 +23,7 @@ the static documentation UI.
 
 ## Acknowledgement
 
-switchmappy is based on Pete Siemsen's original
+SwitchMappy is based on Pete Siemsen's original
 [Switchmap](https://switchmap.sourceforge.net/). Although the original UI is
 classical and the project is no longer actively updated, it remains a precise,
 thoughtfully built, and fully functional tool. Many engineers have tried to

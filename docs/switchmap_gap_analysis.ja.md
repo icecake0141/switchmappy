@@ -1,5 +1,5 @@
 <!--
-Copyright 2026 switchmappy
+Copyright 2026 SwitchMappy
 SPDX-License-Identifier: Apache-2.0
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,18 +18,18 @@ Review required for correctness, security, and licensing.
 
 このページは、Perl 版 SwitchMap ツール群である `SwitchMap.pl`、`ScanSwitch.pl`、
 `GetArp.pl`、`FindOffice.pl`、`SearchPortlists.html`、およびサイト固有の
-`ThisSite.pm` ロジックと switchmappy を比較します。
+`ThisSite.pm` ロジックと SwitchMappy を比較します。
 
 ## ステータス
 
-- `Implemented`: switchmappy で対応済み。
+- `Implemented`: SwitchMappy で対応済み。
 - `Partial`: 対応済みだが既知の制限あり。
 - `Not yet`: 未実装。
 - `Intentionally different`: 意図的に異なる設計。
 
 ## 機能差分表
 
-| 領域 | ステータス | switchmappy の対応 | 残作業 |
+| 領域 | ステータス | SwitchMappy の対応 | 残作業 |
 | --- | --- | --- | --- |
 | 静的 switch map 生成 | Implemented | `switchmap build-html` が index、switch、ports、transceiver、VLAN、endpoint、search、history、debug を生成。 | 従来HTMLレイアウト完全一致は明示要求がない限り目標にしない。 |
 | idle-since tracking | Implemented | `scan-switch` がスイッチ単位の idle state を更新。 | vendor追加時にfixtureを拡張。 |

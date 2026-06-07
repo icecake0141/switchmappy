@@ -1,4 +1,4 @@
-# Copyright 2026 switchmappy
+# Copyright 2026 SwitchMappy
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -180,7 +180,7 @@ def _write_config() -> None:
     CONFIG_FILE.write_text(
         "\n".join(
             [
-                "# Copyright 2026 switchmappy",
+                "# Copyright 2026 SwitchMappy",
                 "# SPDX-License-Identifier: Apache-2.0",
                 "#",
                 '# Licensed under the Apache License, Version 2.0 (the "License");',
@@ -192,7 +192,7 @@ def _write_config() -> None:
                 "# This file was created or modified with the assistance of an AI (Large Language Model).",
                 "# Review required for correctness, security, and licensing.",
                 "",
-                "# Synthetic switchmappy onboarding demo configuration.",
+                "# Synthetic SwitchMappy onboarding demo configuration.",
                 "destination_directory: docs/assets/onboarding/demo/output",
                 "idlesince_directory: docs/assets/onboarding/demo/idlesince",
                 "maclist_file: docs/assets/onboarding/demo/maclist.json",
