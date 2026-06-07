@@ -14,7 +14,26 @@ Review required for correctness, security, and licensing.
 
 # switchmappy
 
-Python 3.12+ reimplementation of the Perl-based `switchmap` tooling.
+`switchmappy` builds static switch-port inventory reports from SNMP or SSH
+collection data. It helps network operators find endpoints, inspect port
+status, correlate ARP/MAC data, review VLANs, and serve a local search UI.
+
+English documentation is primary. Japanese onboarding content is available from
+the static documentation UI.
+
+## Quick Start
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[snmp,search]
+cp site.yml.example site.yml
+switchmap get-arp --source csv --csv arp.csv
+switchmap build-html
+switchmap serve-search --host 127.0.0.1 --port 8000
+```
+
+Open `http://127.0.0.1:8000/search/` after the server starts.
 
 ## Installation
 
@@ -49,6 +68,12 @@ pip install -e .[dev]
 ```
 
 ## Documentation
+
+- [Onboarding Documentation UI](docs/index.html)
+- [Quick Start and User Tour](docs/onboarding.md)
+- [Configuration Reference](docs/configuration.md)
+- [Command Reference](docs/commands.md)
+- [Testing](docs/testing.md)
 
 ### English
 

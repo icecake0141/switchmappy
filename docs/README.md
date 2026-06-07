@@ -18,6 +18,8 @@ Review required for correctness, security, and licensing.
 
 ## Sections
 
+- [Onboarding Documentation UI](index.html)
+- [Quick Start and User Tour](onboarding.md)
 - [Specification](specification.md)
 - [Configuration](configuration.md)
 - [Commands](commands.md)

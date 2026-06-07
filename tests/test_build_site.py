@@ -360,6 +360,57 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert 'id="debugRole"' in debug_html
 
 
+def test_build_site_renders_juniper_optics_in_ports_search_and_debug(tmp_path):
+    template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    output_dir = tmp_path / "output"
+
+    build_site(
+        switches=[
+            Switch(
+                name="leaf-1",
+                management_ip="192.0.2.20",
+                vendor="Juniper Junos",
+                ports=[
+                    Port(
+                        name="xe-0/0/48",
+                        descr="Core uplink",
+                        admin_status="up",
+                        oper_status="up",
+                        speed=10000,
+                        vlan="10",
+                        media="SFP-10G-LR",
+                        transceiver_tx_power_dbm=-3.06,
+                        transceiver_rx_power_dbm=-4.16,
+                        transceiver_current_ma=4.968,
+                        neighbors=[Neighbor(device="core-1", protocol="lldp", port="Te1/1/1")],
+                    )
+                ],
+            )
+        ],
+        failed_switches=[],
+        output_dir=output_dir,
+        template_dir=template_dir,
+        static_dir=static_dir,
+        idlesince_store=IdleSinceStore(tmp_path / "idlesince"),
+        maclist_store=MacListStore(tmp_path / "maclist.json"),
+        build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+    )
+
+    search_index = json.loads((output_dir / "search" / "index.json").read_text(encoding="utf-8"))
+    port = search_index["switches"][0]["ports"][0]
+    assert port["transceiver_tx_power_dbm"] == -3.06
+    assert port["transceiver_rx_power_dbm"] == -4.16
+    assert port["transceiver_current_ma"] == 4.968
+
+    debug = search_index["debug"]
+    assert debug["ports"][0]["switch"] == "leaf-1"
+    assert debug["ports"][0]["transceiver_tx_power_dbm"] == -3.06
+    assert debug["ports"][0]["transceiver_rx_power_dbm"] == -4.16
+    assert debug["ports"][0]["transceiver_current_ma"] == 4.968
+
+
 def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
     static_dir = tmp_path / "static"
