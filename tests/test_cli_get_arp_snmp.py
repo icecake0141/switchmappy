@@ -16,12 +16,13 @@ import importlib
 import json
 import sys
 from types import ModuleType
+from typing import Any
 
 from switchmap_py.model.mac import MacEntry
 
 
 def test_get_arp_snmp_uses_router_config(tmp_path, monkeypatch):
-    fake_typer = ModuleType("typer")
+    fake_typer: Any = ModuleType("typer")
 
     class FakeTyperApp:
         def command(self, *_args, **_kwargs):
@@ -81,7 +82,7 @@ def test_get_arp_snmp_uses_router_config(tmp_path, monkeypatch):
 
 
 def test_get_arp_snmp_requires_routers_in_config(tmp_path, monkeypatch):
-    fake_typer = ModuleType("typer")
+    fake_typer: Any = ModuleType("typer")
 
     class FakeTyperApp:
         def command(self, *_args, **_kwargs):

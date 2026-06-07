@@ -11,9 +11,10 @@
 # Review required for correctness, security, and licensing.
 
 import logging
+from typing import cast
 
 from switchmap_py.snmp import collectors, mibs
-from switchmap_py.snmp.session import SnmpError
+from switchmap_py.snmp.session import SnmpError, SnmpSession
 
 
 class FakeSession:
@@ -32,7 +33,7 @@ def test_bridge_port_map_logs_warning_on_exception(caplog):
     session = FakeSession({mibs.DOT1D_BASE_PORT_IFINDEX})
 
     with caplog.at_level(logging.WARNING):
-        result = collectors._bridge_port_map(session)
+        result = collectors._bridge_port_map(cast(SnmpSession, session))
 
     assert result == {}
     assert any(mibs.DOT1D_BASE_PORT_IFINDEX in record.message for record in caplog.records)
@@ -42,7 +43,7 @@ def test_collect_macs_logs_warning_on_exception(caplog):
     session = FakeSession({mibs.QBRIDGE_VLAN_FDB_PORT})
 
     with caplog.at_level(logging.WARNING):
-        result = collectors._collect_macs(session)
+        result = collectors._collect_macs(cast(SnmpSession, session))
 
     assert result[0] == {}
     assert result[1] == {}

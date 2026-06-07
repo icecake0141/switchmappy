@@ -15,6 +15,7 @@ from __future__ import annotations
 import sys
 from collections import deque
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -23,7 +24,7 @@ from switchmap_py.snmp.session import SnmpConfig, SnmpError, SnmpSession
 
 def _install_fake_hlapi(monkeypatch):
     record: dict[str, object] = {}
-    hlapi = ModuleType("pysnmp.hlapi.v3arch.asyncio")
+    hlapi: Any = ModuleType("pysnmp.hlapi.v3arch.asyncio")
 
     class CommunityData:
         def __init__(self, community, mpModel=1):
@@ -103,9 +104,9 @@ def _install_fake_hlapi(monkeypatch):
     hlapi.usmAesCfb192Protocol = "PRIV_AES192"
     hlapi.usmAesCfb256Protocol = "PRIV_AES256"
 
-    pysnmp_pkg = ModuleType("pysnmp")
-    pysnmp_hlapi_pkg = ModuleType("pysnmp.hlapi")
-    pysnmp_v3arch_pkg = ModuleType("pysnmp.hlapi.v3arch")
+    pysnmp_pkg: Any = ModuleType("pysnmp")
+    pysnmp_hlapi_pkg: Any = ModuleType("pysnmp.hlapi")
+    pysnmp_v3arch_pkg: Any = ModuleType("pysnmp.hlapi.v3arch")
     pysnmp_v3arch_pkg.asyncio = hlapi
     pysnmp_hlapi_pkg.v3arch = pysnmp_v3arch_pkg
     pysnmp_pkg.hlapi = pysnmp_hlapi_pkg

@@ -56,6 +56,7 @@ All of these are tested for proper HTML escaping.
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from switchmap_py.model.neighbor import Neighbor
 from switchmap_py.model.port import Port
@@ -417,7 +418,7 @@ def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
     static_dir.mkdir()
     history_dir = tmp_path / "history"
     history_dir.mkdir()
-    previous = {
+    previous: dict[str, Any] = {
         "generated_at": "2024-01-01T00:00:00+00:00",
         "endpoint_correlations": [
             {

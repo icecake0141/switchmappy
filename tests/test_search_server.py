@@ -15,6 +15,7 @@ import builtins
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -39,10 +40,10 @@ def test_search_server_requires_optional_dependencies(monkeypatch):
 def test_search_server_runs_uvicorn_with_configured_host_port(monkeypatch, tmp_path):
     captured: dict[str, object] = {}
 
-    fastapi_module = ModuleType("fastapi")
-    responses_module = ModuleType("fastapi.responses")
-    staticfiles_module = ModuleType("fastapi.staticfiles")
-    uvicorn_module = ModuleType("uvicorn")
+    fastapi_module: Any = ModuleType("fastapi")
+    responses_module: Any = ModuleType("fastapi.responses")
+    staticfiles_module: Any = ModuleType("fastapi.staticfiles")
+    uvicorn_module: Any = ModuleType("uvicorn")
 
     class FakeFastAPI:
         def __init__(self, **_kwargs):
