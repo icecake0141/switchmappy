@@ -30,24 +30,6 @@ Review required for correctness, security, and licensing.
       <p>No previous snapshot found.</p>
       {% endif %}
     </div>
-    <div class="summary-strip" aria-label="History summary">
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.added_endpoints | length }}</span>
-        <span class="summary-label">added</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.removed_endpoints | length }}</span>
-        <span class="summary-label">removed</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.moved_endpoints | length }}</span>
-        <span class="summary-label">moved</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.port_changes | length }}</span>
-        <span class="summary-label">port changes</span>
-      </div>
-    </div>
   </header>
 
   {{ report_nav('history') }}

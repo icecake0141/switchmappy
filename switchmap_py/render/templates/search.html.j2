@@ -24,8 +24,8 @@ Review required for correctness, security, and licensing.
     <h1>Search</h1>
   </header>
   {{ report_nav('search') }}
-  <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, neighbor, IP, MAC, host" />
-  <div>
+  <div class="filter-row">
+    <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, neighbor, IP, MAC, host" />
     <label for="typeFilter">Type:</label>
     <select id="typeFilter">
       <option value="">All</option>
@@ -67,6 +67,7 @@ Review required for correctness, security, and licensing.
   </div>
   <p id="resultCount">0 results</p>
   <p id="emptyState" hidden>No matching entries.</p>
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
@@ -96,6 +97,7 @@ Review required for correctness, security, and licensing.
     </thead>
     <tbody id="results"></tbody>
   </table>
+  </div>
   <script>
     async function loadIndex() {
       const response = await fetch('/search/index.json');

@@ -34,7 +34,7 @@ Review required for correctness, security, and licensing.
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
   {{ report_nav('') }}
-  <div>
+  <div class="filter-row">
     <label for="statusFilter">Status:</label>
     <select id="statusFilter">
       <option value="">All</option>
@@ -60,6 +60,7 @@ Review required for correctness, security, and licensing.
   </div>
   <p id="resultCount">{{ switch.ports | length }} results</p>
   <p id="emptyState" hidden>No matching ports.</p>
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
@@ -188,6 +189,7 @@ Review required for correctness, security, and licensing.
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <script>
     function applyFilters() {
       const status = document.getElementById('statusFilter').value;

@@ -36,6 +36,7 @@ Review required for correctness, security, and licensing.
     {% set rendered.count = rendered.count + transceiver_ports | length %}
     <section>
       <h2><a href="/switches/{{ switch.name }}.html">{{ switch.name }}</a></h2>
+      <div class="table-scroll">
       <table>
         <thead>
           <tr>
@@ -74,6 +75,7 @@ Review required for correctness, security, and licensing.
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </section>
     {% endif %}
   {% endfor %}

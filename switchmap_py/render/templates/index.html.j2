@@ -25,6 +25,10 @@ Review required for correctness, security, and licensing.
       <h1>SwitchMappy</h1>
       <p>Generated at {{ build_date.isoformat() }}</p>
     </div>
+  </header>
+  {{ report_nav('dashboard') }}
+  <section class="panel">
+    <h2>Report Summary</h2>
     <div class="summary-strip" aria-label="Build summary">
       <div class="summary-item">
         <span class="summary-value">{{ report_summary.switches }}</span>
@@ -55,8 +59,7 @@ Review required for correctness, security, and licensing.
         <span class="summary-label">failed</span>
       </div>
     </div>
-  </header>
-  {{ report_nav('dashboard') }}
+  </section>
   <section class="panel">
     <h2>Switches</h2>
     <ul class="switch-list">

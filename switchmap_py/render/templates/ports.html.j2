@@ -25,7 +25,7 @@ Review required for correctness, security, and licensing.
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
   {{ report_nav('ports') }}
-  <div>
+  <div class="filter-row">
     <label for="statusFilter">Status:</label>
     <select id="statusFilter">
       <option value="">All</option>
@@ -54,6 +54,7 @@ Review required for correctness, security, and licensing.
   {% for switch in switches %}
   <section>
     <h2>{{ switch.name }}</h2>
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -179,6 +180,7 @@ Review required for correctness, security, and licensing.
       {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
   {% endfor %}
   <script>
