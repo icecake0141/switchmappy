@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import sys
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -35,7 +36,7 @@ class _FakeStream:
 
 def test_password_ssh_uses_paramiko(monkeypatch):
     record: dict[str, object] = {}
-    paramiko = ModuleType("paramiko")
+    paramiko: Any = ModuleType("paramiko")
 
     class AutoAddPolicy:
         pass
@@ -87,7 +88,7 @@ def test_password_ssh_uses_paramiko(monkeypatch):
 
 
 def test_password_ssh_raises_on_nonzero_exit(monkeypatch):
-    paramiko = ModuleType("paramiko")
+    paramiko: Any = ModuleType("paramiko")
 
     class AutoAddPolicy:
         pass

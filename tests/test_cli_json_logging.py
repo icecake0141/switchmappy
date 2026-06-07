@@ -17,6 +17,7 @@ import json
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 from switchmap_py.model.mac import MacEntry
 from switchmap_py.snmp.collectors import PortSnapshot
@@ -24,7 +25,7 @@ from switchmap_py.snmp.session import SnmpError
 
 
 def _load_cli_with_fake_typer():
-    fake_typer = ModuleType("typer")
+    fake_typer: Any = ModuleType("typer")
 
     class FakeTyperApp:
         def command(self, *_args, **_kwargs):

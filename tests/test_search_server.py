@@ -15,6 +15,7 @@ import builtins
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -39,10 +40,9 @@ def test_search_server_requires_optional_dependencies(monkeypatch):
 def test_search_server_runs_uvicorn_with_configured_host_port(monkeypatch, tmp_path):
     captured: dict[str, object] = {}
 
-    fastapi_module = ModuleType("fastapi")
-    responses_module = ModuleType("fastapi.responses")
-    staticfiles_module = ModuleType("fastapi.staticfiles")
-    uvicorn_module = ModuleType("uvicorn")
+    fastapi_module: Any = ModuleType("fastapi")
+    staticfiles_module: Any = ModuleType("fastapi.staticfiles")
+    uvicorn_module: Any = ModuleType("uvicorn")
 
     class FakeFastAPI:
         def __init__(self, **_kwargs):
@@ -59,10 +59,6 @@ def test_search_server_runs_uvicorn_with_configured_host_port(monkeypatch, tmp_p
         def mount(self, path: str, app: object, name: str | None = None):
             self.mounts.append((path, app, name))
 
-    class FakeRedirectResponse:
-        def __init__(self, url: str) -> None:
-            self.url = url
-
     class FakeStaticFiles:
         def __init__(self, directory: str, html: bool) -> None:
             self.directory = directory
@@ -74,12 +70,10 @@ def test_search_server_runs_uvicorn_with_configured_host_port(monkeypatch, tmp_p
         captured["port"] = port
 
     fastapi_module.FastAPI = FakeFastAPI
-    responses_module.RedirectResponse = FakeRedirectResponse
     staticfiles_module.StaticFiles = FakeStaticFiles
     uvicorn_module.run = fake_run
 
     monkeypatch.setitem(sys.modules, "fastapi", fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", responses_module)
     monkeypatch.setitem(sys.modules, "fastapi.staticfiles", staticfiles_module)
     monkeypatch.setitem(sys.modules, "uvicorn", uvicorn_module)
 

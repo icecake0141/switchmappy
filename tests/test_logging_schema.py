@@ -17,10 +17,11 @@ import json
 import logging
 import sys
 from types import ModuleType
+from typing import Any
 
 
 def _load_cli_with_fake_typer():
-    fake_typer = ModuleType("typer")
+    fake_typer: Any = ModuleType("typer")
 
     class FakeTyperApp:
         def command(self, *_args, **_kwargs):

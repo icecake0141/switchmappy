@@ -13,10 +13,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from switchmap_py.config import SwitchConfig
 from switchmap_py.ssh import collectors
-from switchmap_py.ssh.session import SshError
+from switchmap_py.ssh.session import SshError, SshSession
+
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "synthetic"
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "synthetic"
 
@@ -602,7 +605,7 @@ def test_run_command_rejects_cisco_invalid_output():
             return 'Line has invalid autocommand "show power inline"'
 
     try:
-        collectors._run_command(InvalidSession(), "show power inline", timeout=3)
+        collectors._run_command(cast(SshSession, InvalidSession()), "show power inline", timeout=3)
     except SshError as exc:
         assert "invalid autocommand" in str(exc)
     else:
