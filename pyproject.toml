@@ -37,7 +37,9 @@ search = ["fastapi>=0.135.3", "uvicorn>=0.44.0", "httpx>=0.28.1"]
 snmp = ["pysnmp>=7.1.23"]
 dev = [
   "pytest>=9.0.3",
+  "pytest-cov>=7.0.0",
   "ruff>=0.5.0",
+  "mypy>=1.18.0",
   "pre-commit>=4.5.1",
 ]
 
@@ -54,6 +56,12 @@ select = ["E", "F", "W", "I"]
 pythonpath = ["."]
 
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true
 
 [build-system]
 requires = ["setuptools>=82.0.1", "wheel"]

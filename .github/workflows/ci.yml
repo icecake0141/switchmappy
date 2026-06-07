@@ -52,10 +52,19 @@ jobs:
           python -m pip install -e .[dev]
       - name: Lint
         run: python -m ruff check .
-      - name: Run tests
-        run: python -m pytest -q
-      - name: Run critical report integration tests
-        run: python -m pytest -q tests/test_build_report_integration.py tests/test_cli_build_html_integration.py
+      - name: Type check
+        run: python -m mypy switchmap_py/model switchmap_py/storage switchmap_py/oui.py
+      - name: Check documentation links
+        run: python scripts/check_docs_links.py
+      - name: Run tests with coverage
+        run: python -m pytest -q --cov=switchmap_py --cov-report=term-missing
+      - name: Package install smoke test
+        run: |
+          tmpenv="$(mktemp -d)"
+          python -m venv "$tmpenv/venv"
+          "$tmpenv/venv/bin/python" -m pip install --upgrade pip
+          "$tmpenv/venv/bin/python" -m pip install .
+          "$tmpenv/venv/bin/switchmap" --help
       - name: Install search dependencies
         run: python -m pip install -e .[search]
       - name: Run search server E2E tests
