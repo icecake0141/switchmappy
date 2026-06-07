@@ -18,6 +18,16 @@ Review required for correctness, security, and licensing.
 - 静的な英日UI: <https://icecake0141.github.io/switchmappy/>
 - 公開手順: [GitHub Pages ドキュメント](pages.ja.md)
 
+## 初めに
+
+switchmappy は Pete Siemsen 氏によるオリジナル版
+[Switchmap](https://switchmap.sourceforge.net/) を元にしています。
+オリジナルのSwitchmapは、UIこそクラシカルで現在は活発に更新されていないものの、
+今でも非常に精巧で、完成度が高く、完全に機能するツールです。これまで多くの
+先人たちが、Ruby、Python、その他の現代的な実装で同じようなスイッチポート
+マッピングの仕組みを作ろうとしてきました。switchmappy もまた、その偉大な
+オリジナルを現代のネットワーク運用環境に甦らせようとする試みの一つです。
+
 ## クイックスタート
 
 SNMPと検索UIの依存関係を含めてインストールします。

@@ -18,6 +18,16 @@ Review required for correctness, security, and licensing.
 - Static bilingual UI: <https://icecake0141.github.io/switchmappy/>
 - Publishing notes: [GitHub Pages Documentation](pages.md)
 
+## Before You Begin
+
+switchmappy is based on Pete Siemsen's original
+[Switchmap](https://switchmap.sourceforge.net/). The original Switchmap has a
+classic web UI and is no longer actively updated, but it is still a remarkably
+complete and functional tool. Many people have tried to carry the same idea
+forward in Ruby, Python, and other modern implementations. switchmappy is one
+more attempt to bring that great original back into active use for today's
+network operations.
+
 ## Quick Start
 
 Install switchmappy with SNMP and search support:

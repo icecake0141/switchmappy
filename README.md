@@ -21,6 +21,16 @@ status, correlate ARP/MAC data, review VLANs, and serve a local search UI.
 English documentation is primary. Japanese onboarding content is available from
 the static documentation UI.
 
+## Acknowledgement
+
+switchmappy is based on Pete Siemsen's original
+[Switchmap](https://switchmap.sourceforge.net/). Although the original UI is
+classical and the project is no longer actively updated, it remains a precise,
+thoughtfully built, and fully functional tool. Many engineers have tried to
+bring similar switch-port mapping workflows forward in Ruby, Python, and other
+modern stacks. This project is one such attempt to revive that great original
+for contemporary environments.
+
 ## Quick Start
 
 ```bash
