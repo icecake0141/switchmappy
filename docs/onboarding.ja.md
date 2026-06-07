@@ -81,15 +81,30 @@ switchmap serve-search --host 127.0.0.1 --port 8000
 SwitchMappyは日常的なスイッチポート運用向けの静的HTMLを生成します。
 
 - 収集成功/失敗を確認できるサイト概要
-- スイッチ別のポート一覧
-- 複数スイッチを横断する全ポート一覧
+- リンク状態、説明、エンドポイント根拠、エラー、PoE、未使用候補を横断的に
+  確認できる全ポート一覧
+- optic型番、Tx/Rx光レベル、laser current、近隣機器、アップリンク健全性を
+  確認できるTransceivers画面
+- アクセス/トランクのVLAN所属がサイト全体でどう広がっているかを確認できる
+  VLANサマリ
+- ポート、Transceiver、VLAN、エンドポイント、近隣機器の根拠を1台単位で
+  確認できるスイッチ別ポート一覧
 - MACとARPを使ったエンドポイント相関
-- VLANサマリ
 - 履歴と移動エンドポイントの確認
 - 収集や相関の調査に使うデバッグ診断
 - 生成済み `output/` を配信するローカル検索UI
 
 ![合成データによるSwitchMappy概要](assets/onboarding/overview.png)
+
+オンボーディングデモは、core、distribution、access の3機種にまたがる10台の
+スイッチを合成データで生成します。小さすぎるサンプルではなく、運用者が一覧
+画面で傾向を探す感覚を確認できる規模にしています。
+
+![合成データによるSwitchMappy全ポート一覧](assets/onboarding/ports.png)
+
+![合成データによるSwitchMappy Transceivers](assets/onboarding/transceivers.png)
+
+![合成データによるSwitchMappy VLANs](assets/onboarding/vlans.png)
 
 ## 設定項目ツアー
 
@@ -134,9 +149,15 @@ switchmap serve-search --host 127.0.0.1 --port 8000
 
 - 概要ページで収集状態を確認する
 - 検索画面でMACアドレス、IPアドレス、ホスト名、VLAN、ポート、近隣機器を探す
-- スイッチ詳細でポート状態とエンドポイント根拠を確認する
-- 全ポート画面で未使用、無効化、エラー、説明不足のポートを探す
-- エンドポイント画面とVLAN画面でインベントリを確認する
+- まず全ポート画面で、未使用、無効化、エラー、PoE給電、説明不足、
+  エンドポイントが多いポートを横断的に探す
+- Transceivers画面で、アップリンクoptic、Tx/Rx光レベル、current、
+  近隣ネットワーク機器を確認する
+- VLAN画面で、user、conference、security、serverネットワークの
+  アクセス/トランク所属を確認する
+- 1台単位の根拠が必要なときは、スイッチ詳細でポート、エンドポイント、
+  近隣機器、PoE、optic情報を見る
+- エンドポイント画面でインベントリを確認する
 - 履歴画面でエンドポイント移動やポート属性変更を確認する
 - 収集や相関が期待と異なる場合はデバッグ診断を開く
 
@@ -146,8 +167,9 @@ switchmap serve-search --host 127.0.0.1 --port 8000
 
 ## デモスクリーンショットの生成
 
-このガイドのスクリーンショットは合成データだけで生成しています。ローカルで
-デモサイトを再生成するには次を実行します。
+このガイドのスクリーンショットは合成データだけで生成しています。デモfixtureは
+core、distribution、access の3機種にまたがる10台のスイッチを生成します。
+ローカルでデモサイトを再生成するには次を実行します。
 
 ```bash
 python scripts/generate_onboarding_demo.py

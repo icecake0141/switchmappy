@@ -336,7 +336,7 @@ switches:
       <div class="grid">
         <article class="card">
           <h3>1. Features</h3>
-          <p>Use overview, switch detail, all-ports, endpoints, VLAN, history, debug, and search pages from the generated static site.</p>
+          <p>Start with Ports, Transceivers, and VLANs to review link state, optics, trunk membership, and endpoint evidence across the site.</p>
         </article>
         <article class="card">
           <h3>2. Configuration</h3>
@@ -352,9 +352,26 @@ switches:
       <ul>
         <li>Check the overview page for collection health.</li>
         <li>Search by MAC address, IP address, hostname, VLAN, port, or neighbor.</li>
-        <li>Inspect switch and all-ports pages for port status and evidence.</li>
-        <li>Use endpoint, VLAN, history, and debug pages for inventory and troubleshooting.</li>
+        <li>Use the all-ports page to find unused, errored, undocumented, PoE-powered, or endpoint-heavy ports.</li>
+        <li>Review transceivers for optic model, Tx/Rx power, current, uplinks, and neighbors.</li>
+        <li>Use VLAN pages to confirm access and trunk membership, then open switch detail pages for device-level evidence.</li>
+        <li>Use endpoint, history, and debug pages for inventory and troubleshooting.</li>
       </ul>
+
+      <p>The synthetic demo renders ten switches across core, distribution, and access platforms so the main report pages show realistic scanning patterns.</p>
+
+      <figure>
+        <img src="assets/onboarding/ports.png" alt="Synthetic SwitchMappy ports screenshot">
+        <figcaption>Ports is the main operational surface for link state, endpoint evidence, PoE, errors, descriptions, and unused candidates.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/onboarding/transceivers.png" alt="Synthetic SwitchMappy transceivers screenshot">
+        <figcaption>Transceivers highlights optic model, optical levels, current, uplink ports, and neighboring network devices.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/onboarding/vlans.png" alt="Synthetic SwitchMappy VLANs screenshot">
+        <figcaption>VLANs makes access and trunk membership visible across the generated site.</figcaption>
+      </figure>
 
       <figure>
         <img src="assets/onboarding/search.png" alt="Synthetic SwitchMappy search screenshot">
@@ -421,7 +438,7 @@ switches:
       <div class="grid">
         <article class="card">
           <h3>1. 機能</h3>
-          <p>生成された静的サイトで、概要、スイッチ詳細、全ポート、エンドポイント、VLAN、履歴、デバッグ、検索を利用します。</p>
+          <p>Ports、Transceivers、VLANsを中心に、リンク状態、optic、トランク所属、エンドポイント根拠をサイト全体で確認します。</p>
         </article>
         <article class="card">
           <h3>2. 設定項目</h3>
@@ -437,9 +454,26 @@ switches:
       <ul>
         <li>概要ページで収集状態を確認します。</li>
         <li>MACアドレス、IPアドレス、ホスト名、VLAN、ポート、近隣機器で検索します。</li>
-        <li>スイッチ詳細と全ポート画面でポート状態と根拠を確認します。</li>
-        <li>エンドポイント、VLAN、履歴、デバッグ画面をインベントリ確認と調査に使います。</li>
+        <li>全ポート画面で、未使用、エラー、説明不足、PoE給電、エンドポイントが多いポートを探します。</li>
+        <li>Transceiversでoptic型番、Tx/Rx光レベル、current、アップリンク、近隣機器を確認します。</li>
+        <li>VLAN画面でアクセス/トランク所属を確認し、必要に応じてスイッチ詳細で1台単位の根拠を見ます。</li>
+        <li>エンドポイント、履歴、デバッグ画面をインベントリ確認と調査に使います。</li>
       </ul>
+
+      <p>合成デモは core、distribution、access の3機種にまたがる10台のスイッチを生成し、主要画面で運用時の一覧確認に近い規模を表示します。</p>
+
+      <figure>
+        <img src="assets/onboarding/ports.png" alt="合成データによるSwitchMappy全ポート一覧スクリーンショット">
+        <figcaption>Portsは、リンク状態、エンドポイント根拠、PoE、エラー、説明、未使用候補を確認する中心画面です。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/onboarding/transceivers.png" alt="合成データによるSwitchMappy Transceiversスクリーンショット">
+        <figcaption>Transceiversでは、optic型番、光レベル、current、アップリンク、近隣ネットワーク機器が見えます。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/onboarding/vlans.png" alt="合成データによるSwitchMappy VLANsスクリーンショット">
+        <figcaption>VLANsでは、生成サイト全体のアクセス/トランク所属を確認できます。</figcaption>
+      </figure>
 
       <figure>
         <img src="assets/onboarding/search.png" alt="合成データによるSwitchMappy検索スクリーンショット">

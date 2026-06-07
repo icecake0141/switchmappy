@@ -81,15 +81,30 @@ Open `http://127.0.0.1:8000/search/`.
 SwitchMappy creates static HTML pages for daily switch-port operations:
 
 - site overview with successful and failed switch collection status,
-- per-switch port inventory,
-- all-ports view for cross-switch scanning,
+- all-ports view for cross-switch scanning of link state, descriptions,
+  endpoint evidence, errors, PoE, and unused-port candidates,
+- dedicated transceiver diagnostics for optic model, Tx/Rx power, laser current,
+  neighbor evidence, and uplink health review,
+- VLAN summary that shows how access and trunk membership spans the site,
+- per-switch port inventory with the same port, transceiver, VLAN, endpoint, and
+  neighbor evidence in one place,
 - endpoint correlation using MAC and ARP data,
-- VLAN summary,
 - history and moved-endpoint review,
 - debug diagnostics for collection and correlation troubleshooting,
 - local search UI served from the generated `output/` directory.
 
 ![Synthetic SwitchMappy overview](assets/onboarding/overview.png)
+
+The onboarding demo uses synthetic data for ten switches across three platform
+families: core, distribution, and access. This makes the main report surfaces
+large enough to show how operators scan patterns instead of reading a tiny
+single-switch sample.
+
+![Synthetic SwitchMappy ports](assets/onboarding/ports.png)
+
+![Synthetic SwitchMappy transceivers](assets/onboarding/transceivers.png)
+
+![Synthetic SwitchMappy VLANs](assets/onboarding/vlans.png)
 
 ## Configuration Tour
 
@@ -132,9 +147,15 @@ Use the report as an operational workflow:
 
 - start on the overview page to confirm collection health,
 - open search for a MAC address, IP address, hostname, VLAN, port, or neighbor,
-- inspect switch detail pages for per-port status and endpoint evidence,
-- use the all-ports page to find unused, disabled, errored, or undocumented ports,
-- use endpoint and VLAN pages for inventory review,
+- use the all-ports page first to find unused, disabled, errored, PoE-powered,
+  undocumented, or endpoint-heavy ports across all switches,
+- open the transceivers page to review uplink optics, Tx/Rx power, current, and
+  neighboring network devices,
+- use the VLAN page to confirm access/trunk membership for user, conference,
+  security, and server networks,
+- inspect switch detail pages when you need the per-switch version of port,
+  endpoint, neighbor, PoE, and optic evidence,
+- use endpoint pages for inventory review,
 - check history when endpoints move or port attributes change,
 - open debug diagnostics when collection or correlation data does not match expectations.
 
@@ -144,8 +165,9 @@ Use the report as an operational workflow:
 
 ## Demo Screenshot Workflow
 
-The screenshots in this guide are generated from synthetic data only. To rebuild
-the demo site locally:
+The screenshots in this guide are generated from synthetic data only. The
+fixture renders ten switches across core, distribution, and access platforms. To
+rebuild the demo site locally:
 
 ```bash
 python scripts/generate_onboarding_demo.py
