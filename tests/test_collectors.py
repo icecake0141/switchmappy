@@ -191,7 +191,7 @@ def test_collect_switch_state_records_legacy_fdb_diagnostic_and_inventory(monkey
         mibs.DOT1D_TP_FDB_PORT: {f"{mibs.DOT1D_TP_FDB_PORT}.0.17.34.51.68.85": "1"},
         mibs.DOT1D_TP_FDB_STATUS: {f"{mibs.DOT1D_TP_FDB_STATUS}.0.17.34.51.68.85": "3"},
         mibs.ENT_PHYSICAL_MODEL_NAME: {f"{mibs.ENT_PHYSICAL_MODEL_NAME}.1": "C9300-24P"},
-        mibs.ENT_PHYSICAL_SERIAL_NUM: {f"{mibs.ENT_PHYSICAL_SERIAL_NUM}.1": "FOC1234X1YZ"},
+        mibs.ENT_PHYSICAL_SERIAL_NUM: {f"{mibs.ENT_PHYSICAL_SERIAL_NUM}.1": "DEMO-CISCO-0001"},
         mibs.ENT_PHYSICAL_SOFTWARE_REV: {f"{mibs.ENT_PHYSICAL_SOFTWARE_REV}.1": "17.12.1"},
         mibs.PETH_PSE_PORT_DETECTION_STATUS: {f"{mibs.PETH_PSE_PORT_DETECTION_STATUS}.1.1": "3"},
         mibs.PETH_PSE_PORT_POWER: {f"{mibs.PETH_PSE_PORT_POWER}.1.1": "154"},
@@ -209,7 +209,7 @@ def test_collect_switch_state_records_legacy_fdb_diagnostic_and_inventory(monkey
     assert "FDB populated" in labels
     assert "VLAN-indexed community may be required" in labels
     assert state.platform == "C9300-24P"
-    assert state.serial_number == "FOC1234X1YZ"
+    assert state.serial_number == "DEMO-CISCO-0001"
     assert state.os_version == "17.12.1"
     assert state.ports[0].macs == ["00:11:22:33:44:55"]
     assert state.ports[0].input_errors == 4
