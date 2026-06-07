@@ -247,6 +247,232 @@ def test_parse_cisco_transceivers_accepts_nxos_style_detail_output():
     assert details["et1/49"].rx_power_dbm == -4.6
 
 
+def test_parse_cisco_like_synthetic_fixture_covers_status_vlan_optics_errors_and_poe():
+    switch = SwitchConfig(
+        name="core-1",
+        management_ip="192.0.2.10",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+        trunk_ports=["Te1/1/1"],
+    )
+    ports = collectors._parse_cisco_interface_status(
+        "\n".join(
+            [
+                "Port      Name             Status       Vlan Duplex Speed Type",
+                "Gi1/0/10  access desk      connected    20   a-full a-1000 10/100/1000-TX",
+                "Te1/1/1   core uplink      connected    trunk full   10000 SFP-10G-LR",
+                "Fo1/1/1   spare optic      notconnect   routed auto   auto   QSFP-40G-SR4",
+            ]
+        ),
+        switch,
+    )
+    switchports = collectors._parse_cisco_switchport(
+        "\n".join(
+            [
+                "Name: Gi1/0/10",
+                "Operational Mode: static access",
+                "Access Mode VLAN: 20 (Users)",
+                "Voice VLAN: 30 (Voice)",
+                "Name: Te1/1/1",
+                "Operational Mode: trunk",
+                "Trunking Native Mode VLAN: 99 (Native)",
+                "Trunking VLANs Enabled: 10,20,30",
+            ]
+        )
+    )
+    transceivers = collectors._parse_cisco_transceivers(
+        "\n".join(
+            [
+                "Port Temperature Voltage Current Tx Power Rx Power",
+                "Te1/1/1 29.4 3.31 7.9 -1.2 -4.4",
+                "Te1/1/1 SFP-10G-LR",
+            ]
+        )
+    )
+    errors = collectors._parse_cisco_like_error_counters(
+        "\n".join(
+            [
+                "Port Align-Err FCS-Err Xmit-Err Rcv-Err UnderSize OutDiscards",
+                "Te1/1/1 0 0 12 34 0 1",
+            ]
+        )
+    )
+    poe = collectors._parse_cisco_like_poe(
+        "\n".join(
+            [
+                "Interface Admin Oper Power Device Class Max",
+                "Gi1/0/10 auto on 6.2 IP-Phone 3 30.0",
+            ]
+        )
+    )
+
+    assert [port.name for port in ports] == ["Gi1/0/10", "Te1/1/1", "Fo1/1/1"]
+    assert ports[0].descr == "access desk"
+    assert ports[0].vlan == "20"
+    assert ports[0].media == "10/100/1000-TX"
+    assert ports[1].is_trunk is True
+    assert ports[1].speed == 10000
+    assert ports[1].media == "SFP-10G-LR"
+    assert ports[2].oper_status == "down"
+    assert switchports["gi1/0/10"].access_vlan == "20 (Users)"
+    assert switchports["gi1/0/10"].voice_vlan == "30 (Voice)"
+    assert switchports["te1/1/1"].native_vlan == "99 (Native)"
+    assert switchports["te1/1/1"].allowed_vlans == "10,20,30"
+    assert transceivers["te1/1/1"].model == "SFP-10G-LR"
+    assert transceivers["te1/1/1"].tx_power_dbm == -1.2
+    assert transceivers["te1/1/1"].rx_power_dbm == -4.4
+    assert transceivers["te1/1/1"].current_ma == 7.9
+    assert errors["te1/1/1"] == (34, 12)
+    assert poe["gi1/0/10"] == ("on", 6.2)
+
+
+def test_parse_juniper_synthetic_fixture_covers_whitespace_trunk_and_neighbor_variation():
+    switch = SwitchConfig(
+        name="leaf-1",
+        management_ip="192.0.2.20",
+        vendor="juniper",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+    )
+    ports = collectors._parse_juniper_interfaces_terse(
+        "\n".join(
+            [
+                "Interface               Admin Link Proto    Local                 Remote",
+                "ge-0/0/1                up    up",
+                "ge-0/0/1.0              up    up   eth-switch",
+                "xe-0/0/48               up    up",
+                "et-0/0/49               up    down",
+            ]
+        ),
+        switch,
+    )
+    switchports = collectors._parse_juniper_ethernet_switching_interfaces(
+        "\n".join(
+            [
+                "Interface    State  VLAN members        Tagging  Blocking",
+                "ge-0/0/1.0    up     access 20           untagged unblocked",
+                "xe-0/0/48.0   up     trunk [ 10 20 30 ]  tagged   unblocked",
+            ]
+        )
+    )
+    neighbors = collectors._parse_neighbor_table(
+        "\n".join(
+            [
+                "Local Interface    Parent Interface    Chassis Id          Port info     System Name",
+                "xe-0/0/48          -                   02:00:00:00:48:01 et1/1        core-1",
+            ]
+        ),
+        "lldp",
+    )
+    errors = collectors._parse_juniper_error_counters(
+        "\n".join(
+            [
+                "Physical interface: xe-0/0/48, Enabled, Physical link is Up",
+                "Input errors: 5, Output drops: 0",
+                "Output errors: 7, Carrier transitions: 1",
+            ]
+        )
+    )
+
+    assert [port.name for port in ports] == ["ge-0/0/1", "xe-0/0/48", "et-0/0/49"]
+    assert ports[2].oper_status == "down"
+    assert switchports["ge-0/0/1"].mode == "access"
+    assert switchports["ge-0/0/1"].access_vlan == "20"
+    assert switchports["xe-0/0/48"].mode == "trunk"
+    assert switchports["xe-0/0/48"].allowed_vlans == "10,20,30"
+    assert _neighbor_devices(type("PortStub", (), {"neighbors": neighbors["xe-0/0/48"]})()) == ["core-1"]
+    assert neighbors["xe-0/0/48"][0].port == "et1/1"
+    assert errors["xe-0/0/48"] == (5, 7)
+
+
+def test_parse_fortiswitch_synthetic_fixture_covers_show_interface_and_module_variants():
+    switch = SwitchConfig(
+        name="fortisw-1",
+        management_ip="192.0.2.30",
+        vendor="fortiswitch",
+        collection_method="ssh",
+        ssh_username="ops",
+        ssh_password="pw",
+    )
+    ports = collectors._parse_fortiswitch_interface_status(
+        "\n".join(
+            [
+                "Portname    Status  Tpid  Vlan  Duplex  Speed  Flags       Media        Discard",
+                "__________  ______  ____  ____  ______  _____  __________  ___________  _______",
+                "port1       up      8100  4094  full    10G    TF,QS       SFP-10G-LR   none",
+                "port2       down    8100  20    full    -        ,  ,      copper       none",
+                "internal    up      8100  1     full    1G       ,  ,      internal     none",
+            ]
+        ),
+        switch,
+    )
+    switchports = collectors._parse_fortiswitch_switch_interface(
+        "\n".join(
+            [
+                "config switch interface",
+                '    edit "port1"',
+                '        set description "FortiLink uplink"',
+                "        set mode trunk",
+                "        set native-vlan 4094",
+                "        set allowed-vlans-all enable",
+                "        set auto-discovery-fortilink enable",
+                "    next",
+                '    edit "port2"',
+                '        set alias "access edge"',
+                "        set vlan 20",
+                "    next",
+                "end",
+            ]
+        )
+    )
+    module_summary = collectors._parse_fortiswitch_module_summary(
+        "\n".join(
+            [
+                "Portname State Type Transceiver RX Vendor Part Number Serial Number",
+                "port1 INSERT SFP/SFP+ 10G-Base-LR OK DEMO SFP-10GLR-31 DEMO000001",
+                "port52 INSERT QSFP28 100G-Base-LR4 OK DEMO QSFP28-LR4 DEMO000052",
+            ]
+        )
+    )
+    module_status = collectors._parse_fortiswitch_module_status(
+        "\n".join(
+            [
+                "Port(port52)",
+                "laser_bias[0]    0.700000 mAmps",
+                "tx_power[0]      -1.100000 dBm",
+                "rx_power[0]      -3.000000 dBm",
+                "laser_bias[1]    0.900000 mAmps",
+                "tx_power[1]      -2.200000 dBm",
+                "rx_power[1]      -4.400000 dBm",
+            ]
+        )
+    )
+
+    assert [port.name for port in ports] == ["port1", "port2", "internal"]
+    assert ports[0].vlan == "4094"
+    assert ports[0].switchport_mode == "trunk"
+    assert ports[0].speed == 10000
+    assert ports[0].media == "SFP-10G-LR"
+    assert ports[1].oper_status == "down"
+    assert ports[1].media == "copper"
+    assert ports[2].speed == 1000
+    assert switchports["port1"].description == "FortiLink uplink"
+    assert switchports["port1"].mode == "trunk"
+    assert switchports["port1"].native_vlan == "4094"
+    assert switchports["port1"].allowed_vlans == "all"
+    assert switchports["port1"].fortilink is True
+    assert switchports["port2"].description == "access edge"
+    assert switchports["port2"].mode == "access"
+    assert switchports["port2"].access_vlan == "20"
+    assert module_summary["port1"].model == "SFP-10GLR-31"
+    assert module_summary["port52"].model == "QSFP28-LR4"
+    assert module_status["port52"].current_ma == 0.9
+    assert module_status["port52"].tx_power_dbm == -2.2
+    assert module_status["port52"].rx_power_dbm == -4.4
+
+
 def test_parse_fortiswitch_modules_keeps_weakest_multilane_levels():
     summary = "\n".join(
         [

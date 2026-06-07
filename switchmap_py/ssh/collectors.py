@@ -129,9 +129,13 @@ def _parse_speed(token: str) -> int | None:
     if not match:
         return None
     try:
-        return int(match.group(1))
+        value = int(match.group(1))
     except ValueError:
         return None
+    lower = token.lower()
+    if "g" in lower:
+        return value * 1000
+    return value
 
 
 def _normalize_mac(value: str) -> str | None:
@@ -275,8 +279,22 @@ def _parse_fortiswitch_interface_status(text: str, switch: SwitchConfig) -> list
             access_vlan = vlan
             speed_token = tokens[5]
             descr_start = 7
-            media = tokens[7] if len(tokens) > 7 and tokens[7].lower() not in {"none", ","} else ""
-            flag_tokens = {token.strip(" ,").upper() for token in tokens[6:] if token.strip(" ,")}
+            known_flags = {"QS", "QE", "QI", "TS", "TF", "TL", "MD", "MI", "ME", "MB", "CF", "CC"}
+            flag_tokens = {
+                flag.strip().upper()
+                for token in tokens[6:]
+                for flag in token.split(",")
+                if flag.strip().upper() in known_flags
+            }
+            for token in tokens[6:]:
+                candidate = token.strip(" ,")
+                if not candidate or candidate.upper() in flag_tokens or candidate.lower() == "none":
+                    continue
+                candidate_flags = {part.strip().upper() for part in candidate.split(",") if part.strip()}
+                if candidate_flags and candidate_flags <= known_flags:
+                    continue
+                media = candidate
+                break
             switchport_mode = "trunk" if flag_tokens & {"QS", "QE", "QI", "TS", "TF", "TL"} else "access"
         oper_status = _normalize_oper_status(raw_status)
         admin_status = "down" if oper_status == "down" else "up"
