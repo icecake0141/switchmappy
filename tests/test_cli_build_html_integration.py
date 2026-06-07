@@ -111,6 +111,7 @@ def test_cli_build_html_generates_all_expected_pages(tmp_path, monkeypatch):
     assert (output_dir / "index.html").exists()
     assert (output_dir / "switches" / "sw-ok.html").exists()
     assert (output_dir / "ports" / "index.html").exists()
+    assert (output_dir / "transceivers" / "index.html").exists()
     assert (output_dir / "history" / "index.html").exists()
     assert (output_dir / "vlans" / "index.html").exists()
     assert (output_dir / "search" / "index.html").exists()

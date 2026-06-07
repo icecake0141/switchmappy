@@ -19,11 +19,13 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header>
     <h1>Search</h1>
   </header>
-  <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, neighbor, IP, MAC, host" />
-  <div>
+  {{ report_nav('search') }}
+  <div class="filter-row">
+    <input id="query" type="text" placeholder="Search by switch, port, status, VLAN, neighbor, IP, MAC, host" />
     <label for="typeFilter">Type:</label>
     <select id="typeFilter">
       <option value="">All</option>
@@ -65,6 +67,7 @@ Review required for correctness, security, and licensing.
   </div>
   <p id="resultCount">0 results</p>
   <p id="emptyState" hidden>No matching entries.</p>
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
@@ -76,10 +79,6 @@ Review required for correctness, security, and licensing.
         <th>Speed</th>
         <th>Duplex</th>
         <th>Media</th>
-        <th>Optic</th>
-        <th>Tx dBm</th>
-        <th>Rx dBm</th>
-        <th>Current mA</th>
         <th>Mode</th>
         <th>Access</th>
         <th>Voice</th>
@@ -98,6 +97,7 @@ Review required for correctness, security, and licensing.
     </thead>
     <tbody id="results"></tbody>
   </table>
+  </div>
   <script>
     async function loadIndex() {
       const response = await fetch('/search/index.json');
@@ -318,10 +318,6 @@ Review required for correctness, security, and licensing.
           entry.speed ?? '',
           entry.duplex ?? '',
           entry.media ?? '',
-          entry.transceiver_model ?? '',
-          entry.transceiver_tx_power_dbm ?? '',
-          entry.transceiver_rx_power_dbm ?? '',
-          entry.transceiver_current_ma ?? '',
           entry.switchport_mode ?? '',
           entry.access_vlan ?? '',
           entry.voice_vlan ?? '',

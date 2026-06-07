@@ -19,6 +19,7 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header class="page-header">
     <div>
       <h1>History</h1>
@@ -29,34 +30,9 @@ Review required for correctness, security, and licensing.
       <p>No previous snapshot found.</p>
       {% endif %}
     </div>
-    <div class="summary-strip" aria-label="History summary">
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.added_endpoints | length }}</span>
-        <span class="summary-label">added</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.removed_endpoints | length }}</span>
-        <span class="summary-label">removed</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.moved_endpoints | length }}</span>
-        <span class="summary-label">moved</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ diff.port_changes | length }}</span>
-        <span class="summary-label">port changes</span>
-      </div>
-    </div>
   </header>
 
-  <nav class="quick-links" aria-label="Report sections">
-    <ul>
-      <li><a href="/index.html">Home</a></li>
-      <li><a href="/ports/index.html">Ports</a></li>
-      <li><a href="/endpoints/index.html">Endpoints</a></li>
-      <li><a href="/debug/index.html">Debug</a></li>
-    </ul>
-  </nav>
+  {{ report_nav('history') }}
 
   {% set endpoint_sections = [
     ('Added Endpoints', diff.added_endpoints),

@@ -19,10 +19,12 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header>
     <h1>Endpoints</h1>
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
+  {{ report_nav('endpoints') }}
   <div class="filter-row">
     <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, role, warning" />
     <select id="endpointRoleFilter">
@@ -32,6 +34,7 @@ Review required for correctness, security, and licensing.
       <option value="unknown">unknown</option>
     </select>
   </div>
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
@@ -70,6 +73,7 @@ Review required for correctness, security, and licensing.
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <script>
     const endpointFilter = document.getElementById('endpointFilter');
     const endpointRoleFilter = document.getElementById('endpointRoleFilter');

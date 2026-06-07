@@ -21,6 +21,8 @@ from switchmap_py.ssh.session import SshError, SshSession
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "synthetic"
 
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "synthetic"
+
 
 class StubSession:
     def __init__(self, output: str | None = None, *, by_command: dict[str, str] | None = None) -> None:

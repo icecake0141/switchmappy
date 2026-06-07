@@ -19,45 +19,15 @@ Review required for correctness, security, and licensing.
   <link rel="stylesheet" href="/switchmap.css" />
 </head>
 <body>
+  {% from "navigation.html.j2" import report_nav %}
   <header class="page-header">
     <div>
       <h1>Debug</h1>
       <p>Generated at {{ build_date.isoformat() }}</p>
     </div>
-    <div class="summary-strip" aria-label="Debug summary">
-      <div class="summary-item">
-        <span class="summary-value">{{ debug.summary.switches }}</span>
-        <span class="summary-label">switches</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ debug.summary.ports }}</span>
-        <span class="summary-label">ports</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ debug.summary.switch_macs }}</span>
-        <span class="summary-label">macs</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ debug.summary.endpoint_correlations }}</span>
-        <span class="summary-label">endpoints</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-value">{{ debug.summary.anomalies }}</span>
-        <span class="summary-label">anomalies</span>
-      </div>
-    </div>
   </header>
 
-  <nav class="quick-links" aria-label="Report sections">
-    <ul>
-      <li><a href="/index.html">Home</a></li>
-      <li><a href="/ports/index.html">Ports</a></li>
-      <li><a href="/endpoints/index.html">Endpoints</a></li>
-      <li><a href="/history/index.html">History</a></li>
-      <li><a href="/vlans/index.html">VLANs</a></li>
-      <li><a href="/search/index.html">Search</a></li>
-    </ul>
-  </nav>
+  {{ report_nav('debug') }}
 
   <section class="panel">
     <h2>Filters</h2>

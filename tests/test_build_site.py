@@ -361,7 +361,7 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert 'id="debugRole"' in debug_html
 
 
-def test_build_site_renders_juniper_optics_in_ports_search_and_debug(tmp_path):
+def test_build_site_renders_juniper_optics_in_transceivers_search_and_debug(tmp_path):
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
@@ -398,6 +398,20 @@ def test_build_site_renders_juniper_optics_in_ports_search_and_debug(tmp_path):
         maclist_store=MacListStore(tmp_path / "maclist.json"),
         build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
+
+    transceivers_html = (output_dir / "transceivers" / "index.html").read_text(encoding="utf-8")
+    assert "leaf-1" in transceivers_html
+    assert "xe-0/0/48" in transceivers_html
+    assert "Core uplink" in transceivers_html
+    assert "-3.06" in transceivers_html
+    assert "-4.16" in transceivers_html
+    assert "4.968" in transceivers_html
+
+    ports_html = (output_dir / "ports" / "index.html").read_text(encoding="utf-8")
+    assert "<th>Optic</th>" not in ports_html
+    assert "<th>Tx dBm</th>" not in ports_html
+    assert "<th>Rx dBm</th>" not in ports_html
+    assert "<th>Current mA</th>" not in ports_html
 
     search_index = json.loads((output_dir / "search" / "index.json").read_text(encoding="utf-8"))
     port = search_index["switches"][0]["ports"][0]
@@ -983,10 +997,10 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert "<th>Type</th>" in search_html
     assert "<th>Status</th>" in search_html
     assert "<th>Media</th>" in search_html
-    assert "<th>Optic</th>" in search_html
-    assert "<th>Tx dBm</th>" in search_html
-    assert "<th>Rx dBm</th>" in search_html
-    assert "<th>Current mA</th>" in search_html
+    assert "<th>Optic</th>" not in search_html
+    assert "<th>Tx dBm</th>" not in search_html
+    assert "<th>Rx dBm</th>" not in search_html
+    assert "<th>Current mA</th>" not in search_html
     assert "port.media" in search_html
     assert "port.transceiver_model" in search_html
     assert "entry.transceiver_model" in search_html

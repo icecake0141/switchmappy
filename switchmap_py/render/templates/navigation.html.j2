@@ -1,0 +1,25 @@
+<!--
+Copyright 2026 OpenAI
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This file was created or modified with the assistance of an AI (Large Language Model).
+Review required for correctness, security, and licensing.
+-->
+{% macro report_nav(active='') -%}
+<nav class="report-nav" aria-label="Report navigation">
+  <a href="/index.html"{% if active == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+  <a href="/ports/index.html"{% if active == 'ports' %} aria-current="page"{% endif %}>Ports</a>
+  <a href="/transceivers/index.html"{% if active == 'transceivers' %} aria-current="page"{% endif %}>Transceivers</a>
+  <a href="/endpoints/index.html"{% if active == 'endpoints' %} aria-current="page"{% endif %}>Endpoints</a>
+  <a href="/vlans/index.html"{% if active == 'vlans' %} aria-current="page"{% endif %}>VLANs</a>
+  <a href="/history/index.html"{% if active == 'history' %} aria-current="page"{% endif %}>History</a>
+  <a href="/search/index.html"{% if active == 'search' %} aria-current="page"{% endif %}>Search</a>
+  <a href="/debug/index.html"{% if active == 'debug' %} aria-current="page"{% endif %}>Debug</a>
+</nav>
+{%- endmacro %}

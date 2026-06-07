@@ -18,12 +18,27 @@ Review required for correctness, security, and licensing.
 
 ## 共通オプション
 
-全コマンドで利用可能:
+運用系コマンドで利用可能:
 
 - `--config <path>`
 - `--debug | --info | --warn`
 - `--logfile <path>`
 - `--log-format text|json`
+
+## `demo`
+
+- 目的: `site.yml` やネットワーク機器なしでサンプルレポートを生成。
+- オプション:
+  - `--output <path>` (既定: `demo-output`)
+  - `--host` (既定: `127.0.0.1`)
+  - `--port` (既定: `8000`)
+  - `--no-serve`: 静的出力のみ生成
+  - `--date <ISO datetime>`: 決定的な出力用
+- 挙動:
+  - `<output>/.demo-state` に demo 用状態を保存、
+  - サンプル optic diagnostics を含む Transceivers ページを生成、
+  - 既定ではローカルサーバを起動、
+  - 検索用依存が未導入の場合は `--no-serve` を使う。
 
 ## `scan-switch`
 
@@ -62,6 +77,7 @@ Review required for correctness, security, and licensing.
   - 失敗理由を出力インデックスに記録。
   - `history_directory` に JSON 履歴スナップショットを保存。
   - 収集と相関の診断用に `/debug/index.html` を生成。
+  - 取得済み optic diagnostics 用に `/transceivers/index.html` を生成。
   - 前回 snapshot との差分用に `/history/index.html` を生成。
   - collector artifact を `collection_artifacts_directory` に保存。
 
