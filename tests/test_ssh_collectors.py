@@ -227,6 +227,56 @@ def test_parse_cisco_transceivers_extracts_optic_levels_model_and_current():
     assert details["te1/0/2"].current_ma == 33.5
 
 
+def test_parse_cisco_transceivers_accepts_nxos_style_detail_output():
+    output = "\n".join(
+        [
+            "Ethernet1/49 transceiver is present",
+            "type is QSFP-100G-LR4",
+            "part number is QSFP28-LR4",
+            "laser bias current is 31.2 mA",
+            "transmit optical power is -1.7 dBm",
+            "receive optical power is -4.6 dBm",
+        ]
+    )
+
+    details = collectors._parse_cisco_transceivers(output)
+
+    assert details["et1/49"].model == "QSFP28-LR4"
+    assert details["et1/49"].current_ma == 31.2
+    assert details["et1/49"].tx_power_dbm == -1.7
+    assert details["et1/49"].rx_power_dbm == -4.6
+
+
+def test_parse_fortiswitch_modules_keeps_weakest_multilane_levels():
+    summary = "\n".join(
+        [
+            "Portname State Type Transceiver RX Vendor Part Number Serial Number",
+            "port49 INSERT SFP/SFP+ 10G-Base-LR OK FS SFP-10GLR-31 F2040402729",
+            "port50 INSERT QSFP28 100G-Base-LR4 OK FS QSFP28-LR4 F2040402730",
+        ]
+    )
+    status = "\n".join(
+        [
+            "Port(port50)",
+            "laser_bias[0]    0.761600 mAmps",
+            "tx_power[0]      -2.246809 dBm",
+            "rx_power[0]      -2.926854 dBm",
+            "laser_bias[1]    0.755200 mAmps",
+            "tx_power[1]      -1.993517 dBm",
+            "rx_power[1]      -3.300326 dBm",
+        ]
+    )
+
+    details = collectors._parse_fortiswitch_module_summary(summary)
+    status_details = collectors._parse_fortiswitch_module_status(status)
+
+    assert details["port49"].model == "SFP-10GLR-31"
+    assert details["port50"].model == "QSFP28-LR4"
+    assert status_details["port50"].current_ma == 0.7616
+    assert status_details["port50"].tx_power_dbm == -2.2468
+    assert status_details["port50"].rx_power_dbm == -3.3003
+
+
 def test_parse_cisco_show_version_extracts_inventory():
     inventory = collectors._parse_cisco_show_version(
         "\n".join(
@@ -528,6 +578,20 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
                 ]
             ),
             "get switch lldp neighbors-detail": "port1 aa:bb:cc:dd:ee:ff port48 fsw-core-1",
+            "get switch modules summary": "\n".join(
+                [
+                    "Portname State Type Transceiver RX Vendor Part Number Serial Number",
+                    "port1 INSERT SFP/SFP+ 10G-Base-LR OK FS SFP-10GLR-31 F2040402729",
+                ]
+            ),
+            "get switch modules status": "\n".join(
+                [
+                    "Port(port1)",
+                    "laser_bias[0]    0.761600 mAmps",
+                    "tx_power[0]      -2.246809 dBm",
+                    "rx_power[0]      -2.926854 dBm",
+                ]
+            ),
             "diagnose switch physical-ports error-counters": "port1 2 3\nport2 0 1",
             "get switch poe inline-status": "port1 Enabled Delivering 8.8W\nport2 Enabled Off 0.0W",
             "get system status": "\n".join(
@@ -547,6 +611,8 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
         "diagnose switch vlan list",
         "show switch interface",
         "get switch lldp neighbors-detail",
+        "get switch modules summary",
+        "get switch modules status",
         "diagnose switch physical-ports error-counters",
         "get switch poe inline-status",
         "get system status",
@@ -555,6 +621,10 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].speed == 1000
     assert state.ports[0].media == "SFP-1G-SX"
+    assert state.ports[0].transceiver_model == "SFP-10GLR-31"
+    assert state.ports[0].transceiver_tx_power_dbm == -2.2468
+    assert state.ports[0].transceiver_rx_power_dbm == -2.9269
+    assert state.ports[0].transceiver_current_ma == 0.7616
     assert state.ports[0].macs == ["00:11:22:33:44:77"]
     assert state.ports[0].vlan == "10"
     assert state.ports[0].switchport_mode == "access"

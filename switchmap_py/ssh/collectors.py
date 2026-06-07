@@ -768,7 +768,7 @@ def _set_transceiver_value(info: TransceiverInfo, label: str, value: str) -> Non
     numeric_match = re.search(r"(-?\d+(?:\.\d+)?)", value)
     numeric_value = _parse_float(numeric_match.group(1)) if numeric_match else None
     lower = label.lower()
-    if "part" in lower or "model" in lower or lower == "name":
+    if "part" in lower or "model" in lower or lower in {"name", "type"}:
         info.model = value.strip()
     elif "tx" in lower or "transmit" in lower:
         info.tx_power_dbm = numeric_value
@@ -788,13 +788,18 @@ def _parse_cisco_transceivers(text: str) -> dict[str, TransceiverInfo]:
         lower = line.lower()
         if lower.startswith(("port ", "interface ", "---", "temperature ", "name ")):
             continue
+        present_match = re.match(r"^(\S+)\s+(?:transceiver|sfp)\s+is\s+present", line, flags=re.IGNORECASE)
+        if present_match:
+            current_port = _canonical_port_name(present_match.group(1))
+            details.setdefault(current_port, TransceiverInfo())
+            continue
         port_match = re.match(r"^(?:port|interface)\s*:\s*(\S+)", line, flags=re.IGNORECASE)
         if port_match:
             current_port = _canonical_port_name(port_match.group(1))
             details.setdefault(current_port, TransceiverInfo())
             continue
         key_value_match = re.match(
-            r"^(name|model|part(?:\s+number)?|tx\s+power|transmit\s+power|rx\s+power|receive\s+power|current|bias(?:\s+current)?)\s*:\s*(.+)$",
+            r"^(name|type|model|part(?:\s+number)?|tx\s+power|transmit(?:\s+optical)?\s+power|rx\s+power|receive(?:\s+optical)?\s+power|current|(?:laser\s+)?bias(?:\s+current)?)\s*(?::|\bis\b)\s*(.+)$",
             line,
             flags=re.IGNORECASE,
         )
@@ -816,6 +821,76 @@ def _parse_cisco_transceivers(text: str) -> dict[str, TransceiverInfo]:
                 continue
             if len(tokens) == 2 and _parse_float(tokens[1]) is None:
                 info.model = tokens[1]
+    return details
+
+
+def _weakest_dbm(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return round(min(values), 4)
+
+
+def _highest_current(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return round(max(values), 4)
+
+
+def _parse_fortiswitch_module_summary(text: str) -> dict[str, TransceiverInfo]:
+    details: dict[str, TransceiverInfo] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith(("portname", "____", "----")):
+            continue
+        tokens = _WS_RE.split(line)
+        if len(tokens) < 4 or not tokens[0].lower().startswith("port"):
+            continue
+        info = details.setdefault(_canonical_port_name(tokens[0]), TransceiverInfo())
+        if len(tokens) >= 8:
+            info.model = tokens[-2]
+        elif len(tokens) >= 4:
+            info.model = tokens[3]
+    return details
+
+
+def _parse_fortiswitch_module_status(text: str) -> dict[str, TransceiverInfo]:
+    details: dict[str, TransceiverInfo] = {}
+    current_port: str | None = None
+    lane_values: dict[str, dict[str, list[float]]] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        port_match = re.match(r"^Port\(([^)]+)\)", line, flags=re.IGNORECASE)
+        if port_match:
+            current_port = _canonical_port_name(port_match.group(1))
+            details.setdefault(current_port, TransceiverInfo())
+            lane_values.setdefault(current_port, {"bias": [], "tx": [], "rx": []})
+            continue
+        if current_port is None:
+            continue
+        key_value = _WS_RE.split(line, maxsplit=1)
+        if len(key_value) != 2:
+            continue
+        key = key_value[0].lower()
+        numeric_match = re.search(r"(-?\d+(?:\.\d+)?)", key_value[1])
+        if not numeric_match:
+            continue
+        value = float(numeric_match.group(1))
+        if key.startswith("laser_bias") or key.startswith("bias_current"):
+            lane_values[current_port]["bias"].append(value)
+        elif key.startswith("tx_power"):
+            lane_values[current_port]["tx"].append(value)
+        elif key.startswith("rx_power"):
+            lane_values[current_port]["rx"].append(value)
+    for port, values in lane_values.items():
+        info = details.setdefault(port, TransceiverInfo())
+        info.current_ma = _highest_current(values["bias"])
+        info.tx_power_dbm = _weakest_dbm(values["tx"])
+        info.rx_power_dbm = _weakest_dbm(values["rx"])
     return details
 
 
@@ -1209,6 +1284,21 @@ def _collect_switchport_details(session: SshSession, switch: SwitchConfig, timeo
 
 def _collect_transceiver_details(session: SshSession, switch: SwitchConfig, timeout: int) -> dict[str, TransceiverInfo]:
     profile = _vendor_profile(switch.vendor)
+    if profile == "fortiswitch":
+        summary = _run_command(session, "get switch modules summary", timeout=timeout)
+        details = _parse_fortiswitch_module_summary(summary)
+        try:
+            status = _run_command(session, "get switch modules status", timeout=timeout * _SLOW_COMMAND_TIMEOUT_FACTOR)
+        except SshError as exc:
+            if _is_unsupported_optional_command(exc):
+                return details
+            raise
+        for port, status_info in _parse_fortiswitch_module_status(status).items():
+            info = details.setdefault(port, TransceiverInfo())
+            info.tx_power_dbm = status_info.tx_power_dbm
+            info.rx_power_dbm = status_info.rx_power_dbm
+            info.current_ma = status_info.current_ma
+        return details
     if profile not in {"cisco_like", "arista"}:
         return {}
     output = _run_command(session, "show interfaces transceiver", timeout=timeout * _SLOW_COMMAND_TIMEOUT_FACTOR)
