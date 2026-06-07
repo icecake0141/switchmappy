@@ -372,6 +372,7 @@ def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
                         "admin_status": "up",
                         "oper_status": "down",
                         "speed": 1000,
+                        "media": "SFP-10G-SR",
                         "vlan": "10",
                     }
                 ],
@@ -431,6 +432,47 @@ def test_build_site_renders_history_diff_from_previous_snapshot(tmp_path):
     assert search_index["history_diff"]["moved_endpoints"][0]["current"]["port"] == "Gi1/0/2"
     assert "Moved Endpoints" in history_html
     assert "sw1 / Gi1/0/2" in history_html
+
+    previous["switches"][0]["ports"][0]["oper_status"] = "up"
+    previous["switches"][0]["ports"][0]["descr"] = "New"
+    previous["switches"][0]["ports"][0]["vlan"] = "20"
+    previous["switches"][0]["ports"][0]["media"] = "SFP-10G-SR"
+    previous["switches"][0]["ports"][0]["name"] = "Gi1/0/2"
+    (history_dir / "20240102T120000Z.json").write_text(json.dumps(previous), encoding="utf-8")
+    build_site(
+        switches=[
+            Switch(
+                name="sw1",
+                management_ip="192.0.2.1",
+                vendor="test",
+                ports=[
+                    Port(
+                        name="Gi1/0/2",
+                        descr="New",
+                        admin_status="up",
+                        oper_status="up",
+                        speed=1000,
+                        media="SFP-10G-LR",
+                        vlan="20",
+                        macs=["00:11:22:33:44:55"],
+                    )
+                ],
+            )
+        ],
+        failed_switches=[],
+        output_dir=tmp_path / "output-media-change",
+        template_dir=template_dir,
+        static_dir=static_dir,
+        idlesince_store=IdleSinceStore(tmp_path / "idlesince-media-change"),
+        maclist_store=MacListStore(maclist_path),
+        build_date=datetime(2024, 1, 3, tzinfo=timezone.utc),
+        history_dir=history_dir,
+    )
+    media_search_index = json.loads(
+        (tmp_path / "output-media-change" / "search" / "index.json").read_text(encoding="utf-8")
+    )
+    media_change = media_search_index["history_diff"]["port_changes"][0]["changes"]["media"]
+    assert media_change == {"previous": "SFP-10G-SR", "current": "SFP-10G-LR"}
 
 
 def test_build_site_escapes_xss_in_user_controlled_data(tmp_path):
@@ -874,6 +916,8 @@ def test_search_page_includes_switch_port_search_logic(tmp_path):
     assert 'id="sortBy"' in search_html
     assert 'id="resultCount"' in search_html
     assert "applyFilters(entries)" in search_html
+    assert "entry.media" in search_html
+    assert "haystack" in search_html
     assert "sortEntries(entries)" in search_html
     assert "readFiltersFromUrl()" in search_html
     assert "writeFiltersToUrl()" in search_html

@@ -459,9 +459,9 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     )
     status_output = "\n".join(
         [
-            "Portname Status Tpid Vlan Duplex Speed Flags Discard",
-            "port1 up 8100 10 full 1000M , , none",
-            "port2 down 8100 10 full 100M , , none",
+            "Portname Status Tpid Vlan Duplex Speed Flags Media Discard",
+            "port1 up 8100 10 full 1000M , SFP-1G-SX none",
+            "port2 down 8100 10 full 100M , copper none",
         ]
     )
     session = StubSession(
@@ -508,6 +508,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     assert [port.name for port in state.ports] == ["port1", "port2"]
     assert state.ports[0].oper_status == "up"
     assert state.ports[0].speed == 1000
+    assert state.ports[0].media == "SFP-1G-SX"
     assert state.ports[0].macs == ["00:11:22:33:44:77"]
     assert state.ports[0].vlan == "10"
     assert state.ports[0].switchport_mode == "access"
@@ -519,6 +520,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     assert state.ports[0].poe_status == "delivering"
     assert state.ports[0].poe_power_w == 8.8
     assert state.ports[1].oper_status == "down"
+    assert state.ports[1].media == "copper"
     assert state.ports[1].vlan == "10"
     assert state.ports[1].switchport_mode == "access"
     assert state.ports[1].access_vlan == "10"
