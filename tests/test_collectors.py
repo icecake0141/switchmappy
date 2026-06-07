@@ -40,7 +40,7 @@ def test_collect_switch_state_falls_back_to_descr_or_ifindex(monkeypatch):
         },
         mibs.IF_TYPE: {
             f"{mibs.IF_TYPE}.1": "6",
-            f"{mibs.IF_TYPE}.2": "161",
+            f"{mibs.IF_TYPE}.2": "9999",
         },
         mibs.IF_ADMIN_STATUS: {
             f"{mibs.IF_ADMIN_STATUS}.1": "1",
@@ -68,7 +68,7 @@ def test_collect_switch_state_falls_back_to_descr_or_ifindex(monkeypatch):
     assert state.ports[0].media == "ethernetCsmacd"
     assert state.ports[0].is_trunk is True
     assert state.ports[1].name == "2"
-    assert state.ports[1].media == "ieee8023adLag"
+    assert state.ports[1].media == "9999"
 
 
 def test_collect_switch_state_assigns_vlan_to_ports(monkeypatch):
