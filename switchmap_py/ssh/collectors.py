@@ -842,6 +842,34 @@ def _parse_cisco_transceivers(text: str) -> dict[str, TransceiverInfo]:
     return details
 
 
+def _parse_juniper_optics(text: str) -> dict[str, TransceiverInfo]:
+    details: dict[str, TransceiverInfo] = {}
+    current_port: str | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith("physical interface:"):
+            current_port = _canonical_port_name(line.split(":", 1)[1].strip())
+            details.setdefault(current_port, TransceiverInfo())
+            continue
+        if current_port is None or ":" not in line:
+            continue
+        label, value = line.split(":", 1)
+        info = details.setdefault(current_port, TransceiverInfo())
+        lower_label = label.strip().lower()
+        dbm_match = re.search(r"/\s*(-?\d+(?:\.\d+)?)\s*dBm\b", value, flags=re.IGNORECASE)
+        numeric_match = re.search(r"(-?\d+(?:\.\d+)?)", value)
+        if "laser bias current" in lower_label:
+            info.current_ma = _parse_float(numeric_match.group(1)) if numeric_match else None
+        elif "laser output power" in lower_label:
+            info.tx_power_dbm = _parse_float(dbm_match.group(1)) if dbm_match else None
+        elif "receiver signal average optical power" in lower_label or "laser rx power" in lower_label:
+            info.rx_power_dbm = _parse_float(dbm_match.group(1)) if dbm_match else None
+    return details
+
+
 def _weakest_dbm(values: list[float]) -> float | None:
     if not values:
         return None
@@ -1317,6 +1345,13 @@ def _collect_transceiver_details(session: SshSession, switch: SwitchConfig, time
             info.rx_power_dbm = status_info.rx_power_dbm
             info.current_ma = status_info.current_ma
         return details
+    if profile == "juniper":
+        output = _run_command(
+            session,
+            "show interfaces diagnostics optics",
+            timeout=timeout * _SLOW_COMMAND_TIMEOUT_FACTOR,
+        )
+        return _parse_juniper_optics(output)
     if profile not in {"cisco_like", "arista"}:
         return {}
     output = _run_command(session, "show interfaces transceiver", timeout=timeout * _SLOW_COMMAND_TIMEOUT_FACTOR)

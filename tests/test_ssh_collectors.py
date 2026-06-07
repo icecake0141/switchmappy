@@ -92,7 +92,7 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
                 "Cisco IOS Software, Version 17.12.1\n"
                 "sw-ssh uptime is 2 weeks, 1 day\n"
                 "Model number                    : C9300-24P\n"
-                "System Serial Number            : FOC1234X1YZ\n"
+                "System Serial Number            : DEMO-CISCO-0001\n"
             ),
         }
     )
@@ -111,7 +111,7 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
         "show version",
     ]
     assert state.platform == "C9300-24P"
-    assert state.serial_number == "FOC1234X1YZ"
+    assert state.serial_number == "DEMO-CISCO-0001"
     assert state.os_version == "17.12.1"
     assert state.uptime == "2 weeks, 1 day"
     assert len(state.ports) == 2
@@ -147,9 +147,9 @@ def test_collect_switch_state_parses_interface_status(monkeypatch):
 def test_parse_cisco_cdp_detail_keeps_entries_with_blank_lines():
     output = """
 -------------------------
-Device ID: switchmappy-sw2.switchmappy.local
+Device ID: neighbor-1.example.test
 Entry address(es):
-  IP address: 192.168.128.236
+  IP address: 192.0.2.236
 Platform: Linux Unix,  Capabilities: Router Switch IGMP
 Interface: Ethernet0/1,  Port ID (outgoing port): Ethernet0/1
 Holdtime : 168 sec
@@ -159,12 +159,12 @@ Cisco IOS Software [IOSXE]
 
 advertisement version: 2
 Management address(es):
-  IP address: 192.168.128.236
+  IP address: 192.0.2.236
 
 -------------------------
-Device ID: switchmappy-sw2.switchmappy.local
+Device ID: neighbor-1.example.test
 Entry address(es):
-  IP address: 192.168.128.236
+  IP address: 192.0.2.236
 Platform: Linux Unix,  Capabilities: Router Switch IGMP
 Interface: Ethernet0/0,  Port ID (outgoing port): Ethernet0/0
 Holdtime : 149 sec
@@ -172,10 +172,10 @@ Holdtime : 149 sec
 
     neighbors = collectors._parse_cisco_cdp_neighbors_detail(output)
 
-    assert [neighbor.device for neighbor in neighbors["et0/1"]] == ["switchmappy-sw2.switchmappy.local"]
+    assert [neighbor.device for neighbor in neighbors["et0/1"]] == ["neighbor-1.example.test"]
     assert neighbors["et0/1"][0].port == "Ethernet0/1"
     assert neighbors["et0/1"][0].capabilities == ["router", "switch", "igmp"]
-    assert [neighbor.device for neighbor in neighbors["et0/0"]] == ["switchmappy-sw2.switchmappy.local"]
+    assert [neighbor.device for neighbor in neighbors["et0/0"]] == ["neighbor-1.example.test"]
 
 
 def test_parse_cisco_switchport_extracts_operational_vlan_details():
@@ -245,6 +245,49 @@ def test_parse_cisco_transceivers_accepts_nxos_style_detail_output():
     assert details["et1/49"].current_ma == 31.2
     assert details["et1/49"].tx_power_dbm == -1.7
     assert details["et1/49"].rx_power_dbm == -4.6
+
+
+def test_parse_arista_dom_style_transceiver_details():
+    output = "\n".join(
+        [
+            "Ethernet1 transceiver is present",
+            "model is SFP-10G-SR",
+            "current is 7.6 mA",
+            "tx power is -2.4 dBm",
+            "rx power is -3.7 dBm",
+        ]
+    )
+
+    details = collectors._parse_cisco_transceivers(output)
+
+    assert details["et1"].model == "SFP-10G-SR"
+    assert details["et1"].current_ma == 7.6
+    assert details["et1"].tx_power_dbm == -2.4
+    assert details["et1"].rx_power_dbm == -3.7
+
+
+def test_parse_juniper_optics_extracts_power_and_current():
+    output = "\n".join(
+        [
+            "Physical interface: xe-0/0/48",
+            "    Laser bias current                        :  4.968 mA",
+            "    Laser output power                        :  0.4940 mW / -3.06 dBm",
+            "    Receiver signal average optical power     :  0.3840 mW / -4.16 dBm",
+            "Physical interface: ge-0/0/1",
+            "    Laser bias current                        :  5.444 mA",
+            "    Laser output power                        :  0.3130 mW / -5.04 dBm",
+            "    Laser rx power                            :  0.0012 mW / -29.21 dBm",
+        ]
+    )
+
+    details = collectors._parse_juniper_optics(output)
+
+    assert details["xe-0/0/48"].current_ma == 4.968
+    assert details["xe-0/0/48"].tx_power_dbm == -3.06
+    assert details["xe-0/0/48"].rx_power_dbm == -4.16
+    assert details["ge-0/0/1"].current_ma == 5.444
+    assert details["ge-0/0/1"].tx_power_dbm == -5.04
+    assert details["ge-0/0/1"].rx_power_dbm == -29.21
 
 
 def test_parse_cisco_like_synthetic_fixture_covers_status_vlan_optics_errors_and_poe():
@@ -477,8 +520,8 @@ def test_parse_fortiswitch_modules_keeps_weakest_multilane_levels():
     summary = "\n".join(
         [
             "Portname State Type Transceiver RX Vendor Part Number Serial Number",
-            "port49 INSERT SFP/SFP+ 10G-Base-LR OK FS SFP-10GLR-31 F2040402729",
-            "port50 INSERT QSFP28 100G-Base-LR4 OK FS QSFP28-LR4 F2040402730",
+            "port49 INSERT SFP/SFP+ 10G-Base-LR OK DEMO SFP-10GLR-31 DEMO000049",
+            "port50 INSERT QSFP28 100G-Base-LR4 OK DEMO QSFP28-LR4 DEMO000050",
         ]
     )
     status = "\n".join(
@@ -510,13 +553,13 @@ def test_parse_cisco_show_version_extracts_inventory():
                 "Cisco IOS XE Software, Version 17.12.1",
                 "edge-sw1 uptime is 1 week, 2 days",
                 "Model number                    : C9300-24P",
-                "System Serial Number            : FOC1234X1YZ",
+                "System Serial Number            : DEMO-CISCO-0001",
             ]
         )
     )
 
     assert inventory.platform == "C9300-24P"
-    assert inventory.serial_number == "FOC1234X1YZ"
+    assert inventory.serial_number == "DEMO-CISCO-0001"
     assert inventory.os_version == "17.12.1"
     assert inventory.uptime == "1 week, 2 days"
 
@@ -670,6 +713,14 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
             "show vlans": "default 10 ge-0/0/1.0",
             "show ethernet-switching interfaces": "ge-0/0/1.0 access 10\nge-0/0/2.0 trunk 10 20",
             "show lldp neighbors": "ge-0/0/1 - aa:bb:cc:dd:ee:ff ge-0/0/48 dist-junos-1",
+            "show interfaces diagnostics optics": "\n".join(
+                [
+                    "Physical interface: ge-0/0/1",
+                    "    Laser bias current                        :  5.444 mA",
+                    "    Laser output power                        :  0.3130 mW / -5.04 dBm",
+                    "    Receiver signal average optical power     :  0.3840 mW / -4.16 dBm",
+                ]
+            ),
             'show interfaces extensive | match "Physical interface|Input errors|Output errors"': (
                 "Physical interface: ge-0/0/1, Enabled, Physical link is Up\n"
                 "Input errors: 3, Output drops: 0\n"
@@ -687,6 +738,7 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
         "show vlans",
         "show ethernet-switching interfaces",
         "show lldp neighbors",
+        "show interfaces diagnostics optics",
         'show interfaces extensive | match "Physical interface|Input errors|Output errors"',
         "show poe interface",
     ]
@@ -698,6 +750,9 @@ def test_collect_switch_state_uses_juniper_command(monkeypatch):
     assert state.ports[0].access_vlan == "10"
     assert _neighbor_devices(state.ports[0]) == ["dist-junos-1"]
     assert _neighbor_protocols(state.ports[0]) == ["lldp"]
+    assert state.ports[0].transceiver_tx_power_dbm == -5.04
+    assert state.ports[0].transceiver_rx_power_dbm == -4.16
+    assert state.ports[0].transceiver_current_ma == 5.444
     assert state.ports[0].input_errors == 3
     assert state.ports[0].output_errors == 8
     assert state.ports[0].poe_status == "delivering 7.2w"
@@ -807,7 +862,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
             "get switch modules summary": "\n".join(
                 [
                     "Portname State Type Transceiver RX Vendor Part Number Serial Number",
-                    "port1 INSERT SFP/SFP+ 10G-Base-LR OK FS SFP-10GLR-31 F2040402729",
+                    "port1 INSERT SFP/SFP+ 10G-Base-LR OK DEMO SFP-10GLR-31 DEMO000049",
                 ]
             ),
             "get switch modules status": "\n".join(
@@ -823,7 +878,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
             "get system status": "\n".join(
                 [
                     "fortiswitch-edge # Version: FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)",
-                    "Serial-Number: S108DVIUL-MKIA2D",
+                    "Serial-Number: DEMO-FSW-0001",
                 ]
             ),
         }
@@ -872,7 +927,7 @@ def test_collect_switch_state_uses_fortiswitch_command(monkeypatch):
     assert state.ports[1].poe_power_w == 0.0
     assert state.platform == "FortiSwitch-108D-VM"
     assert state.os_version == "FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)"
-    assert state.serial_number == "S108DVIUL-MKIA2D"
+    assert state.serial_number == "DEMO-FSW-0001"
 
 
 def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
@@ -931,7 +986,7 @@ def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
             "get switch lldp neighbors-detail": "\n".join(
                 [
                     "Neighbor learned on port port1 by LLDP protocol",
-                    "System Name: edge-sw3.switchmappy.local",
+                    "System Name: edge-sw3.example.test",
                     "Port ID: Et0/3 (ifname)",
                 ]
             ),
@@ -940,7 +995,7 @@ def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
             "get system status": "\n".join(
                 [
                     "Version: FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)",
-                    "Serial-Number: S108DVIUL-MKIA2D",
+                    "Serial-Number: DEMO-FSW-0001",
                 ]
             ),
         }
@@ -960,14 +1015,14 @@ def test_collect_switch_state_parses_cml_fortiswitch_vm_output(monkeypatch):
     assert state.ports[0].allowed_vlans == "1,10"
     assert state.ports[0].macs == ["52:54:00:00:10:10"]
     assert state.ports[0].is_trunk is True
-    assert _neighbor_devices(state.ports[0]) == ["edge-sw3.switchmappy.local"]
+    assert _neighbor_devices(state.ports[0]) == ["edge-sw3.example.test"]
     assert _neighbor_protocols(state.ports[0]) == ["lldp"]
     assert state.ports[1].oper_status == "down"
     assert state.ports[2].macs == ["36:f0:e1:7f:00:01"]
     assert state.ports[2].descr == "Server access edge"
     assert state.platform == "FortiSwitch-108D-VM"
     assert state.os_version == "FortiSwitch-108D-VM v7.2.0,build4746,220621 (Interim)"
-    assert state.serial_number == "S108DVIUL-MKIA2D"
+    assert state.serial_number == "DEMO-FSW-0001"
 
 
 def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
@@ -1006,7 +1061,7 @@ def test_collect_switch_state_falls_back_to_cdp_neighbors(monkeypatch):
             if command == "show power inline":
                 return "Gi1/0/1 auto on 11.2 30.0"
             if command == "show version":
-                return "Cisco IOS Software, Version 17.9.4\nProcessor board ID FOCEDGE1\n"
+                return "Cisco IOS Software, Version 17.9.4\nProcessor board ID DEMO-CISCO-EDGE1\n"
             raise AssertionError(f"unexpected command: {command}")
 
     session = CdpFallbackSession()

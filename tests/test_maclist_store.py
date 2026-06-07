@@ -28,7 +28,7 @@ def test_save_load_roundtrip(tmp_path):
     entries = [
         MacEntry(
             mac="aa:bb:cc:dd:ee:ff",
-            ip="192.168.0.10",
+            ip="192.0.2.10",
             hostname="host-1",
             switch="switch-1",
             port="Gi1/0/1",
@@ -53,7 +53,7 @@ def test_load_skips_invalid_records(tmp_path, caplog):
     payload = [
         {
             "mac": "aa:bb:cc:dd:ee:ff",
-            "ip": "192.168.0.10",
+            "ip": "192.0.2.10",
             "hostname": "host-1",
             "switch": "switch-1",
             "port": "Gi1/0/1",
@@ -70,7 +70,7 @@ def test_load_skips_invalid_records(tmp_path, caplog):
     assert loaded == [
         MacEntry(
             mac="aa:bb:cc:dd:ee:ff",
-            ip="192.168.0.10",
+            ip="192.0.2.10",
             hostname="host-1",
             switch="switch-1",
             port="Gi1/0/1",
