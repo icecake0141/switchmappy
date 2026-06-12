@@ -25,6 +25,7 @@ Review required for correctness, security, and licensing.
 - [Configuration](configuration.md)
 - [Commands](commands.md)
 - [Testing](testing.md)
+- [Cisco CML SNMP Validation](snmp_cml_validation.md)
 - [Migration Notes](migration_notes.md)
 - [SwitchMap Gap Analysis](switchmap_gap_analysis.md)
 

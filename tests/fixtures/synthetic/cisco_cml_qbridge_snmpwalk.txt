@@ -1,0 +1,43 @@
+# Copyright 2026 SwitchMappy
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# This file was created or modified with the assistance of an AI (Large Language Model).
+# Review required for correctness, security, and licensing.
+#
+# Synthetic Cisco CML-style SNMP walk excerpt. Values use documentation-only
+# hostnames, addresses, and locally administered MACs; do not replace this with
+# raw private-lab output.
+
+.1.3.6.1.2.1.31.1.1.1.1.10101 = STRING: "Gi1/0/1"
+.1.3.6.1.2.1.31.1.1.1.1.10102 = STRING: "Gi1/0/2"
+.1.3.6.1.2.1.31.1.1.1.18.10101 = STRING: "CML user vlan"
+.1.3.6.1.2.1.31.1.1.1.18.10102 = STRING: "CML server vlan"
+.1.3.6.1.2.1.2.2.1.2.10101 = STRING: "GigabitEthernet1/0/1"
+.1.3.6.1.2.1.2.2.1.2.10102 = STRING: "GigabitEthernet1/0/2"
+.1.3.6.1.2.1.2.2.1.3.10101 = INTEGER: 6
+.1.3.6.1.2.1.2.2.1.3.10102 = INTEGER: 6
+.1.3.6.1.2.1.2.2.1.7.10101 = INTEGER: 1
+.1.3.6.1.2.1.2.2.1.7.10102 = INTEGER: 1
+.1.3.6.1.2.1.2.2.1.8.10101 = INTEGER: 1
+.1.3.6.1.2.1.2.2.1.8.10102 = INTEGER: 1
+.1.3.6.1.2.1.2.2.1.9.10101 = Timeticks: 1200
+.1.3.6.1.2.1.2.2.1.9.10102 = Timeticks: 2400
+.1.3.6.1.2.1.2.2.1.5.10101 = Gauge32: 1000000000
+.1.3.6.1.2.1.2.2.1.5.10102 = Gauge32: 1000000000
+.1.3.6.1.2.1.17.1.4.1.2.11 = INTEGER: 10101
+.1.3.6.1.2.1.17.1.4.1.2.12 = INTEGER: 10102
+.1.3.6.1.2.1.17.7.1.2.2.1.2.10.82.84.0.0.16.1 = INTEGER: 11
+.1.3.6.1.2.1.17.7.1.2.2.1.2.20.82.84.0.0.32.1 = INTEGER: 12
+.1.3.6.1.2.1.17.7.1.2.2.1.3.10.82.84.0.0.16.1 = INTEGER: 3
+.1.3.6.1.2.1.17.7.1.2.2.1.3.20.82.84.0.0.32.1 = INTEGER: 3
+.1.3.6.1.2.1.17.7.1.4.3.1.1.10 = STRING: "USERS"
+.1.3.6.1.2.1.17.7.1.4.3.1.1.20 = STRING: "SERVERS"
+.1.3.6.1.2.1.47.1.1.1.1.13.1 = STRING: "CML-IOSvL2"
+.1.3.6.1.2.1.47.1.1.1.1.11.1 = STRING: "DEMO-CML-0001"
+.1.3.6.1.2.1.47.1.1.1.1.10.1 = STRING: "15.2-CML"

@@ -10,8 +10,12 @@
 # This file was created or modified with the assistance of an AI (Large Language Model).
 # Review required for correctness, security, and licensing.
 
+from pathlib import Path
+
 from switchmap_py.config import SwitchConfig
 from switchmap_py.snmp import collectors, mibs
+
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "synthetic"
 
 
 class StubSession:
@@ -20,6 +24,34 @@ class StubSession:
 
     def get_table(self, oid):
         return self._tables.get(oid, {})
+
+
+def _snmpwalk_fixture(name: str) -> dict[str, dict[str, str]]:
+    tables: dict[str, dict[str, str]] = {}
+    for raw_line in (FIXTURE_DIR / name).read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        oid, value = _parse_snmpwalk_line(line)
+        for base_oid in vars(mibs).values():
+            if not isinstance(base_oid, str):
+                continue
+            if oid == base_oid or oid.startswith(f"{base_oid}."):
+                tables.setdefault(base_oid, {})[oid] = value
+                break
+    return tables
+
+
+def _parse_snmpwalk_line(line: str) -> tuple[str, str]:
+    oid_text, value_text = line.split("=", 1)
+    oid = oid_text.strip().removeprefix(".")
+    value = value_text.strip()
+    if ":" in value:
+        _value_type, value = value.split(":", 1)
+        value = value.strip()
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+    return oid, value
 
 
 def test_collect_switch_state_falls_back_to_descr_or_ifindex(monkeypatch):
@@ -216,3 +248,64 @@ def test_collect_switch_state_records_legacy_fdb_diagnostic_and_inventory(monkey
     assert state.ports[0].output_errors == 9
     assert state.ports[0].poe_status == "delivering"
     assert state.ports[0].poe_power_w == 15.4
+
+
+def test_collect_switch_state_covers_cisco_cml_qbridge_fixture(monkeypatch):
+    switch = SwitchConfig(
+        name="cml-iosvl2-1",
+        management_ip="192.0.2.10",
+        community="public",
+    )
+    tables = _snmpwalk_fixture("cisco_cml_qbridge_snmpwalk.txt")
+
+    monkeypatch.setattr(
+        collectors,
+        "build_session",
+        lambda *_args, **_kwargs: StubSession(tables),
+    )
+
+    state = collectors.collect_switch_state(switch, timeout=1, retries=0)
+    labels = [diagnostic["label"] for diagnostic in state.diagnostics]
+    ports_by_name = {port.name: port for port in state.ports}
+
+    assert labels == ["Q-BRIDGE populated"]
+    assert ports_by_name["Gi1/0/1"].vlan == "10"
+    assert ports_by_name["Gi1/0/1"].macs == ["52:54:00:00:10:01"]
+    assert ports_by_name["Gi1/0/2"].vlan == "20"
+    assert ports_by_name["Gi1/0/2"].macs == ["52:54:00:00:20:01"]
+    assert [(vlan.vlan_id, vlan.name, vlan.ports, vlan.source) for vlan in state.vlans] == [
+        ("10", "USERS", ["Gi1/0/1"], "named"),
+        ("20", "SERVERS", ["Gi1/0/2"], "named"),
+    ]
+    assert state.platform == "CML-IOSvL2"
+    assert state.serial_number == "DEMO-CML-0001"
+    assert state.os_version == "15.2-CML"
+
+
+def test_collect_switch_state_covers_cisco_cml_vlan_indexed_community_fixture(monkeypatch):
+    switch = SwitchConfig(
+        name="cml-iosvl2-1-vlan10",
+        management_ip="192.0.2.10",
+        community="public@10",
+    )
+    tables = _snmpwalk_fixture("cisco_cml_vlan_indexed_community_snmpwalk.txt")
+
+    monkeypatch.setattr(
+        collectors,
+        "build_session",
+        lambda *_args, **_kwargs: StubSession(tables),
+    )
+
+    state = collectors.collect_switch_state(switch, timeout=1, retries=0)
+    labels = [diagnostic["label"] for diagnostic in state.diagnostics]
+
+    assert labels == [
+        "Q-BRIDGE empty",
+        "FDB populated",
+        "VLAN-indexed community may be required",
+    ]
+    assert state.ports[0].name == "Gi1/0/1"
+    assert state.ports[0].macs == ["52:54:00:00:41:10"]
+    assert state.ports[0].vlan is None
+    assert state.vlans == []
+    assert state.platform == "CML-IOSvL2"
