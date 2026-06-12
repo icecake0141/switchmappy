@@ -60,6 +60,21 @@ Review required for correctness, security, and licensing.
       </div>
     </div>
   </section>
+  {% if dashboard_diagnostics %}
+  <section class="panel panel-warning">
+    <h2>Diagnostics</h2>
+    <ul class="diagnostic-list">
+      {% for diagnostic in dashboard_diagnostics %}
+      <li>
+        <strong>{{ diagnostic.switch }}</strong>
+        <span class="badge badge-warning">{{ diagnostic.labels }}</span>
+        <span>{{ diagnostic.detail }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p><a href="/debug/index.html">Open full debug diagnostics</a></p>
+  </section>
+  {% endif %}
   <section class="panel">
     <h2>Switches</h2>
     <ul class="switch-list">

@@ -377,6 +377,46 @@ def _build_debug_payload(
     }
 
 
+def _build_dashboard_diagnostics(
+    *,
+    switches: list[Switch],
+    failed_switch_reasons: dict[str, str],
+    artifacts_dir: Path | None,
+) -> list[dict[str, object]]:
+    artifacts = _build_artifact_summary(artifacts_dir)
+    snmp_fdb_diagnostics = _build_snmp_fdb_diagnostics(artifacts, failed_switch_reasons)
+    collector_diagnostics: list[dict[str, object]] = []
+    for switch in switches:
+        for diagnostic in switch.diagnostics:
+            if not isinstance(diagnostic, dict):
+                continue
+            collector_diagnostics.append(
+                {
+                    "switch": switch.name,
+                    "labels": diagnostic.get("label", ""),
+                    "detail": diagnostic.get("detail", ""),
+                }
+            )
+    diagnostics = sorted(
+        [*snmp_fdb_diagnostics, *collector_diagnostics],
+        key=lambda row: (str(row.get("switch") or ""), str(row.get("labels") or "")),
+    )
+    collapsed: list[dict[str, object]] = []
+    for diagnostic in diagnostics:
+        switch_name = str(diagnostic.get("switch") or "")
+        labels = str(diagnostic.get("labels") or "")
+        if any(
+            switch_name == str(existing.get("switch") or "")
+            and labels
+            and labels != str(existing.get("labels") or "")
+            and labels in str(existing.get("labels") or "")
+            for existing in diagnostics
+        ):
+            continue
+        collapsed.append(diagnostic)
+    return collapsed
+
+
 def _parser_profile_for_vendor(vendor: str) -> str:
     value = vendor.lower()
     if "juniper" in value:
@@ -758,12 +798,18 @@ def build_site(
         failed_switches=failed_switches,
     )
     vlan_summary = _build_vlan_summary(switches=switches, mac_entries_by_mac=mac_entries_by_mac)
+    dashboard_diagnostics = _build_dashboard_diagnostics(
+        switches=switches,
+        failed_switch_reasons=failed_switch_reasons,
+        artifacts_dir=artifacts_dir,
+    )
 
     index_html = index_template.render(
         switches=switches,
         failed_switches=failed_switches,
         failed_switch_reasons=failed_switch_reasons,
         report_summary=report_summary,
+        dashboard_diagnostics=dashboard_diagnostics[:5],
         build_date=build_date,
     )
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")

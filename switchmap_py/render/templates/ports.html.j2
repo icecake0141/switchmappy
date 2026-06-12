@@ -25,6 +25,15 @@ Review required for correctness, security, and licensing.
     <p>Generated at {{ build_date.isoformat() }}</p>
   </header>
   {{ report_nav('ports') }}
+  <div class="preset-row" aria-label="Port filter presets">
+    <button type="button" data-preset="">All</button>
+    <button type="button" data-preset="unused">Unused</button>
+    <button type="button" data-preset="missing-description">Missing description</button>
+    <button type="button" data-preset="errors">Errors</button>
+    <button type="button" data-preset="poe">PoE active</button>
+    <button type="button" data-preset="neighbors">Network neighbors</button>
+    <button type="button" data-preset="link-up-no-mac">Link up no MAC</button>
+  </div>
   <div class="filter-row">
     <label for="statusFilter">Status:</label>
     <select id="statusFilter">
@@ -110,6 +119,9 @@ Review required for correctness, security, and licensing.
           data-status="{{ port.oper_status | lower }}"
           data-state="{{ state_label }}"
           data-neighbor="{{ port.neighbor_names | join(',') | lower }}"
+          data-mac-count="{{ port.macs | length }}"
+          data-missing-description="{% if port.needs_description %}true{% else %}false{% endif %}"
+          data-unused="{% if is_unused %}true{% else %}false{% endif %}"
           data-role="{{ port.role | lower }}"
           data-poe="{{ (port.poe_status or '') | lower }}"
           data-in-err="{{ port.input_errors if port.input_errors is not none else 0 }}"
@@ -184,6 +196,8 @@ Review required for correctness, security, and licensing.
   </section>
   {% endfor %}
   <script>
+    let activePreset = '';
+
     function applyFilters() {
       const status = document.getElementById('statusFilter').value;
       const poe = document.getElementById('poeFilter').value.toLowerCase().trim();
@@ -201,7 +215,17 @@ Review required for correctness, security, and licensing.
         const rowNeighbor = row.dataset.neighbor || '';
         const rowInErr = Number(row.dataset.inErr || '0');
         const rowOutErr = Number(row.dataset.outErr || '0');
+        const rowMacCount = Number(row.dataset.macCount || '0');
+        const matchesPreset =
+          !activePreset ||
+          (activePreset === 'unused' && row.dataset.unused === 'true') ||
+          (activePreset === 'missing-description' && row.dataset.missingDescription === 'true') ||
+          (activePreset === 'errors' && (rowInErr > 0 || rowOutErr > 0)) ||
+          (activePreset === 'poe' && rowPoe && rowPoe !== 'disabled' && rowPoe !== 'off') ||
+          (activePreset === 'neighbors' && row.dataset.role === 'network_neighbor') ||
+          (activePreset === 'link-up-no-mac' && row.dataset.state === 'link up, no MAC' && rowMacCount === 0);
         const match =
+          matchesPreset &&
           (!status || rowStatus === status) &&
           (!poe || rowPoe.includes(poe)) &&
           (!neighbor || rowNeighbor.includes(neighbor)) &&
@@ -213,9 +237,13 @@ Review required for correctness, security, and licensing.
       }
       document.getElementById('resultCount').textContent = `${visible} results`;
       document.getElementById('emptyState').hidden = visible > 0;
+      for (const button of document.querySelectorAll('[data-preset]')) {
+        button.setAttribute('aria-pressed', button.dataset.preset === activePreset ? 'true' : 'false');
+      }
     }
 
     function resetFilters() {
+      activePreset = '';
       document.getElementById('statusFilter').value = '';
       document.getElementById('poeFilter').value = '';
       document.getElementById('neighborFilter').value = '';
@@ -232,6 +260,12 @@ Review required for correctness, security, and licensing.
     document.getElementById('inErrFilter').addEventListener('input', applyFilters);
     document.getElementById('outErrFilter').addEventListener('input', applyFilters);
     document.getElementById('resetFilters').addEventListener('click', resetFilters);
+    for (const button of document.querySelectorAll('[data-preset]')) {
+      button.addEventListener('click', () => {
+        activePreset = button.dataset.preset || '';
+        applyFilters();
+      });
+    }
     applyFilters();
   </script>
 </body>
