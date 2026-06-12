@@ -151,11 +151,16 @@ def test_index_page_renders_switchmappy_dashboard_summary(tmp_path):
     )
 
     index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    ports_html = (output_dir / "ports" / "index.html").read_text(encoding="utf-8")
     assert "<title>SwitchMappy</title>" in index_html
     assert "<h1>SwitchMappy</h1>" in index_html
     for label in ["switches", "ports", "active", "endpoints", "missing desc", "unused", "failed"]:
         assert label in index_html
     assert 'href="/debug/index.html">Debug</a>' in index_html
+    for preset in ["Unused", "Missing description", "Errors", "PoE active", "Network neighbors", "Link up no MAC"]:
+        assert preset in ports_html
+    assert 'data-preset="missing-description"' in ports_html
+    assert 'data-missing-description="true"' in ports_html
 
 
 def test_build_site_writes_history_snapshot(tmp_path):
@@ -322,6 +327,7 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
         artifacts_dir=artifacts_dir,
     )
 
+    index_html = (output_dir / "index.html").read_text(encoding="utf-8")
     debug_html = (output_dir / "debug" / "index.html").read_text(encoding="utf-8")
     search_index = json.loads((output_dir / "search" / "index.json").read_text(encoding="utf-8"))
     debug = search_index["debug"]
@@ -356,6 +362,9 @@ def test_build_site_renders_debug_page_and_payload(tmp_path):
     assert "VLAN-indexed community may be required" in debug["snmp_fdb_diagnostics"][1]["labels"]
     assert "SNMP FDB Diagnostics" in debug_html
     assert "VLAN-indexed community may be required" in debug_html
+    assert "Diagnostics" in index_html
+    assert "Open full debug diagnostics" in index_html
+    assert "Q-BRIDGE empty" in index_html
     assert "Collector Artifacts" in debug_html
     assert "Unsupported" in debug_html
     assert 'id="debugRole"' in debug_html

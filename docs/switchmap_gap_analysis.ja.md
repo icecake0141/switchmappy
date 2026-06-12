@@ -38,7 +38,7 @@ Review required for correctness, security, and licensing.
 | Search UI | Implemented | `search/index.json` ベースの静的検索ページと FastAPI serve command。 | office/location workflow は専用viewが必要。 |
 | SSH switch collection | Implemented | Cisco系、Juniper、FortiSwitch、Arista向け command profile。 | platform variant のfixture拡張。 |
 | SNMP switch collection | Partial | IF-MIB、BRIDGE-MIB fallback、VLAN名、LLDP、sysDescr、sysUpTime、ENTITY-MIB inventory field、interface error、基本的な PoE status/power。 | 標準tableが不足する device-family 固有OIDを追加。 |
-| VLAN-aware SNMP FDB | Partial | デバイスが公開する場合は Q-BRIDGE FDB をparse。SNMP communityとして設定すれば VLAN-indexed community 収集も動作。診断では Q-BRIDGE empty/unavailable と legacy FDB fallback を区別。 | 追加の Q-BRIDGE 対応ターゲットで live-lab validation を行う。 |
+| VLAN-aware SNMP FDB | Partial | デバイスが公開する場合は Q-BRIDGE FDB をparse。SNMP communityとして設定すれば VLAN-indexed community 収集も動作。診断では Q-BRIDGE empty/unavailable と legacy FDB fallback を区別。Cisco CML 形式の SNMP walk fixture で populated Q-BRIDGE と VLAN-indexed legacy FDB behavior をカバー。 | 文書化した CML workflow を利用可能な lab target で検証し、観測した OID 形式が異なる場合は synthetic fixture を更新する。 |
 | LLDP/CDP neighbors | Implemented | SSH LLDP/CDP と SNMP LLDP neighbor を表示。 | vendor固有出力のcapability fixtureを追加。 |
 | Neighbor capabilities | Partial | CDP capability と SNMP LLDP capability bitmap を保持。 | capability field を省略または変化させる device fixture を追加する。 |
 | Trunk/uplink 表示 | Intentionally different | role は明示 `trunk_ports` または LLDP/CDP neighbor 根拠で決定。 | MAC数やendpoint数をrole根拠に使わない。 |
@@ -54,7 +54,7 @@ Review required for correctness, security, and licensing.
 ## 高優先度の残作業
 
 1. Office/location workflow PR: metadata import、search index field、location-oriented view を追加する。
-2. SNMP live-lab validation PR: 追加hardware/virtual targetで Q-BRIDGE と VLAN-indexed community behavior を検証する。
+2. SNMP live-lab validation PR: 文書化した Cisco CML workflow を利用可能な lab target で実行し、収集した OID 形式を synthetic fixture と比較して、必要なら test を更新する。
 3. Vendor OID PR: 標準MIBが不十分な device-family 向け inventory、PoE、error OID を追加する。
 4. Search/debug UX PR: operator が必要とする場合、Debug 以外の report surface に collector diagnostics を出す。
 5. Switchport fixture PR: 初期fixture以外の Juniper/Arista mode/native/allowed VLAN variant を拡張する。

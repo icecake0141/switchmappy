@@ -306,6 +306,29 @@ button:hover {
   padding: 0.85rem 1rem;
 }
 
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.85rem;
+}
+
+.preset-row button {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.preset-row button:hover {
+  background: #eef2f7;
+}
+
+.preset-row button[aria-pressed="true"] {
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #ffffff;
+}
+
 .filter-row input[type="text"] {
   margin-bottom: 0;
 }
@@ -317,6 +340,21 @@ button:hover {
 .filter-row label {
   color: #475569;
   font-weight: 700;
+}
+
+.diagnostic-list {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diagnostic-list li {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .debug-grid {

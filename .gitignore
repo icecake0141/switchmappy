@@ -208,3 +208,6 @@ __marimo__/
 
 # switchmappy generated onboarding demo output
 docs/assets/onboarding/demo/
+
+# Local live-lab validation output. Do not commit private CML/controller data.
+local_cml_snmpwalks/

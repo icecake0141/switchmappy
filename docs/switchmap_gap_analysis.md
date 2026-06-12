@@ -38,7 +38,7 @@ used by `SwitchMap.pl`, `ScanSwitch.pl`, `GetArp.pl`, `FindOffice.pl`,
 | Search UI | Implemented | Static search page backed by `search/index.json`; FastAPI serve command exists. | Office/location workflows need a dedicated view. |
 | SSH switch collection | Implemented | Cisco-like, Juniper, FortiSwitch, and Arista-oriented command profiles exist. | Expand command fixtures for more platform variants. |
 | SNMP switch collection | Partial | IF-MIB, BRIDGE-MIB fallback, VLAN names, LLDP, sysDescr, sysUpTime, ENTITY-MIB inventory fields, interface errors, and basic PoE status/power are supported. | Add device-family-specific OIDs where standard tables are absent or sparse. |
-| VLAN-aware SNMP FDB | Partial | Q-BRIDGE FDB is parsed when devices expose it; VLAN-indexed community collection works when configured as the SNMP community; diagnostics now distinguish Q-BRIDGE empty/unavailable from legacy FDB fallback. | Add live-lab validation on additional Q-BRIDGE-capable targets. |
+| VLAN-aware SNMP FDB | Partial | Q-BRIDGE FDB is parsed when devices expose it; VLAN-indexed community collection works when configured as the SNMP community; diagnostics now distinguish Q-BRIDGE empty/unavailable from legacy FDB fallback. Cisco CML-style SNMP walk fixtures cover populated Q-BRIDGE and VLAN-indexed legacy FDB behavior. | Validate the documented CML workflow against an available CML lab target and refresh synthetic fixtures if observed OID shape differs. |
 | LLDP/CDP neighbors | Implemented | SSH LLDP/CDP and SNMP LLDP neighbors are rendered. | Add more capability fixtures for vendor-specific outputs. |
 | Neighbor capabilities | Partial | CDP capabilities and SNMP LLDP capability bitmaps are retained when available. | Add fixtures for devices that omit or vary capability fields. |
 | Trunk/uplink display | Intentionally different | Roles use explicit `trunk_ports` or LLDP/CDP neighbor evidence. | Do not use MAC count or endpoint count as role evidence. |
@@ -54,7 +54,7 @@ used by `SwitchMap.pl`, `ScanSwitch.pl`, `GetArp.pl`, `FindOffice.pl`,
 ## Highest-Value Remaining Work
 
 1. Office/location workflow PR: add metadata import, search index fields, and a location-oriented view.
-2. SNMP live-lab validation PR: validate Q-BRIDGE and VLAN-indexed community behavior against additional hardware or virtual targets.
+2. SNMP live-lab validation PR: run the documented Cisco CML workflow against an available lab target, compare the collected OID shape with the synthetic fixtures, and refresh tests if needed.
 3. Vendor OID PR: add device-family-specific inventory, PoE, and error OIDs where standard MIBs are incomplete.
 4. Search/debug UX PR: expose collector diagnostics in more report surfaces beyond Debug if operators need them.
 5. Switchport fixture PR: expand Juniper and Arista variants beyond the initial mode/native/allowed VLAN evidence fixtures.

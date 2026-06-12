@@ -25,6 +25,7 @@ Review required for correctness, security, and licensing.
 - [設定](configuration.ja.md)
 - [コマンド](commands.ja.md)
 - [テスト](testing.ja.md)
+- [Cisco CML SNMP 検証](snmp_cml_validation.ja.md)
 - [移行メモ](migration_notes.ja.md)
 - [SwitchMap 差分分析](switchmap_gap_analysis.ja.md)
 
