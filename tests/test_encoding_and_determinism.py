@@ -443,5 +443,5 @@ def test_json_schema_consistency_with_asdict(tmp_path):
     assert "port" in mac_entry
 
     # Verify all expected fields are present (asdict includes all dataclass fields)
-    # MacEntry has exactly these 5 fields
-    assert set(mac_entry.keys()) == {"mac", "ip", "hostname", "switch", "port"}
+    # MacEntry has exactly these fields.
+    assert set(mac_entry.keys()) == {"mac", "ip", "hostname", "switch", "port", "office", "location"}

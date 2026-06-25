@@ -67,6 +67,16 @@ Review required for correctness, security, and licensing.
 - 挙動:
   - MAC アドレスを優先し、次に IP アドレスで照合。
 
+## `import-locations`
+
+- 目的: オフィスと物理ロケーション情報を MAC リストへ統合。
+- オプション:
+  - `--csv <path>` は `mac,office,location` または `ip,office,location` の行を受け付ける。ヘッダー行も利用可能。
+  - `--overwrite | --no-overwrite` で既存の office/location の置き換えを制御。
+- 挙動:
+  - MAC アドレスを優先し、次に IP アドレスで照合。
+  - 後続の `get-arp` 更新時も取り込んだ office/location を保持。
+
 ## `build-html`
 
 - 目的: スイッチ状態を収集して静的 HTML を生成。
@@ -79,6 +89,7 @@ Review required for correctness, security, and licensing.
   - 収集と相関の診断用に `/debug/index.html` を生成。
   - 取得済み optic diagnostics 用に `/transceivers/index.html` を生成。
   - 前回 snapshot との差分用に `/history/index.html` を生成。
+  - office/location 別の endpoint 件数用に `/locations/index.html` を生成。
   - collector artifact を `collection_artifacts_directory` に保存。
 
 ## `serve-search`

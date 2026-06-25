@@ -29,6 +29,8 @@ from switchmap_py.importers.arp_csv import load_arp_csv
 from switchmap_py.importers.arp_snmp import load_arp_snmp
 from switchmap_py.importers.hostname_csv import load_hostname_csv
 from switchmap_py.importers.hostname_resolver import resolve_missing_hostnames
+from switchmap_py.importers.location_csv import load_location_csv
+from switchmap_py.model.mac import MacEntry
 from switchmap_py.render.build import build_site
 from switchmap_py.search.app import SearchServer
 from switchmap_py.snmp.session import SnmpError
@@ -129,6 +131,29 @@ def _load_config(path: Optional[Path]) -> SiteConfig:
         raise CliUsageError(str(exc)) from exc
     except (ValueError, yaml.YAMLError) as exc:
         raise CliUsageError(f"Failed to load config '{config_path}': {exc}") from exc
+
+
+def _merge_mac_entry_metadata(entries: list[MacEntry], existing_entries: list[MacEntry]) -> list[MacEntry]:
+    by_mac = {entry.mac.lower(): entry for entry in existing_entries if entry.mac}
+    by_ip = {entry.ip: entry for entry in existing_entries if entry.ip}
+    merged = []
+    for entry in entries:
+        existing = by_mac.get(entry.mac.lower()) or (by_ip.get(entry.ip) if entry.ip else None)
+        if existing is None:
+            merged.append(entry)
+            continue
+        merged.append(
+            type(entry)(
+                mac=entry.mac,
+                ip=entry.ip,
+                hostname=entry.hostname,
+                switch=entry.switch,
+                port=entry.port,
+                office=getattr(existing, "office", None),
+                location=getattr(existing, "location", None),
+            )
+        )
+    return merged
 
 
 def _configure_logging(
@@ -319,7 +344,7 @@ def get_arp(
                 "entries_count": after - before,
             },
         )
-    store.save(entries)
+    store.save(_merge_mac_entry_metadata(entries, store.load()))
 
 
 @app.command("import-hostnames")
@@ -366,6 +391,8 @@ def import_hostnames(
                     hostname=record.hostname,
                     switch=entry.switch,
                     port=entry.port,
+                    office=entry.office,
+                    location=entry.location,
                 )
             )
         else:
@@ -377,6 +404,77 @@ def import_hostnames(
             **_event_extra(
                 event="import_hostnames",
                 command="import-hostnames",
+                status="success",
+                elapsed_seconds=0,
+            ),
+            "entries_count": changes,
+        },
+    )
+
+
+@app.command("import-locations")
+def import_locations(
+    csv_path: Path = typer.Option(..., "--csv"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    overwrite: bool = typer.Option(False, "--overwrite/--no-overwrite"),
+    debug: bool = typer.Option(False, "--debug"),
+    info: bool = typer.Option(False, "--info"),
+    warn: bool = typer.Option(False, "--warn"),
+    logfile: Optional[Path] = typer.Option(None, "--logfile"),
+    log_format: str = typer.Option("text", "--log-format"),
+) -> None:
+    """Merge office and location metadata into the MAC list."""
+    csv_path = csv_path if isinstance(csv_path, Path) else Path(str(csv_path))
+    config = config if isinstance(config, Path) else None
+    logfile = logfile if isinstance(logfile, Path) else None
+    log_format = log_format if _is_str(log_format) else "text"
+    overwrite = overwrite if _is_bool(overwrite) else False
+    debug = debug if _is_bool(debug) else False
+    info = info if _is_bool(info) else False
+    warn = warn if _is_bool(warn) else False
+
+    _configure_logging(debug=debug, info=info, warn=warn, logfile=logfile, log_format=log_format)
+    logger = logging.getLogger(__name__)
+    site = _load_config(config)
+    store = MacListStore(site.maclist_file)
+    entries = store.load()
+    records = load_location_csv(csv_path)
+    by_mac = {record.mac: record for record in records if record.mac}
+    by_ip = {record.ip: record for record in records if record.ip}
+
+    updated = []
+    changes = 0
+    for entry in entries:
+        record = by_mac.get(entry.mac.lower()) or (by_ip.get(entry.ip) if entry.ip else None)
+        if record is None:
+            updated.append(entry)
+            continue
+        office = entry.office
+        location = entry.location
+        if record.office and (overwrite or not office):
+            office = record.office
+        if record.location and (overwrite or not location):
+            location = record.location
+        if office != entry.office or location != entry.location:
+            changes += 1
+        updated.append(
+            type(entry)(
+                mac=entry.mac,
+                ip=entry.ip,
+                hostname=entry.hostname,
+                switch=entry.switch,
+                port=entry.port,
+                office=office,
+                location=location,
+            )
+        )
+    store.save(updated)
+    logger.info(
+        "Imported locations",
+        extra={
+            **_event_extra(
+                event="import_locations",
+                command="import-locations",
                 status="success",
                 elapsed_seconds=0,
             ),

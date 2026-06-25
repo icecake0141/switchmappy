@@ -86,7 +86,9 @@ def test_build_site_renders_arp_correlation_from_maclist(tmp_path):
         {
             "hostname": "host-a",
             "ip": "192.0.2.100",
+            "location": None,
             "mac": "00:11:22:33:44:55",
+            "office": None,
             "port": "Gi1/0/1",
             "port_role": "unknown",
             "switch": "sw1",
@@ -175,7 +177,9 @@ def test_build_site_deduplicates_arp_entries_and_prefers_hostname(tmp_path):
         {
             "hostname": "host-a",
             "ip": "192.0.2.100",
+            "location": None,
             "mac": "00:11:22:33:44:55",
+            "office": None,
             "port": "Gi1/0/1",
             "port_role": "unknown",
             "switch": "sw1",
@@ -185,7 +189,9 @@ def test_build_site_deduplicates_arp_entries_and_prefers_hostname(tmp_path):
         {
             "hostname": "host-b",
             "ip": "192.0.2.101",
+            "location": None,
             "mac": "00:11:22:33:44:55",
+            "office": None,
             "port": "Gi1/0/1",
             "port_role": "unknown",
             "switch": "sw1",

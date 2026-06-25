@@ -23,3 +23,5 @@ class MacEntry:
     hostname: Optional[str]
     switch: Optional[str]
     port: Optional[str]
+    office: Optional[str] = None
+    location: Optional[str] = None
