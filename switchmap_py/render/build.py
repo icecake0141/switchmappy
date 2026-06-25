@@ -56,6 +56,8 @@ def _build_mac_lookup(maclist: list[MacEntry]) -> dict[str, list[MacEntry]]:
                 hostname=entry.hostname,
                 switch=entry.switch,
                 port=entry.port,
+                office=entry.office,
+                location=entry.location,
             )
             continue
         if not existing.hostname and entry.hostname:
@@ -65,6 +67,8 @@ def _build_mac_lookup(maclist: list[MacEntry]) -> dict[str, list[MacEntry]]:
                 hostname=entry.hostname,
                 switch=entry.switch,
                 port=entry.port,
+                office=entry.office,
+                location=entry.location,
             )
     lookup: dict[str, list[MacEntry]] = {}
     for mac_key, per_ip in grouped.items():
@@ -100,6 +104,8 @@ def _build_endpoint_correlations(
                             hostname=entry.hostname,
                             switch=switch.name,
                             port=port.name,
+                            office=entry.office,
+                            location=entry.location,
                         )
     correlations = list(correlations_by_key.values())
     correlations.sort(
@@ -209,6 +215,48 @@ def _build_vlan_summary(
             }
         summary[switch.name] = per_switch
     return summary
+
+
+def _build_location_summary(endpoint_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    grouped: dict[tuple[str, str], dict[str, object]] = {}
+    for row in endpoint_rows:
+        office = str(row.get("office") or "")
+        location = str(row.get("location") or "")
+        if not office and not location:
+            continue
+        key = (office, location)
+        group = grouped.setdefault(
+            key,
+            {
+                "office": office,
+                "location": location,
+                "endpoints": 0,
+                "switches": set(),
+                "ports": set(),
+                "hostnames": set(),
+            },
+        )
+        group["endpoints"] = cast(int, group["endpoints"]) + 1
+        if row.get("switch"):
+            cast(set[str], group["switches"]).add(str(row["switch"]))
+        if row.get("switch") and row.get("port"):
+            cast(set[str], group["ports"]).add(f"{row['switch']}/{row['port']}")
+        if row.get("hostname"):
+            cast(set[str], group["hostnames"]).add(str(row["hostname"]))
+    rows = []
+    for group in grouped.values():
+        rows.append(
+            {
+                "office": group["office"],
+                "location": group["location"],
+                "endpoints": group["endpoints"],
+                "switches": sorted(cast(set[str], group["switches"])),
+                "ports": sorted(cast(set[str], group["ports"])),
+                "hostnames": sorted(cast(set[str], group["hostnames"])),
+            }
+        )
+    rows.sort(key=lambda row: (str(row["office"]), str(row["location"])))
+    return rows
 
 
 def _build_debug_payload(
@@ -724,7 +772,18 @@ def build_site(
 ) -> None:
     failed_switch_reasons = failed_switch_reasons or {}
     output_dir.mkdir(parents=True, exist_ok=True)
-    for subdir in ["debug", "endpoints", "history", "ports", "transceivers", "vlans", "switches", "search"]:
+    report_subdirs = [
+        "debug",
+        "endpoints",
+        "history",
+        "locations",
+        "ports",
+        "transceivers",
+        "vlans",
+        "switches",
+        "search",
+    ]
+    for subdir in report_subdirs:
         (output_dir / subdir).mkdir(parents=True, exist_ok=True)
 
     env = build_environment(template_dir)
@@ -736,6 +795,7 @@ def build_site(
     endpoint_template = env.get_template("endpoints.html.j2")
     debug_template = env.get_template("debug.html.j2")
     history_template = env.get_template("history.html.j2")
+    locations_template = env.get_template("locations.html.j2")
     search_template = env.get_template("search.html.j2")
 
     maclist = maclist_store.load()
@@ -816,6 +876,10 @@ def build_site(
     endpoint_html = endpoint_template.render(endpoints=endpoint_rows, switches=switches, build_date=build_date)
     (output_dir / "endpoints" / "index.html").write_text(endpoint_html, encoding="utf-8")
 
+    location_rows = _build_location_summary(endpoint_rows)
+    locations_html = locations_template.render(locations=location_rows, build_date=build_date)
+    (output_dir / "locations" / "index.html").write_text(locations_html, encoding="utf-8")
+
     debug_payload = _build_debug_payload(
         switches=switches,
         maclist=maclist,
@@ -857,6 +921,7 @@ def build_site(
         "switches": [_switch_payload(switch) for switch in switches],
         "maclist": [asdict(entry) for entry in maclist],
         "endpoint_correlations": endpoint_rows,
+        "locations": location_rows,
         "failed_switches": failed_switches,
         "debug": debug_payload,
     }

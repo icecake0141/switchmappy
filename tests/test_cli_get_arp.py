@@ -13,7 +13,7 @@
 import json
 import logging
 
-from switchmap_py.cli import get_arp, import_hostnames
+from switchmap_py.cli import get_arp, import_hostnames, import_locations
 
 
 def test_get_arp_invalid_rows(tmp_path, caplog):
@@ -80,6 +80,37 @@ def test_get_arp_can_resolve_missing_hostnames(tmp_path, monkeypatch):
     assert saved[0]["hostname"] == "resolved-host"
 
 
+def test_get_arp_preserves_imported_location_metadata(tmp_path):
+    maclist_path = tmp_path / "maclist.json"
+    maclist_path.write_text(
+        json.dumps(
+            [
+                {
+                    "mac": "00:11:22:33:44:55",
+                    "ip": "192.0.2.10",
+                    "hostname": "old-host",
+                    "switch": None,
+                    "port": None,
+                    "office": "Tokyo HQ",
+                    "location": "4F-12",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(f"maclist_file: {maclist_path}\n")
+    csv_path = tmp_path / "maclist.csv"
+    csv_path.write_text("00:11:22:33:44:55,192.0.2.10,new-host\n", encoding="utf-8")
+
+    get_arp(source="csv", csv_path=csv_path, config=config_path, logfile=None)
+
+    saved = json.loads(maclist_path.read_text())
+    assert saved[0]["hostname"] == "new-host"
+    assert saved[0]["office"] == "Tokyo HQ"
+    assert saved[0]["location"] == "4F-12"
+
+
 def test_import_hostnames_merges_ipam_csv(tmp_path):
     maclist_path = tmp_path / "maclist.json"
     maclist_path.write_text(
@@ -105,3 +136,31 @@ def test_import_hostnames_merges_ipam_csv(tmp_path):
 
     saved = json.loads(maclist_path.read_text())
     assert saved[0]["hostname"] == "ipam-host"
+
+
+def test_import_locations_merges_office_and_location_csv(tmp_path):
+    maclist_path = tmp_path / "maclist.json"
+    maclist_path.write_text(
+        json.dumps(
+            [
+                {
+                    "mac": "00:11:22:33:44:55",
+                    "ip": "192.0.2.10",
+                    "hostname": "host-a",
+                    "switch": None,
+                    "port": None,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "site.yml"
+    config_path.write_text(f"maclist_file: {maclist_path}\n")
+    csv_path = tmp_path / "locations.csv"
+    csv_path.write_text("mac,office,location\n00:11:22:33:44:55,Tokyo HQ,4F-12\n", encoding="utf-8")
+
+    import_locations(csv_path=csv_path, config=config_path, logfile=None)
+
+    saved = json.loads(maclist_path.read_text())
+    assert saved[0]["office"] == "Tokyo HQ"
+    assert saved[0]["location"] == "4F-12"

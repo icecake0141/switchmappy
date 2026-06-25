@@ -67,6 +67,16 @@ Operational commands support:
 - Behavior:
   - matches by MAC first, then by IP address.
 
+## `import-locations`
+
+- Purpose: merge office and physical location metadata into the MAC list.
+- Options:
+  - `--csv <path>` accepts `mac,office,location` or `ip,office,location` rows, with an optional header row.
+  - `--overwrite | --no-overwrite` controls replacement of existing office/location values.
+- Behavior:
+  - matches by MAC first, then by IP address.
+  - later `get-arp` refreshes preserve imported office/location fields.
+
 ## `build-html`
 
 - Purpose: collect switch state and generate static HTML output.
@@ -79,6 +89,7 @@ Operational commands support:
   - generates `/debug/index.html` with collection and correlation diagnostics.
   - generates `/transceivers/index.html` with collected optic diagnostics.
   - generates `/history/index.html` with previous-snapshot differences.
+  - generates `/locations/index.html` with endpoint counts by office/location.
   - stores collector artifacts under `collection_artifacts_directory`.
 
 ## `serve-search`

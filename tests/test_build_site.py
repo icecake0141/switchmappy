@@ -210,6 +210,76 @@ def test_build_site_writes_history_snapshot(tmp_path):
     assert data["switches"][0]["ports"][0]["transceiver_current_ma"] == 6.8
 
 
+def test_build_site_renders_location_metadata_pages_and_search_index(tmp_path):
+    template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    maclist_path = tmp_path / "maclist.json"
+    maclist_path.write_text(
+        json.dumps(
+            [
+                {
+                    "mac": "00:11:22:33:44:55",
+                    "ip": "192.0.2.10",
+                    "hostname": "host-a",
+                    "switch": None,
+                    "port": None,
+                    "office": "Tokyo HQ",
+                    "location": "4F-12",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    output_dir = tmp_path / "output"
+    build_site(
+        switches=[
+            Switch(
+                name="sw1",
+                management_ip="192.0.2.1",
+                vendor="test",
+                ports=[
+                    Port(
+                        name="Gi1/0/1",
+                        descr="",
+                        admin_status="up",
+                        oper_status="up",
+                        speed=1000,
+                        vlan="10",
+                        macs=["00:11:22:33:44:55"],
+                    )
+                ],
+            )
+        ],
+        failed_switches=[],
+        output_dir=output_dir,
+        template_dir=template_dir,
+        static_dir=static_dir,
+        idlesince_store=IdleSinceStore(tmp_path / "idlesince"),
+        maclist_store=MacListStore(maclist_path),
+        build_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+    )
+
+    endpoints_html = (output_dir / "endpoints" / "index.html").read_text(encoding="utf-8")
+    locations_html = (output_dir / "locations" / "index.html").read_text(encoding="utf-8")
+    search_html = (output_dir / "search" / "index.html").read_text(encoding="utf-8")
+    search_index = json.loads((output_dir / "search" / "index.json").read_text(encoding="utf-8"))
+
+    assert "<th>Office</th>" in endpoints_html
+    assert "<th>Location</th>" in endpoints_html
+    assert "Tokyo HQ" in endpoints_html
+    assert "4F-12" in endpoints_html
+    assert "Locations - SwitchMappy" in locations_html
+    assert "Tokyo HQ" in locations_html
+    assert "sw1/Gi1/0/1" in locations_html
+    assert 'href="/locations/index.html" aria-current="page">Locations</a>' in locations_html
+    assert "entry.office" in search_html
+    assert search_index["endpoint_correlations"][0]["office"] == "Tokyo HQ"
+    assert search_index["endpoint_correlations"][0]["location"] == "4F-12"
+    assert search_index["locations"][0]["endpoints"] == 1
+
+
 def test_build_site_renders_debug_page_and_payload(tmp_path):
     template_dir = Path(__file__).resolve().parents[1] / "switchmap_py" / "render" / "templates"
     static_dir = tmp_path / "static"

@@ -26,7 +26,7 @@ Review required for correctness, security, and licensing.
   </header>
   {{ report_nav('endpoints') }}
   <div class="filter-row">
-    <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, switch, port, role, warning" />
+    <input id="endpointFilter" type="text" placeholder="Filter by hostname, IP, MAC, vendor, office, location, switch, port, role, warning" />
     <select id="endpointRoleFilter">
       <option value="">All roles</option>
       <option value="configured_trunk">configured_trunk</option>
@@ -42,6 +42,8 @@ Review required for correctness, security, and licensing.
         <th>IP</th>
         <th>MAC</th>
         <th>Vendor</th>
+        <th>Office</th>
+        <th>Location</th>
         <th>Switch</th>
         <th>Port</th>
         <th>Port Role</th>
@@ -50,11 +52,13 @@ Review required for correctness, security, and licensing.
     </thead>
     <tbody>
       {% for endpoint in endpoints %}
-      <tr data-role="{{ endpoint.port_role or '' }}" data-filter="{{ [endpoint.hostname, endpoint.ip, endpoint.mac, endpoint.vendor, endpoint.switch, endpoint.port, endpoint.port_role, endpoint.warning] | join(' ') | lower }}">
+      <tr data-role="{{ endpoint.port_role or '' }}" data-filter="{{ [endpoint.hostname, endpoint.ip, endpoint.mac, endpoint.vendor, endpoint.office, endpoint.location, endpoint.switch, endpoint.port, endpoint.port_role, endpoint.warning] | join(' ') | lower }}">
         <td>{{ endpoint.hostname or '' }}</td>
         <td>{{ endpoint.ip or '' }}</td>
         <td>{{ endpoint.mac }}</td>
         <td>{{ endpoint.vendor or '' }}</td>
+        <td>{{ endpoint.office or '' }}</td>
+        <td>{{ endpoint.location or '' }}</td>
         <td>
           {% if endpoint.switch %}
             <a href="/switches/{{ endpoint.switch }}.html">{{ endpoint.switch }}</a>

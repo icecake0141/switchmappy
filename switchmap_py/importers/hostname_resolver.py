@@ -54,4 +54,6 @@ def _resolve_entry(entry: MacEntry, *, resolver: Resolver) -> MacEntry:
         hostname=hostname,
         switch=entry.switch,
         port=entry.port,
+        office=entry.office,
+        location=entry.location,
     )
